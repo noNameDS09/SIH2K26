@@ -4,6 +4,8 @@ This repository contains the source code and supporting modules for **Smart Indi
 
 The project is organized as a modular monorepo containing the AI pipeline, backend services, web frontend, mobile application, shared packages, and seed data.
 
+**Coding agents:** start at [`agent-coding-guide/README.md`](./agent-coding-guide/README.md) (also linked from [`AGENTS.md`](./AGENTS.md)). That folder is the implementation source of truth.
+
 ## Repository Structure
 
 ```text
@@ -35,6 +37,9 @@ The project is organized as a modular monorepo containing the AI pipeline, backe
 │   └── contracts/
 │
 ├── seed/
+│
+├── agent-coding-guide/   # Source of truth for coding agents (read this first)
+├── AGENTS.md
 │
 ├── docs/
 │
