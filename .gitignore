@@ -40,4 +40,5 @@ apps/web/out/
 weights/
 *.onnx
 *.pt
+*.ses
 apps/api/studio_out/

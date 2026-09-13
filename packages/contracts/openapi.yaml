@@ -2,7 +2,7 @@ openapi: 3.1.0
 info:
   title: KalaSetu API
   version: 0.1.0
-  description: Contract names from agent-coding-guide/13_API.md. Backbone only — most paths are stubbed until wired.
+  description: Contract names from agent-coding-guide/13_API.md. Studio enhance and speech are wired; listings/sign/trends still use demo data.
 servers:
   - url: http://localhost:8000
 paths:
@@ -40,11 +40,44 @@ paths:
           description: Bad code
   /v1/images/enhance:
     post:
-      summary: Studio quality path (not wired)
+      summary: Studio quality path (ISNet cut-out + six bundled backdrops)
       security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file, listing_id]
+              properties:
+                file: { type: string, format: binary }
+                listing_id: { type: string }
+                bg_preset:
+                  type: string
+                  default: linen
+                  description: white, linen, beige, slate, jute, wood, or auto
+                craft: { type: string }
       responses:
-        "501":
-          description: Not wired
+        "200":
+          description: original_url, studio_url, deltaE, provenance
+        "400":
+          description: Bad image or preset
+        "503":
+          description: rembg not installed on the API process
+  /v1/listings/{id}/media/{kind}.jpg:
+    get:
+      summary: Original or studio JPEG for a listing
+      parameters:
+        - $ref: "#/components/parameters/listingId"
+        - name: kind
+          in: path
+          required: true
+          schema: { type: string, enum: [original, studio] }
+      responses:
+        "200":
+          description: JPEG
+        "404":
+          description: No enhance yet
   /v1/speech/stt:
     post:
       summary: Sarvam Saaras v3 STT (audio ≤30s)

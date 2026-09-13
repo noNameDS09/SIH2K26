@@ -1,47 +1,24 @@
 """
-KalaSetu image studio — TEST ENTRY for the quality path.
+KalaSetu image studio — FastAPI quality path.
 
-What this file is
------------------
-A single, runnable compositor. You give it a real product photo (messy room,
-bedsheet, floor). It cuts the product out, picks one of SIX bundled backdrops
-from the subject's colours, puts the product on that backdrop, and writes
-side-by-side files you can open.
+Same compositor for POST /v1/images/enhance and the optional CLI.
+Not a generative background. Locked in agent-coding-guide/09_IMAGE_PIPELINE.md.
 
-It is NOT a generative “AI background”. We never invent texture, never search
-the internet for a scene, never change the product's hue. That is locked in
-agent-coding-guide/09_IMAGE_PIPELINE.md.
+CLI (debug only — production clients call the API):
 
-How testers run it
-------------------
-    cd apps/api
-    python3 -m venv .venv && .venv/bin/pip install rembg pillow numpy onnxruntime
-    PYTHONPATH=src .venv/bin/python -m kalasetu_api.engines.studio /path/to/photo.jpg
-
-    # force a backdrop instead of auto-pick:
     PYTHONPATH=src .venv/bin/python -m kalasetu_api.engines.studio photo.jpg --preset linen
-
-First run downloads the ISNet-general ONNX weights (~180MB) into ~/.u2net
-(or $REMBG_HOME). Needs network once. After that it is offline.
-
-Outputs (next to the photo, or --out DIR)
------------------------------------------
-    photo.original.jpg   copy of the resized source (never deleted / overwritten)
-    photo.studio.jpg     composited result — OR the original if the colour gate fails
-    photo.studio.json    preset used, why, deltaE, accepted true/false, provenance
-
-Working if
-----------
-A red saree is still red. Edges look finished (not a green halo, not a chewed
-pallu). JSON shows deltaE. If deltaE > 2 the studio file IS the original.
 """
 
 from __future__ import annotations
 
 import argparse
+import io
 import json
+from dataclasses import dataclass
 from datetime import datetime, timezone
+from functools import lru_cache
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 from PIL import Image, ImageFilter
@@ -121,19 +98,47 @@ def make_preset_array(name: str, size: int = 1600) -> np.ndarray:
     return np.clip(rgb, 0, 255).astype(np.uint8)
 
 
+class StudioUnavailable(RuntimeError):
+    """ISNet weights / rembg are not installed on this API process."""
+
+
+@dataclass
+class StudioResult:
+    original_jpeg: bytes
+    studio_jpeg: bytes
+    accepted: bool
+    delta_e: float
+    bg_preset: str
+    bg_reason: str
+    reject_reason: str | None
+    provenance: dict[str, Any]
+
+
+def studio_deps_ok() -> bool:
+    try:
+        import onnxruntime  # noqa: F401
+        import rembg  # noqa: F401
+    except Exception:
+        return False
+    return True
+
+
 def ensure_preset_files() -> Path:
-    """Write the six PNGs if missing. Safe to call on every run."""
+    """Write the six JPEGs if missing. Safe to call on every run."""
     _API_BG_DIR.mkdir(parents=True, exist_ok=True)
-    _WEB_BG_DIR.mkdir(parents=True, exist_ok=True)
     for name in PRESET_NAMES:
         api_path = _API_BG_DIR / f"{name}.jpg"
         if not api_path.exists():
             Image.fromarray(make_preset_array(name), mode="RGB").save(
                 api_path, format="JPEG", quality=88
             )
-        web_path = _WEB_BG_DIR / f"{name}.jpg"
-        if not web_path.exists():
-            Image.open(api_path).save(web_path, format="JPEG", quality=88)
+        try:
+            _WEB_BG_DIR.mkdir(parents=True, exist_ok=True)
+            web_path = _WEB_BG_DIR / f"{name}.jpg"
+            if not web_path.exists():
+                Image.open(api_path).save(web_path, format="JPEG", quality=88)
+        except OSError:
+            pass
     return _API_BG_DIR
 
 
@@ -292,18 +297,124 @@ def resize_long_edge(img: Image.Image, long_edge: int = LONG_EDGE) -> Image.Imag
     return img.resize((max(1, int(w * scale)), max(1, int(h * scale))), Image.Resampling.LANCZOS)
 
 
-def cutout_isnet(img: Image.Image) -> Image.Image:
-    """
-    ISNet-general via rembg. This is the quality mask. Do not swap in YOLO here.
-    Returns RGBA.
-    """
-    from rembg import new_session, remove
+@lru_cache(maxsize=1)
+def _rembg_session():
+    try:
+        from rembg import new_session
+    except Exception as exc:
+        raise StudioUnavailable(
+            "Studio needs rembg + onnxruntime on the API process"
+        ) from exc
+    return new_session("isnet-general-use")
 
-    session = new_session("isnet-general-use")
-    cut = remove(img, session=session)
+
+def cutout_isnet(img: Image.Image) -> Image.Image:
+    """ISNet-general via rembg. Quality mask — do not swap in YOLO here."""
+    try:
+        from rembg import remove
+
+        cut = remove(img, session=_rembg_session())
+    except StudioUnavailable:
+        raise
+    except Exception as exc:
+        raise StudioUnavailable(f"Studio cut-out failed: {exc}") from exc
     if not isinstance(cut, Image.Image):
         cut = Image.open(cut)  # type: ignore[arg-type]
     return cut.convert("RGBA")
+
+
+def resolve_preset(
+    preset: str | None,
+    craft: str,
+    rgb: np.ndarray,
+    alpha: np.ndarray,
+) -> tuple[str, str]:
+    if preset in PRESET_NAMES:
+        return preset, "requested by client"
+    craft_l = (craft or "").strip().lower()
+    if any(
+        word in craft_l
+        for word in ("metal", "brass", "bronze", "copper", "bell", "diya")
+    ):
+        return "slate", f"craft={craft_l} → metal backdrop"
+    if craft_l:
+        return "linen", f"craft={craft_l} → textile backdrop"
+    return pick_preset_for_subject(rgb, alpha)
+
+
+def jpeg_bytes(img: Image.Image) -> bytes:
+    buf = io.BytesIO()
+    img.convert("RGB").save(buf, format="JPEG", quality=92)
+    return buf.getvalue()
+
+
+def provenance(accepted: bool) -> dict[str, Any]:
+    return {
+        "source": "kalasetu-studio.v1",
+        "version": "1",
+        "confidence": 0.9 if accepted else 0.2,
+        "ts": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+def run_studio(
+    original: Image.Image,
+    *,
+    preset: str | None = None,
+    craft: str = "",
+) -> StudioResult:
+    original = resize_long_edge(original.convert("RGB"))
+    orig_rgb = np.array(original, dtype=np.uint8)
+
+    rgba = cutout_isnet(original)
+    rgba = feather_alpha(rgba)
+    alpha = np.array(rgba.split()[-1], dtype=np.float32) / 255.0
+    cut_rgb = np.array(rgba.convert("RGB"), dtype=np.uint8)
+
+    lit_rgb = adjust_light_only(cut_rgb, alpha)
+    lit_rgba = Image.fromarray(lit_rgb, mode="RGB").convert("RGBA")
+    lit_rgba.putalpha(rgba.split()[-1])
+
+    chosen, reason = resolve_preset(preset, craft, lit_rgb, alpha)
+    studio = composite_on_preset(lit_rgba, chosen)
+    studio_np = np.array(studio, dtype=np.uint8)
+
+    delta_e = mean_delta_e_ab(orig_rgb, studio_np, alpha)
+    accepted = delta_e <= DELTA_E_LIMIT
+    if not accepted:
+        studio = original.copy()
+
+    reject = (
+        None
+        if accepted
+        else f"deltaE {delta_e:.2f} > {DELTA_E_LIMIT}: colour shifted; original returned"
+    )
+    return StudioResult(
+        original_jpeg=jpeg_bytes(original),
+        studio_jpeg=jpeg_bytes(studio),
+        accepted=accepted,
+        delta_e=round(delta_e, 3),
+        bg_preset=chosen,
+        bg_reason=reason,
+        reject_reason=reject,
+        provenance=provenance(accepted),
+    )
+
+
+def enhance_bytes(
+    data: bytes,
+    *,
+    preset: str | None = None,
+    craft: str = "",
+) -> StudioResult:
+    if not data:
+        raise ValueError("Empty image")
+    try:
+        image = Image.open(io.BytesIO(data))
+        image.load()
+    except Exception as exc:
+        raise ValueError("Not a readable JPEG/PNG") from exc
+    return run_studio(image, preset=preset, craft=craft)
 
 
 def feather_alpha(rgba: Image.Image, radius: int = FEATHER_PX) -> Image.Image:
@@ -334,70 +445,32 @@ def enhance_image(
     *,
     preset: str | None = None,
     out_dir: Path | None = None,
+    craft: str = "",
 ) -> dict:
-    """
-    Run the studio path on one file. Returns the JSON sidecar as a dict
-    and writes original / studio / json next to the photo (or in out_dir).
-    """
+    """CLI helper: same studio path, writes original/studio/json next to the photo."""
     source = source.expanduser().resolve()
     if not source.is_file():
         raise FileNotFoundError(source)
-
-    original = resize_long_edge(Image.open(source))
-    orig_rgb = np.array(original, dtype=np.uint8)
-
-    rgba = cutout_isnet(original)
-    rgba = feather_alpha(rgba)
-    alpha = np.array(rgba.split()[-1], dtype=np.float32) / 255.0
-    cut_rgb = np.array(rgba.convert("RGB"), dtype=np.uint8)
-
-    lit_rgb = adjust_light_only(cut_rgb, alpha)
-    lit_rgba = Image.fromarray(lit_rgb, mode="RGB").convert("RGBA")
-    lit_rgba.putalpha(rgba.split()[-1])
-
-    if preset in PRESET_NAMES:
-        chosen, reason = preset, "forced by --preset"
-    else:
-        chosen, reason = pick_preset_for_subject(lit_rgb, alpha)
-
-    studio = composite_on_preset(lit_rgba, chosen)
-    studio_np = np.array(studio, dtype=np.uint8)
-
-    # Colour gate: compare original subject vs pixels that landed on the canvas
-    # under the same mask. If cut-out fringing shifted a,b too far, refuse.
-    delta_e = mean_delta_e_ab(orig_rgb, studio_np, alpha)
-    accepted = delta_e <= DELTA_E_LIMIT
-    if not accepted:
-        studio = original.copy()
-
+    result = enhance_bytes(source.read_bytes(), preset=preset, craft=craft)
     dest = out_dir.expanduser().resolve() if out_dir else source.parent
     dest.mkdir(parents=True, exist_ok=True)
     stem = source.stem
     original_path = dest / f"{stem}.original.jpg"
     studio_path = dest / f"{stem}.studio.jpg"
     json_path = dest / f"{stem}.studio.json"
-
-    original.convert("RGB").save(original_path, quality=92)
-    studio.convert("RGB").save(studio_path, quality=92)
-
+    original_path.write_bytes(result.original_jpeg)
+    studio_path.write_bytes(result.studio_jpeg)
     payload = {
         "input": str(source),
         "original": str(original_path),
         "studio": str(studio_path),
-        "accepted": accepted,
-        "deltaE": round(delta_e, 3),
+        "accepted": result.accepted,
+        "deltaE": result.delta_e,
         "deltaE_limit": DELTA_E_LIMIT,
-        "bg_preset": chosen,
-        "bg_reason": reason,
-        "reject_reason": None
-        if accepted
-        else f"deltaE {delta_e:.2f} > {DELTA_E_LIMIT}: colour shifted; original returned",
-        "provenance": {
-            "source": "kalasetu-studio.v1",
-            "version": "1",
-            "confidence": 0.9 if accepted else 0.2,
-            "ts": datetime.now(timezone.utc).isoformat(),
-        },
+        "bg_preset": result.bg_preset,
+        "bg_reason": result.bg_reason,
+        "reject_reason": result.reject_reason,
+        "provenance": result.provenance,
     }
     json_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
     payload["json"] = str(json_path)

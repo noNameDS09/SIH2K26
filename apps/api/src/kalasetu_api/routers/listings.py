@@ -1,8 +1,10 @@
 from fastapi import APIRouter, Depends, Header, HTTPException, status
+from fastapi.responses import Response
 
 from kalasetu_api.config import get_settings
 from kalasetu_api.demo_store import build_price_for, get_listing, list_market_catalog
 from kalasetu_api.deps import require_bearer
+from kalasetu_api.listing_media import listing_image_url, media_jpeg
 
 router = APIRouter(tags=["listings"])
 
@@ -49,12 +51,22 @@ async def public_listing(listing_id: str) -> dict:
         "title_hi": listing["title_hi"],
         "description": listing["description"],
         "description_hi": listing["description_hi"],
-        "image_url": listing["photo_url"],
+        "image_url": listing_image_url(listing_id, listing["photo_url"]),
         "cluster": listing["cluster"],
         "status": listing["status"],
         "prices": build_price_for(listing),
         "source_label": listing["source_label"],
     }
+
+
+@router.get("/v1/listings/{listing_id}/media/{kind}.jpg")
+async def listing_media(listing_id: str, kind: str) -> Response:
+    if kind not in ("original", "studio"):
+        raise HTTPException(status_code=404, detail="Unknown media")
+    jpeg = media_jpeg(listing_id, kind)
+    if jpeg is None:
+        raise HTTPException(status_code=404, detail="No studio media for this listing")
+    return Response(content=jpeg, media_type="image/jpeg")
 
 
 @router.post("/v1/trends/recompute")

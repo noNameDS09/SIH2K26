@@ -3,6 +3,8 @@ from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from kalasetu_api.engines.studio import studio_deps_ok
+
 
 def _env_file() -> str | None:
     here = Path(__file__).resolve()
@@ -74,6 +76,7 @@ class Settings(BaseSettings):
             "firebase_admin": self.firebase_admin_ready,
             "listing_hmac_secret": bool(self.listing_hmac_secret),
             "otp_provider": self.otp_provider,
+            "studio": studio_deps_ok(),
         }
 
     def missing_keys(self) -> list[str]:
@@ -81,7 +84,7 @@ class Settings(BaseSettings):
         missing = [
             name
             for name, present in status.items()
-            if name != "otp_provider" and present is False
+            if name not in ("otp_provider", "studio") and present is False
         ]
         if self.otp_provider == "2factor" and not self.twofactor_api_key:
             missing.append("twofactor_api_key")
