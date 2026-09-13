@@ -532,3 +532,7 @@ Keep the following principles in mind:
 This project is developed collaboratively as part of the SIH 2026 submission.
 
 The goal of this contributing guide is to keep development consistent across the AI pipeline, backend, web frontend, mobile application, and shared packages while keeping the contribution process lightweight and practical.
+
+## Contributors
+
+<a href="https://github.com/noNameDS09/SIH2K26/graphs/contributors"> <img src="https://contrib.rocks/image?repo=nonameDS09/SIH2K26" /> </a>
