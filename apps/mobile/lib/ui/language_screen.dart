@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-
-import 'onboarding_screen.dart';
+import 'package:go_router/go_router.dart';
 
 class LanguageScreen extends StatefulWidget {
   const LanguageScreen({super.key});
@@ -230,9 +229,7 @@ class _ContinueBar extends StatelessWidget {
         width: double.infinity,
         height: 52,
         child: FilledButton(
-          onPressed: () => Navigator.of(context).push(
-            MaterialPageRoute<void>(builder: (_) => const OnboardingScreen()),
-          ),
+          onPressed: () => context.go('/onboarding'),
           style: FilledButton.styleFrom(
             backgroundColor: const Color(0xFF9F3C07),
             foregroundColor: Colors.white,

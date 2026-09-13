@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:go_router/go_router.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -67,7 +68,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 width: double.infinity,
                 height: 48,
                 child: FilledButton.icon(
-                  onPressed: _consent ? () {} : null,
+                  onPressed: _consent ? () => context.go('/capture') : null,
                   style: FilledButton.styleFrom(
                     backgroundColor: const Color(0xFF9F3C07),
                     disabledBackgroundColor: const Color(0xFFF1DBD1),

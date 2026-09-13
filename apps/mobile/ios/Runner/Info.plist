@@ -2,6 +2,12 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>NSCameraUsageDescription</key>
+	<string>KalaSetu needs camera access to capture craft photographs for AI processing.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>KalaSetu needs photo library access to select craft photographs.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>KalaSetu may save processed photographs to your library.</string>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>CFBundleDevelopmentRegion</key>
