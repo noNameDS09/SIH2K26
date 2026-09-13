@@ -35,9 +35,39 @@ paths:
               $ref: "#/components/schemas/VerifyRequest"
       responses:
         "200":
-          description: Tokens
+          description: Tokens and artisan profile
         "401":
           description: Bad code
+  /v1/auth/me:
+    get:
+      summary: Get current authenticated artisan profile
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Current artisan data
+        "404":
+          description: Artisan not found
+  /v1/auth/profile:
+    patch:
+      summary: Update profile fields (onboarding name, lang, cluster, pehchan)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                lang: { type: string }
+                cluster: { type: string }
+                pehchan: { type: object }
+                consentAt: { type: string }
+      responses:
+        "200":
+          description: Updated artisan profile
+        "404":
+          description: Artisan not found
   /v1/images/enhance:
     post:
       summary: Studio quality path (ISNet cut-out + six bundled backdrops)

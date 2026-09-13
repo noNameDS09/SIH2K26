@@ -59,14 +59,24 @@ class Settings(BaseSettings):
         return [item.strip() for item in self.cors_origins.split(",") if item.strip()]
 
     @property
-    def firebase_admin_ready(self) -> bool:
+    def resolved_credentials_path(self) -> Path | None:
         if not self.google_application_credentials:
-            return False
-        path = Path(self.google_application_credentials)
-        if path.is_absolute():
-            return path.is_file()
+            return None
+        raw = Path(self.google_application_credentials)
+        if raw.is_absolute() and raw.is_file():
+            return raw
         repo = Path(__file__).resolve().parents[4]
-        return (repo / path).is_file() or Path.cwd().joinpath(path).is_file()
+        candidate = (repo / raw).resolve()
+        if candidate.is_file():
+            return candidate
+        cwd_candidate = Path.cwd().joinpath(raw).resolve()
+        if cwd_candidate.is_file():
+            return cwd_candidate
+        return None
+
+    @property
+    def firebase_admin_ready(self) -> bool:
+        return self.resolved_credentials_path is not None
 
     def key_status(self) -> dict[str, bool | str]:
         return {
