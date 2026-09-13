@@ -4,25 +4,25 @@ LIVE_MIC_HTML = r"""<!DOCTYPE html>
   <meta charset="utf-8" />
   <style>
     body { font-family: ui-sans-serif, system-ui, sans-serif; margin: 0; padding: 12px; background: #fff7ed; color: #1c1917; }
-    button { font-size: 16px; padding: 10px 16px; border: 0; border-radius: 10px; cursor: pointer; }
+    button { font-size: 18px; padding: 14px 22px; border: 0; border-radius: 12px; cursor: pointer; }
     #go { background: #F97316; color: white; font-weight: 700; }
     #stop { background: #44403c; color: white; }
-    #status { margin-top: 10px; min-height: 1.4em; }
+    #status { margin-top: 12px; min-height: 1.4em; font-size: 16px; }
     .row { display: flex; gap: 8px; flex-wrap: wrap; }
   </style>
 </head>
 <body>
   <div class="row">
-    <button id="go" type="button">Start live mic</button>
+    <button id="go" type="button">Start conversation</button>
     <button id="stop" type="button" disabled>Stop</button>
   </div>
-  <p id="status">Click Start. Allow the microphone. Speak after the agent asks.</p>
+  <p id="status">Click once, allow the mic, then wait for the agent. Status stays Live until you Stop.</p>
   <script>
     const WS_URL = __WS_URL__;
     const statusEl = document.getElementById("status");
     const go = document.getElementById("go");
     const stop = document.getElementById("stop");
-    let ws, recCtx, playCtx, proc, stream, playTime = 0, sending = false;
+    let ws, recCtx, playCtx, proc, stream, playTime = 0, sending = false, wantedOpen = false, uplink = false;
 
     function setStatus(t) { statusEl.textContent = t; }
 
@@ -43,6 +43,7 @@ LIVE_MIC_HTML = r"""<!DOCTYPE html>
       for (let i = 0; i < raw.length; i++) view[i] = raw.charCodeAt(i);
       const int16 = new Int16Array(buf);
       if (!playCtx) playCtx = new AudioContext({ sampleRate: rate || 24000 });
+      if (playCtx.state === "suspended") playCtx.resume();
       const f32 = new Float32Array(int16.length);
       for (let i = 0; i < int16.length; i++) f32[i] = int16[i] / 32768;
       const audioBuf = playCtx.createBuffer(1, f32.length, playCtx.sampleRate);
@@ -57,12 +58,18 @@ LIVE_MIC_HTML = r"""<!DOCTYPE html>
     }
 
     async function start() {
-      stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, channelCount: 1 } });
+      wantedOpen = true;
+      stream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true, channelCount: 1 }
+      });
       recCtx = new AudioContext({ sampleRate: 16000 });
+      if (recCtx.state === "suspended") await recCtx.resume();
+      playCtx = new AudioContext({ sampleRate: 24000 });
+      if (playCtx.state === "suspended") await playCtx.resume();
       const src = recCtx.createMediaStreamSource(stream);
       proc = recCtx.createScriptProcessor(2048, 1, 1);
       proc.onaudioprocess = (ev) => {
-        if (!sending || !ws || ws.readyState !== 1) return;
+        if (!sending || !uplink || !ws || ws.readyState !== 1) return;
         const f32 = ev.inputBuffer.getChannelData(0);
         const pcm = new Int16Array(f32.length);
         for (let i = 0; i < f32.length; i++) {
@@ -77,27 +84,42 @@ LIVE_MIC_HTML = r"""<!DOCTYPE html>
       proc.connect(mute);
       mute.connect(recCtx.destination);
       ws = new WebSocket(WS_URL);
-      ws.onopen = () => { sending = true; setStatus("Live. Listening…"); };
+      ws.onopen = () => { sending = true; uplink = false; setStatus("Live. Waiting for the first question…"); };
       ws.onmessage = (ev) => {
         let msg;
         try { msg = JSON.parse(ev.data); } catch { return; }
-        if (msg.type === "pcm") playPcm16(msg.data, 24000);
+        if (msg.type === "pcm") {
+          uplink = false;
+          playPcm16(msg.data, 24000);
+        }
         if (msg.type === "card_tts") {
+          uplink = false;
           const a = new Audio("data:audio/wav;base64," + msg.data);
           a.play();
         }
         if (msg.type === "status") setStatus(msg.text || "");
+        if (msg.type === "your_turn") {
+          uplink = true;
+          setStatus(msg.text || "Your turn — speak now.");
+        }
         if (msg.type === "error") setStatus("Error: " + msg.detail);
-        if (msg.type === "done") { setStatus("Listing approved."); stopLive(); }
+        if (msg.type === "done") { setStatus("Listing approved."); stopLive(false); }
       };
-      ws.onclose = () => { sending = false; setStatus("Live socket closed."); };
+      ws.onclose = (ev) => {
+        sending = false;
+        if (!wantedOpen) return;
+        setStatus("Socket closed (" + ev.code + "). Click Start conversation again.");
+        go.disabled = false; stop.disabled = true;
+      };
       ws.onerror = () => setStatus("Live socket error.");
       go.disabled = true; stop.disabled = false;
     }
 
-    function stopLive() {
+    function stopLive(sendEnd) {
+      wantedOpen = false;
       sending = false;
-      try { if (ws && ws.readyState === 1) ws.send(JSON.stringify({ type: "end" })); } catch {}
+      uplink = false;
+      try { if (sendEnd !== false && ws && ws.readyState === 1) ws.send(JSON.stringify({ type: "end" })); } catch {}
       try { ws && ws.close(); } catch {}
       try { proc && proc.disconnect(); } catch {}
       try { recCtx && recCtx.close(); } catch {}
@@ -106,7 +128,7 @@ LIVE_MIC_HTML = r"""<!DOCTYPE html>
     }
 
     go.onclick = () => start().catch(err => setStatus(String(err)));
-    stop.onclick = stopLive;
+    stop.onclick = () => stopLive(true);
   </script>
 </body>
 </html>

@@ -9,7 +9,8 @@ from __future__ import annotations
 from typing import Any
 
 from kalasetu_api.config import Settings, get_settings
-from kalasetu_api.engines.cataloger import SLOT_ORDER, language_label
+from kalasetu_api.engines.cataloger import SLOT_ORDER
+from kalasetu_api.engines.languages import language_label
 
 LIVE_MODEL_DEFAULT = "gemini-2.5-flash-native-audio-preview-12-2025"
 

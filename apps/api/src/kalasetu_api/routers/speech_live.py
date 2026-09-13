@@ -5,8 +5,10 @@ from __future__ import annotations
 import asyncio
 import base64
 import logging
+
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
+from google.genai import types
 
 from kalasetu_api.adapters.llm.gemini_live import (
     gemini_live_client,
@@ -98,7 +100,9 @@ async def live_socket(ws: WebSocket) -> None:
         config = live_connect_config(instruction)
         await ws.send_json({"type": "status", "text": "Connecting Gemini Live…"})
         async with client.aio.live.connect(model=model, config=config) as live:
-            await ws.send_json({"type": "status", "text": "Live. Agent will ask the first slot."})
+            await ws.send_json({"type": "status", "text": "Live. Agent will ask first."})
+            # Prefill once, then only realtime PCM. receive() ends each model turn —
+            # we loop it so the Gemini socket stays open for the artisan's reply.
             await live.send_client_content(
                 turns={
                     "role": "user",
@@ -106,7 +110,7 @@ async def live_socket(ws: WebSocket) -> None:
                         {
                             "text": (
                                 f"Begin now. Speak {language_code}. "
-                                "Ask only the first missing slot."
+                                "Ask only the first missing slot, then wait for the artisan."
                             )
                         }
                     ],
@@ -121,81 +125,109 @@ async def live_socket(ws: WebSocket) -> None:
                         kind = message.get("type")
                         if kind == "end":
                             await live.send_realtime_input(audio_stream_end=True)
-                            break
+                            return
                         if kind == "text" and message.get("text"):
-                            await live.send_client_content(
-                                turns={
-                                    "role": "user",
-                                    "parts": [{"text": message["text"]}],
-                                },
-                                turn_complete=True,
-                            )
+                            await live.send_realtime_input(text=str(message["text"]))
                         if kind == "pcm" and message.get("data"):
                             raw = base64.b64decode(message["data"])
                             await live.send_realtime_input(
-                                audio={"data": raw, "mime_type": "audio/pcm;rate=16000"}
+                                audio=types.Blob(
+                                    data=raw,
+                                    mime_type="audio/pcm;rate=16000",
+                                )
                             )
                 except WebSocketDisconnect:
-                    return
+                    log.info("browser websocket disconnected")
                 except Exception as exc:
                     log.warning("browser pump stopped: %s", exc)
 
             async def from_gemini() -> None:
-                from google.genai import types
-
-                async for response in live.receive():
-                    data = getattr(response, "data", None)
-                    if data:
-                        payload = data if isinstance(data, (bytes, bytearray)) else None
-                        if payload:
+                # google-genai receive() yields one model turn then stops.
+                # Loop so the artisan can answer; do not close the client socket.
+                while catalog.phase != "complete":
+                    got_any = False
+                    async for response in live.receive():
+                        got_any = True
+                        if getattr(response, "go_away", None):
+                            await ws.send_json(
+                                {
+                                    "type": "error",
+                                    "detail": "Gemini asked the session to go away.",
+                                }
+                            )
+                            return
+                        data = getattr(response, "data", None)
+                        if data and isinstance(data, (bytes, bytearray)):
                             await ws.send_json(
                                 {
                                     "type": "pcm",
-                                    "data": base64.b64encode(payload).decode("ascii"),
+                                    "data": base64.b64encode(bytes(data)).decode("ascii"),
                                 }
                             )
-                    tool_call = getattr(response, "tool_call", None)
-                    if not tool_call:
-                        continue
-                    function_responses = []
-                    card_text = None
-                    for fc in tool_call.function_calls or []:
-                        result = apply_live_tool(catalog, fc.name, tool_args(fc))
-                        LIVE_STATE[session_id] = catalog
-                        if fc.name == "write_copy" and catalog.speak:
-                            card_text = catalog.speak
-                        function_responses.append(
-                            types.FunctionResponse(
-                                id=fc.id,
-                                name=fc.name,
-                                response=result,
-                            )
-                        )
-                    await live.send_tool_response(function_responses=function_responses)
-                    await ws.send_json(
-                        {
-                            "type": "state",
-                            "session": catalog.to_dict(),
-                            "table": listing_table_rows(catalog),
-                            "phase": catalog.phase,
-                        }
-                    )
-                    if card_text:
-                        try:
-                            wav = synthesize_speech(
-                                card_text, language_code=catalog.language_code
+                        tool_call = getattr(response, "tool_call", None)
+                        if tool_call:
+                            function_responses = []
+                            card_text = None
+                            for fc in tool_call.function_calls or []:
+                                result = apply_live_tool(catalog, fc.name, tool_args(fc))
+                                LIVE_STATE[session_id] = catalog
+                                if fc.name == "write_copy" and catalog.speak:
+                                    card_text = catalog.speak
+                                function_responses.append(
+                                    types.FunctionResponse(
+                                        id=fc.id,
+                                        name=fc.name,
+                                        response=result,
+                                    )
+                                )
+                            await live.send_tool_response(
+                                function_responses=function_responses
                             )
                             await ws.send_json(
                                 {
-                                    "type": "card_tts",
-                                    "data": base64.b64encode(wav).decode("ascii"),
-                                    "content_type": "audio/wav",
+                                    "type": "state",
+                                    "session": catalog.to_dict(),
+                                    "table": listing_table_rows(catalog),
+                                    "phase": catalog.phase,
                                 }
                             )
-                        except Exception as exc:
-                            log.warning("Sarvam card TTS skipped: %s", exc)
+                            if card_text:
+                                try:
+                                    wav = synthesize_speech(
+                                        card_text, language_code=catalog.language_code
+                                    )
+                                    await ws.send_json(
+                                        {
+                                            "type": "card_tts",
+                                            "data": base64.b64encode(wav).decode("ascii"),
+                                            "content_type": "audio/wav",
+                                        }
+                                    )
+                                except Exception as exc:
+                                    log.warning("Sarvam card TTS skipped: %s", exc)
+                        server_content = getattr(response, "server_content", None)
+                        if server_content and getattr(
+                            server_content, "turn_complete", False
+                        ):
+                            log.info("Gemini turn complete; waiting for artisan")
+                            await ws.send_json(
+                                {
+                                    "type": "your_turn",
+                                    "text": "Your turn — speak now.",
+                                }
+                            )
+                    LIVE_STATE[session_id] = catalog
                     if catalog.phase == "complete":
                         await ws.send_json({"type": "done"})
+                        return
+                    if not got_any:
+                        await ws.send_json(
+                            {
+                                "type": "error",
+                                "detail": "Gemini receive ended; socket would have gone silent.",
+                            }
+                        )
+                        return
 
             t_browser = asyncio.create_task(from_browser())
             t_gemini = asyncio.create_task(from_gemini())
@@ -203,8 +235,19 @@ async def live_socket(ws: WebSocket) -> None:
                 {t_browser, t_gemini},
                 return_when=asyncio.FIRST_COMPLETED,
             )
+            for task in done:
+                if task.cancelled():
+                    continue
+                exc = task.exception()
+                if exc is not None:
+                    log.exception("Live task failed", exc_info=exc)
+                    try:
+                        await ws.send_json({"type": "error", "detail": str(exc)})
+                    except Exception:
+                        pass
             for task in pending:
                 task.cancel()
+            await asyncio.gather(*pending, return_exceptions=True)
     except WebSocketDisconnect:
         pass
     except Exception as exc:
