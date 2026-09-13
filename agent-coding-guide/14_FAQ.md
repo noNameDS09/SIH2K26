@@ -54,11 +54,17 @@ No. Shaped JSON + mocked label.
 
 ## Where do I put new screens?
 
-App: `lib/ui` with an ID from `04`. Web: `src/ui` with a route from `04`. If the screen is a new **job**, update `04` first in the same PR.
+App: `lib/ui` with an ID from `04`. Web: `src/app/` route from `04` plus `src/components`. If the screen is a new **job**, update `04` first in the same PR.
+
+## Why Next.js not Vite?
+
+Human lock. App Router already lives in `apps/web`. Do not add Vite. Do not copy Flutter UI.
 
 ## What if `asia-south1` is unavailable?
 
-Stop. Tell the human. Do not pick US.
+Firestore: Stop. Tell the human. Do not pick US.
+
+Storage: Spark/no-cost default bucket has no Mumbai option. Locked exception: **`US-EAST1`** (`kalasetu-903c2.firebasestorage.app`). That does not move Firestore.
 
 ## Can I use the mockup pixels?
 

@@ -1,0 +1,183 @@
+openapi: 3.1.0
+info:
+  title: KalaSetu API
+  version: 0.1.0
+  description: Contract names from agent-coding-guide/13_API.md. Backbone only — most paths are stubbed until wired.
+servers:
+  - url: http://localhost:8000
+paths:
+  /health:
+    get:
+      summary: Process is up
+      responses:
+        "200":
+          description: OK
+  /v1/auth/otp:
+    post:
+      summary: Start OTP (mock 123456 by default)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OtpRequest"
+      responses:
+        "200":
+          description: OTP sent / mocked
+  /v1/auth/verify:
+    post:
+      summary: Verify OTP; returns bearer + optional Firebase custom token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VerifyRequest"
+      responses:
+        "200":
+          description: Tokens
+        "401":
+          description: Bad code
+  /v1/images/enhance:
+    post:
+      summary: Studio quality path (not wired)
+      security: [{ bearerAuth: [] }]
+      responses:
+        "501":
+          description: Not wired
+  /v1/speech/stt:
+    post:
+      summary: Sarvam Saaras v3 STT (audio ≤30s)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file: { type: string, format: binary }
+                language_code: { type: string, default: mr-IN }
+      responses:
+        "200":
+          description: Transcript + provenance
+  /v1/speech/tts:
+    post:
+      summary: Sarvam Bulbul v3 TTS
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [text]
+              properties:
+                text: { type: string }
+                language_code: { type: string, default: mr-IN }
+      responses:
+        "200":
+          description: audio_b64 WAV
+  /v1/speech/live/turn:
+    post:
+      summary: Turn-based cataloger (Flash JSON at end; not a Live socket)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                transcript: { type: string }
+                language_code: { type: string, default: mr-IN }
+                cluster: { type: string }
+                session: { type: object }
+      responses:
+        "200":
+          description: Next speak + session + table when done
+  /v1/speech/live:
+    get:
+      summary: Gemini Live WebSocket (FastAPI holds the socket)
+      description: >
+        Upgrade to WebSocket. Query session_id, language_code, cluster, token.
+        Client sends PCM 16 kHz; server streams Gemini audio 24 kHz + listing state.
+      responses:
+        "101":
+          description: Switching protocols
+  /v1/speech/live/state/{session_id}:
+    get:
+      summary: Live cataloger session snapshot for the tester UI
+      responses:
+        "200":
+          description: Session + table rows
+  /v1/listings/{id}/price:
+    post:
+      summary: Three-band price (not wired)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/listingId"
+      responses:
+        "501":
+          description: Not wired
+  /v1/listings/{id}/sign:
+    post:
+      summary: HMAC + QR + publishedListings copy (not wired)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/listingId"
+      responses:
+        "501":
+          description: Not wired
+  /v1/market:
+    get:
+      summary: Published-market catalog
+      responses:
+        "200":
+          description: Public catalog list
+  /v/{id}:
+    get:
+      summary: Public listing card JSON
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Public listing card
+  /v1/trends/recompute:
+    post:
+      summary: Rebuild public_trends/current (not wired)
+      security: [{ adminToken: [] }]
+      responses:
+        "501":
+          description: Not wired
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+    adminToken:
+      type: apiKey
+      in: header
+      name: X-Admin-Token
+  parameters:
+    listingId:
+      name: id
+      in: path
+      required: true
+      schema: { type: string }
+  schemas:
+    OtpRequest:
+      type: object
+      required: [phone]
+      properties:
+        phone: { type: string }
+    VerifyRequest:
+      type: object
+      required: [phone, code]
+      properties:
+        phone: { type: string }
+        code: { type: string }

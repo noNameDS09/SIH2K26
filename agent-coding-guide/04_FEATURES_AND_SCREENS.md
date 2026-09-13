@@ -62,7 +62,7 @@ Bottom nav (map to mockup): Home (`home`) · Insights (`insights`) · Channels (
 | `/capture` `/studio` `/live` `/intelligence` `/pricing` `/approval` `/distribute` | Same jobs |
 | `/shop` `/money` `/insights` `/settings` | Same jobs |
 | **`/market`** | **Show catalog (web-only)** |
-| `/v/:listingId` | Public card, no auth |
+| `/v/:listingId` | Public card, no auth (`app/v/[listingId]` in Next.js) |
 
 Web look ≠ app look. Same Firestore listing id space.
 

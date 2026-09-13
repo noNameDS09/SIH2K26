@@ -1,6 +1,8 @@
 # 06 — Data (Firestore + Storage)
 
-Region: **`asia-south1`**. Database id: `(default)` unless the human created another.
+Firestore region: **`asia-south1`**. Database id: `(default)` unless the human created another.
+
+Storage: default bucket **`kalasetu-903c2.firebasestorage.app`** in **`US-EAST1`**. Spark/no-cost Storage had no Mumbai option. Documents stay in Mumbai; files live in that bucket.
 
 ## Collections
 
@@ -73,4 +75,4 @@ Create them when the first query fails; do not skip the query.
 
 ## FastAPI Admin
 
-Service account JSON is server-only (`GOOGLE_APPLICATION_CREDENTIALS` or Firebase Admin from env). Never ship it in Flutter or the PWA.
+Service account JSON is server-only (`GOOGLE_APPLICATION_CREDENTIALS` or Firebase Admin from env). Never ship it in Flutter or the Next.js client.

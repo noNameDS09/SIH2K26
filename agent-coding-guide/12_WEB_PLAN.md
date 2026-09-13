@@ -4,13 +4,13 @@ Do in order. Phone Chrome is the target viewport, not only desktop.
 
 FastAPI is **required** from step 1 (speech keys never in JS).
 
-## Step 0 — PWA skeleton
+## Step 0 — Next.js skeleton
 
-- Vite + React + TS in `apps/web`.
-- Routes from `04` including `/market` and `/v/:listingId`.
-- Own CSS.
+- Next.js App Router + TS already in `apps/web`. Do not add Vite. Do not replace it with a SPA.
+- Routes from `04` including `/market` and `/v/[listingId]`.
+- Own CSS / Tailwind. Brand orange `#F97316` allowed. Do not copy Flutter UI.
 
-**Working if:** `npm run dev`, routes load on a 390px-wide viewport.
+**Working if:** `npm --prefix apps/web run dev` on `:3000`, routes load on a 390px-wide viewport.
 
 ## Step 1 — OTP + custom token
 
