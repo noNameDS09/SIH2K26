@@ -4,16 +4,20 @@ import 'package:provider/provider.dart';
 import 'ui/theme/app_theme.dart';
 import 'ui/routes/app_routes.dart';
 import 'ui/l10n/locale_provider.dart';
+import 'services/session_provider.dart';
 
 class KalaSetuApp extends StatelessWidget {
   const KalaSetuApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (_) => LocaleProvider(),
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => LocaleProvider()),
+        ChangeNotifierProvider(create: (_) => SessionProvider()),
+      ],
       child: Consumer<LocaleProvider>(
-        builder: (_, localeProvider, __) => MaterialApp.router(
+        builder: (_, localeProvider, child) => MaterialApp.router(
           title: 'KalaSetu',
           debugShowCheckedModeBanner: false,
           theme: AppTheme.light,
@@ -25,10 +29,10 @@ class KalaSetuApp extends StatelessWidget {
             GlobalCupertinoLocalizations.delegate,
           ],
           supportedLocales: LocaleProvider.supported,
-          builder: (context, child) => Center(
+          builder: (ctx, widget) => Center(
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 430),
-              child: child!,
+              child: widget!,
             ),
           ),
         ),
