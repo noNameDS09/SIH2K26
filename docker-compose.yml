@@ -1,0 +1,14 @@
+services:
+  api:
+    build:
+      context: ./apps/api
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      GOOGLE_APPLICATION_CREDENTIALS: /app/secrets/firebase-adminsdk.json
+    volumes:
+      - ./secrets:/app/secrets:ro
+      - ./seed:/app/seed:ro
+    restart: unless-stopped

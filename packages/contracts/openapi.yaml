@@ -1,0 +1,375 @@
+openapi: 3.1.0
+info:
+  title: KalaSetu API
+  version: 0.1.0
+  description: Contract names from agent-coding-guide/13_API.md. Studio enhance and speech are wired; listings/sign/trends still use demo data.
+servers:
+  - url: http://localhost:8000
+paths:
+  /health:
+    get:
+      summary: Process is up
+      responses:
+        "200":
+          description: OK
+  /v1/auth/otp:
+    post:
+      summary: Start OTP (mock 123456 by default)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OtpRequest"
+      responses:
+        "200":
+          description: OTP sent / mocked
+  /v1/auth/verify:
+    post:
+      summary: Verify OTP; returns bearer + optional Firebase custom token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VerifyRequest"
+      responses:
+        "200":
+          description: Tokens and artisan profile
+        "401":
+          description: Bad code
+  /v1/auth/me:
+    get:
+      summary: Get current authenticated artisan profile
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Current artisan data
+        "404":
+          description: Artisan not found
+  /v1/auth/profile:
+    patch:
+      summary: Update profile fields (onboarding name, lang, cluster, pehchan)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                lang: { type: string }
+                cluster: { type: string }
+                pehchan: { type: object }
+                consentAt: { type: string }
+      responses:
+        "200":
+          description: Updated artisan profile
+        "404":
+          description: Artisan not found
+  /v1/images/enhance:
+    post:
+      summary: Studio quality path (ISNet cut-out + six bundled backdrops)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file, listing_id]
+              properties:
+                file: { type: string, format: binary }
+                listing_id: { type: string }
+                bg_preset:
+                  type: string
+                  default: linen
+                  description: white, linen, beige, slate, jute, wood, or auto
+                craft: { type: string }
+      responses:
+        "200":
+          description: original_url, studio_url, deltaE, provenance
+        "400":
+          description: Bad image or preset
+        "503":
+          description: rembg not installed on the API process
+  /v1/listings/{id}/media/{filename}:
+    get:
+      summary: Original/studio JPEG or QR PNG for a listing
+      parameters:
+        - $ref: "#/components/parameters/listingId"
+        - name: filename
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Media file bytes (JPEG or PNG)
+        "404":
+          description: Media not found
+  /v1/listings/{id}/media/{kind}.jpg:
+    get:
+      summary: Original or studio JPEG for a listing
+      parameters:
+        - $ref: "#/components/parameters/listingId"
+        - name: kind
+          in: path
+          required: true
+          schema: { type: string, enum: [original, studio] }
+      responses:
+        "200":
+          description: JPEG
+        "404":
+          description: No enhance yet
+  /v1/speech/stt:
+    post:
+      summary: Sarvam Saaras v3 STT (audio ≤30s)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file: { type: string, format: binary }
+                language_code: { type: string, default: mr-IN }
+      responses:
+        "200":
+          description: Transcript + provenance
+  /v1/speech/tts:
+    post:
+      summary: Sarvam Bulbul v3 TTS
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [text]
+              properties:
+                text: { type: string }
+                language_code: { type: string, default: mr-IN }
+      responses:
+        "200":
+          description: audio_b64 WAV
+  /v1/speech/live/turn:
+    post:
+      summary: Turn-based cataloger (Flash JSON at end; not a Live socket)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                transcript: { type: string }
+                language_code: { type: string, default: mr-IN }
+                cluster: { type: string }
+                session: { type: object }
+      responses:
+        "200":
+          description: Next speak + session + table when done
+  /v1/speech/live:
+    get:
+      summary: Gemini Live WebSocket (FastAPI holds the socket)
+      description: >
+        Upgrade to WebSocket. Query session_id, language_code, cluster, token.
+        Client sends PCM 16 kHz; server streams Gemini audio 24 kHz + listing state.
+      responses:
+        "101":
+          description: Switching protocols
+  /v1/speech/live/state/{session_id}:
+    get:
+      summary: Live cataloger session snapshot for the tester UI
+      responses:
+        "200":
+          description: Session + table rows
+  /v1/listings:
+    get:
+      summary: Listings for the authenticated artisan
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: List of artisan listings
+    post:
+      summary: Create or draft a listing doc in Firestore
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                id: { type: string }
+                title: { type: string }
+                title_hi: { type: string }
+                title_en: { type: string }
+                description: { type: string }
+                desc_hi: { type: string }
+                desc_en: { type: string }
+                fields: { type: object }
+                cluster: { type: string }
+                price_hint: { type: number }
+                photo_url: { type: string }
+      responses:
+        "200":
+          description: Created listing document
+  /v1/listings/{id}:
+    get:
+      summary: Get full listing document
+      parameters:
+        - $ref: "#/components/parameters/listingId"
+      responses:
+        "200":
+          description: Full listing document
+        "404":
+          description: Listing not found
+    patch:
+      summary: Update fields or metadata on an artisan's draft listing
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/listingId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title: { type: string }
+                title_hi: { type: string }
+                title_en: { type: string }
+                description: { type: string }
+                desc_hi: { type: string }
+                desc_en: { type: string }
+                fields: { type: object }
+                cluster: { type: string }
+                price_hint: { type: number }
+                photo_url: { type: string }
+      responses:
+        "200":
+          description: Updated listing document
+        "404":
+          description: Listing not found
+  /v1/listings/{id}/price:
+    post:
+      summary: Four-tier price bands (floor, recommended, aspirational, listed)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/listingId"
+      responses:
+        "200":
+          description: Computed price bands with provenance
+        "404":
+          description: Listing not found
+  /v1/listings/{id}/sign:
+    post:
+      summary: Freeze listing, HMAC-SHA256 sign, generate QR code PNG, and publish
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/listingId"
+      responses:
+        "200":
+          description: Published status, signature, and QR URL
+        "404":
+          description: Listing not found
+  /v1/market:
+    get:
+      summary: Published-market catalog with search, filtering, and facets
+      parameters:
+        - name: category
+          in: query
+          required: false
+          schema: { type: string }
+        - name: craft
+          in: query
+          required: false
+          schema: { type: string }
+        - name: cluster
+          in: query
+          required: false
+          schema: { type: string }
+        - name: gi
+          in: query
+          required: false
+          schema: { type: string }
+        - name: tag
+          in: query
+          required: false
+          schema: { type: string }
+        - name: q
+          in: query
+          required: false
+          schema: { type: string }
+        - name: min_price
+          in: query
+          required: false
+          schema: { type: number }
+        - name: max_price
+          in: query
+          required: false
+          schema: { type: number }
+        - name: sort
+          in: query
+          required: false
+          schema: { type: string, enum: [price_asc, price_desc, latest] }
+      responses:
+        "200":
+          description: Filtered catalog items with metadata facets
+  /v1/market/seed:
+    post:
+      summary: Bootstrap all 30 handcrafted catalog items into Firestore
+      responses:
+        "200":
+          description: Seeding summary and count of records created
+  /v/{id}:
+    get:
+      summary: Public listing card JSON
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Public listing card
+  /v1/trends/recompute:
+    post:
+      summary: Rebuild public_trends/current (not wired)
+      security: [{ adminToken: [] }]
+      responses:
+        "501":
+          description: Not wired
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+    adminToken:
+      type: apiKey
+      in: header
+      name: X-Admin-Token
+  parameters:
+    listingId:
+      name: id
+      in: path
+      required: true
+      schema: { type: string }
+  schemas:
+    OtpRequest:
+      type: object
+      required: [phone]
+      properties:
+        phone: { type: string }
+    VerifyRequest:
+      type: object
+      required: [phone, code]
+      properties:
+        phone: { type: string }
+        code: { type: string }
