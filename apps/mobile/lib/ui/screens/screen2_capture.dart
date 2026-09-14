@@ -274,21 +274,9 @@ class _CameraViewport extends StatelessWidget {
           child: Stack(
             fit: StackFit.expand,
             children: [
+              // Base layer: image or dark placeholder
               if (imageBytes != null)
-                Positioned.fill(
-                  child: Image.memory(
-                    imageBytes!,
-                    fit: BoxFit.cover,
-                    gaplessPlayback: true,
-                    errorBuilder: (ctx2, err, st) => Container(
-                      color: Colors.black54,
-                      child: const Center(
-                        child: Icon(Icons.broken_image_outlined,
-                            color: Colors.white54, size: 40),
-                      ),
-                    ),
-                  ),
-                )
+                Image.memory(imageBytes!, fit: BoxFit.cover, gaplessPlayback: true)
               else ...[
                 Container(
                   decoration: const BoxDecoration(
@@ -314,6 +302,31 @@ class _CameraViewport extends StatelessWidget {
                   ),
                 ),
               ],
+              // Processing overlay: shown on top of the image while ISNet runs
+              if (isEnhancing && imageBytes != null)
+                Positioned.fill(
+                  child: Container(
+                    color: Colors.black.withAlpha(120),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const SizedBox(
+                          width: 36, height: 36,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.5,
+                            color: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          'Enhancing with ISNet…',
+                          style: GoogleFonts.plusJakartaSans(
+                            color: Colors.white, fontSize: 12, fontWeight: FontWeight.w500),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               Positioned(
                 bottom: 0, left: 0, right: 0, height: 100,
                 child: Container(
