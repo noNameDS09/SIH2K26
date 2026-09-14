@@ -24,7 +24,7 @@ If two files in `agent-coding-guide/` conflict, follow `00_AGENT_RULES.md`, then
 | 10 | [09_IMAGE_PIPELINE.md](09_IMAGE_PIPELINE.md) | Photo / studio |
 | 11 | [10_VOICE_AND_AGENTS.md](10_VOICE_AND_AGENTS.md) | Speech, Live, advisor, trends |
 | 12 | [11_APP_PLAN.md](11_APP_PLAN.md) | Building the Flutter app |
-| 13 | [12_WEB_PLAN.md](12_WEB_PLAN.md) | Building the PWA |
+| 13 | [12_WEB_PLAN.md](12_WEB_PLAN.md) | Building the Next.js web app |
 | 14 | [13_API.md](13_API.md) | FastAPI |
 | 15 | [14_FAQ.md](14_FAQ.md) | Before inventing a new approach |
 

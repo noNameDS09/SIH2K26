@@ -13,7 +13,7 @@ from kalasetu_api.adapters.firebase import (
     update_artisan,
 )
 from kalasetu_api.config import get_settings
-from kalasetu_api.deps import require_bearer, uid_from_token
+from kalasetu_api.deps import require_bearer
 
 router = APIRouter(prefix="/v1/auth", tags=["auth"])
 
@@ -33,6 +33,12 @@ class ProfileUpdateRequest(BaseModel):
     cluster: str | None = None
     pehchan: dict[str, Any] | None = None
     consentAt: str | None = None
+
+
+def uid_from_token(token: str) -> str:
+    if token.startswith("dev."):
+        return token.split("dev.", 1)[1]
+    return token
 
 
 @router.post("/otp")

@@ -1,4 +1,4 @@
-# 08 — Web architecture (React PWA)
+# 08 — Web architecture (Next.js)
 
 ## Job
 
@@ -6,16 +6,25 @@ Same artisan jobs as the app, **plus** `/market` show catalog and `/v/:id` publi
 
 ## Layers
 
+Match the tree already in `apps/web`:
+
 ```
-src/ui/       pages, CSS
-src/voice/    MediaRecorder only → POST FastAPI
-src/api/      FastAPI client; Firebase JS only for Firestore/Auth-session if used
+src/app/              App Router routes from 04 (`/market`, `/v/[listingId]`, …)
+src/components/ui/    screens, CSS (own design — not shared with Flutter)
+src/voice/            MediaRecorder only → POST FastAPI
+src/api/              FastAPI client; Firebase JS only for Firestore/Auth-session if used
+src/lib/              helpers
+public/bg/            six bundled backgrounds
 ```
+
+Do not add Vite. Do not use `vite-plugin-pwa`. Looks may differ from the Flutter app.
 
 ## Keys
 
-Firebase **web config** may live in the client (normal).  
+Firebase **web config** may live in the client as `NEXT_PUBLIC_*` in `apps/web/.env.local` (gitignored).  
 **Sarvam and Gemini keys must not.**
+
+Root `.env` is FastAPI. Do not put vendor keys in `NEXT_PUBLIC_*`.
 
 ## Auth
 
@@ -31,9 +40,9 @@ Query `publishedListings` orderBy `updatedAt` desc. Cards: photo, title, listed 
 
 No filters required for v1 beyond “all published.” No cart button anywhere on the page.
 
-## PWA
+## Installability
 
-`vite-plugin-pwa`. Cache shell. Do not cache API POST. IndexedDB for in-progress blob if upload dies.
+Phone Chrome is the target viewport. A PWA (manifest + service worker) is optional later. Cache the shell only; never cache API POST. IndexedDB for in-progress blob if upload dies.
 
 ## ONNX in browser
 

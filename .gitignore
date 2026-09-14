@@ -1,0 +1,44 @@
+# Secrets — never commit
+.env
+.env.*
+!.env.example
+apps/web/.env
+apps/web/.env.*
+apps/mobile/.env
+apps/api/.env
+secrets/**
+!secrets/.gitignore
+*.pem
+*.p12
+firebase-adminsdk*.json
+serviceAccount*.json
+google-services.json
+GoogleService-Info.plist
+
+# Python
+.venv/
+**/__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Node
+node_modules/
+apps/web/.next/
+apps/web/out/
+
+# OS / IDE
+.DS_Store
+.idea/
+.vscode/
+*.log
+
+# Model caches (later)
+.cache/
+weights/
+*.onnx
+*.pt
+*.ses
+apps/api/studio_out/

@@ -1,22 +1,28 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'ks_colors.dart';
+import 'ks_text_styles.dart';
 
-abstract class AppTheme {
+abstract final class AppTheme {
   static ThemeData get light => ThemeData(
         useMaterial3: true,
         scaffoldBackgroundColor: KsColors.background,
         colorScheme: ColorScheme.fromSeed(
           seedColor: KsColors.terracotta,
-          surface: KsColors.background,
           brightness: Brightness.light,
+          surface: KsColors.background,
         ),
-        appBarTheme: const AppBarTheme(
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          systemOverlayStyle: SystemUiOverlayStyle.dark,
+        textTheme: TextTheme(
+          bodyMedium: KsTextStyles.body,
+          titleMedium: KsTextStyles.section,
         ),
-        splashColor: Colors.transparent,
-        highlightColor: Colors.transparent,
+        splashFactory: InkSparkle.splashFactory,
+        snackBarTheme: const SnackBarThemeData(
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: KsColors.ink,
+        ),
       );
+
+  static ThemeData get dark => ThemeData.dark(useMaterial3: true);
 }
+
+ThemeData buildKsTheme() => AppTheme.light;

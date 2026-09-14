@@ -2,7 +2,7 @@
 
 Do these **in order**. Do not start step n+1 until step n **Working if** passes on a real phone or emulator.
 
-Keys needed from step 3: Firebase `asia-south1`, `SARVAM_API_KEY`, `GEMINI_API_KEY` in gitignored env.
+Keys needed from step 3: Firestore `asia-south1`, Storage `US-EAST1`, `SARVAM_API_KEY`, `GEMINI_API_KEY` in gitignored env.
 
 ## Step 0 — Skeleton
 

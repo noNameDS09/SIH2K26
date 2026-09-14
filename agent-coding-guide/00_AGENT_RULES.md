@@ -25,17 +25,20 @@ Pitch files (`PROJECT_CONTEXT.md`, `sih-understanding/`, old ADRs) are **not** i
 - After OTP: voice is the default input. Text is fallback.
 - Languages: **all Sarvam Indic codes + English** in the picker. Auto-detect on STT if they skip.
 - Firestore region: **`asia-south1` (Mumbai)**. If that region cannot be created, stop and tell the human. Do not silently pick `us-central1`.
+- Storage: Spark/no-cost default bucket is **`US-EAST1`** (`kalasetu-903c2.firebasestorage.app`). Mumbai is not offered on that plan. Do not treat this as permission to move Firestore out of Mumbai.
 - FastAPI exists from day one (OTP, enhance, web speech, sign, market feed).
 - App may call Sarvam + Gemini Live **directly** with gitignored keys.
 - Web calls Sarvam + Gemini **only** through FastAPI.
 - Image output must pass the quality gate in `09_IMAGE_PIPELINE.md`. Pretty-bad cut-outs are not “done.”
 - If a feature exists on the app, the web can do the same **job** (except the show catalog is web-only). Looks may differ.
+- Web is **Next.js App Router** in `apps/web`. Do not add Vite.
 - After each milestone in `11_APP_PLAN.md` / `12_WEB_PLAN.md`, run that milestone’s **Working if** checks before starting the next.
 
 ## Do not
 
 - Do not write product code in `DemoSIH-main/`.
 - Do not add React Native.
+- Do not add Vite. Web is Next.js.
 - Do not add Bhashini, Whisper.cpp, Piper, NLLB, Gemma-2B, Postgres, or PostGIS.
 - Do not add a cart, checkout, or payment on app **or** web.
 - Do not add a marketplace tab on the **app**.

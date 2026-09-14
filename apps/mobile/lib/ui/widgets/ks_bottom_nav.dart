@@ -1,94 +1,90 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../theme/ks_colors.dart';
 import '../theme/ks_text_styles.dart';
 
 class KsBottomNav extends StatelessWidget {
+  const KsBottomNav({
+    super.key,
+    required this.currentIndex,
+    required this.onTap,
+  });
+
   final int currentIndex;
-  final ValueChanged<int>? onTap;
+  final ValueChanged<int> onTap;
 
-  const KsBottomNav({super.key, this.currentIndex = 0, this.onTap});
-
-  static const _labels = ['Studio', 'Kala List', 'Bolo', 'Samuh', 'Bazaar'];
-  static const _icons = [
-    Icons.photo_filter_outlined,
-    Icons.list_alt_outlined,
-    Icons.mic,
-    Icons.people_outline,
-    Icons.storefront_outlined,
+  static const _items = [
+    (Icons.home_outlined, 'Studio'),
+    (Icons.grid_view_rounded, 'Kala List'),
+    (Icons.mic_none_rounded, 'Bolo'),
+    (Icons.groups_outlined, 'Samuh'),
+    (Icons.storefront_outlined, 'Bazaar'),
   ];
 
   @override
   Widget build(BuildContext context) {
-    return ClipRect(
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
-        child: Container(
-          height: 80,
-          decoration: BoxDecoration(
-            color: KsColors.background.withAlpha(230),
-            boxShadow: [
-              BoxShadow(
-                color: KsColors.darkBrown.withAlpha(20),
-                blurRadius: 8,
-                offset: const Offset(0, -2),
-              ),
-            ],
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: List.generate(5, (i) {
-              final isBolo = i == 2;
-              final isActive = i == currentIndex;
-              final color = isActive ? KsColors.terracotta : KsColors.brown3;
+    return SafeArea(
+      top: false,
+      child: Container(
+        height: 76,
+        decoration: const BoxDecoration(
+          color: KsColors.white,
+          border: Border(top: BorderSide(color: KsColors.border)),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
+        child: Row(
+          children: List.generate(_items.length, (index) {
+            final selected = index == currentIndex;
+            final item = _items[index];
 
-              if (isBolo) {
-                return GestureDetector(
-                  onTap: () => onTap?.call(i),
-                  child: Transform.translate(
-                    offset: const Offset(0, -20),
-                    child: Container(
-                      width: 64,
-                      height: 64,
-                      decoration: BoxDecoration(
-                        color: KsColors.terracotta,
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: KsColors.terracotta.withAlpha(80),
-                            blurRadius: 14,
-                            offset: const Offset(0, 4),
+            return Expanded(
+              child: Semantics(
+                button: true,
+                selected: selected,
+                label: item.$2,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(16),
+                  onTap: () => onTap(index),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 180),
+                    curve: Curves.easeOut,
+                    margin: const EdgeInsets.symmetric(horizontal: 2),
+                    decoration: BoxDecoration(
+                      color: selected
+                          ? KsColors.terracotta
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          item.$1,
+                          size: 20,
+                          color: selected
+                              ? KsColors.white
+                              : KsColors.textSecondary,
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          item.$2,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: KsTextStyles.caption.copyWith(
+                            fontSize: 8,
+                            fontWeight:
+                                selected ? FontWeight.w700 : FontWeight.w500,
+                            color: selected
+                                ? KsColors.white
+                                : KsColors.textSecondary,
                           ),
-                        ],
-                      ),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Icon(Icons.mic, color: KsColors.white, size: 22),
-                          Text('Bolo',
-                              style: KsTextStyles.label(color: KsColors.white, size: 9)),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
                   ),
-                );
-              }
-
-              return GestureDetector(
-                onTap: () => onTap?.call(i),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(_icons[i], color: color, size: 22),
-                    const SizedBox(height: 2),
-                    Text(_labels[i], style: KsTextStyles.label(color: color, size: 10)),
-                  ],
                 ),
-              );
-            }),
-          ),
+              ),
+            );
+          }),
         ),
       ),
     );

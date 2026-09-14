@@ -1,11 +1,8 @@
 from __future__ import annotations
 
-from typing import Any
-
-from kalasetu_api.catalog_seed import get_all_30_catalog_items
 from kalasetu_api.engines.pricing import compute_prices, price_provenance
 
-DEMO_LISTINGS: dict[str, dict[str, Any]] = {
+DEMO_LISTINGS = {
     "demo-saree": {
         "id": "demo-saree",
         "title": "Handloom saree",
@@ -27,10 +24,8 @@ DEMO_LISTINGS: dict[str, dict[str, Any]] = {
             "effort": "skilled",
         },
         "cluster": "Bengal",
-        "category": "Handloom & Textiles",
         "status": "published",
         "source_label": "Mock — for SIH demo",
-        "tags": ["handloom", "silk", "saree", "bengal", "gi-tag"],
     },
     "demo-brass": {
         "id": "demo-brass",
@@ -53,16 +48,11 @@ DEMO_LISTINGS: dict[str, dict[str, Any]] = {
             "effort": "normal",
         },
         "cluster": "Jaipur",
-        "category": "Metal Craft & Dhokra",
         "status": "published",
         "source_label": "Mock — for SIH demo",
-        "tags": ["metalcraft", "brass", "diya", "jaipur"],
     },
 }
 
-# Merge all 30 catalog items into DEMO_LISTINGS
-for _prod in get_all_30_catalog_items():
-    DEMO_LISTINGS[_prod["id"]] = _prod
 
 # Re-export so existing imports keep working.
 __all__ = [
@@ -74,40 +64,20 @@ __all__ = [
 ]
 
 
-def list_market_catalog() -> list[dict[str, Any]]:
-    items: list[dict[str, Any]] = []
-    for item in DEMO_LISTINGS.values():
-        prices = item.get("prices") or build_price_for(item)
-        items.append(
-            {
-                "id": item["id"],
-                "title": item["title"],
-                "title_en": item.get("title_en", item["title"]),
-                "title_hi": item.get("title_hi", ""),
-                "description": item["description"],
-                "desc_en": item.get("desc_en", item["description"]),
-                "desc_hi": item.get("desc_hi", ""),
-                "image_url": item.get("photo_url") or item.get("image_url"),
-                "photo_url": item.get("photo_url") or item.get("image_url"),
-                "category": item.get("category", "Handicrafts"),
-                "craft": item.get("craft", "handloom"),
-                "cluster": item.get("cluster", "varanasi"),
-                "cluster_name": item.get("cluster_name", item.get("cluster", "").title()),
-                "artisan": item.get("artisan"),
-                "listed_price": item.get("listed_price") or item.get("price_hint"),
-                "price_hint": item.get("listed_price") or item.get("price_hint"),
-                "prices": prices,
-                "tags": item.get("tags", []),
-                "gi": item.get("fields", {}).get("gi", "no"),
-                "signature": item.get("signature"),
-                "qr_url": item.get("qr_url"),
-                "signedAt": item.get("signedAt"),
-                "source_label": item.get("source_label", "KalaSetu Verified"),
-                "status": item.get("status", "published"),
-                "fields": item.get("fields", {}),
-            }
-        )
-    return items
+def list_market_catalog() -> list[dict]:
+    return [
+        {
+            "id": item["id"],
+            "title": item["title"],
+            "title_hi": item["title_hi"],
+            "description": item["description"],
+            "image_url": item["photo_url"],
+            "listed_price": item["price_hint"],
+            "cluster": item["cluster"],
+            "source_label": item["source_label"],
+        }
+        for item in DEMO_LISTINGS.values()
+    ]
 
 
 def get_listing(listing_id: str) -> dict | None:
@@ -115,10 +85,8 @@ def get_listing(listing_id: str) -> dict | None:
 
 
 def build_price_for(listing: dict) -> dict:
-    if "prices" in listing and listing["prices"]:
-        return listing["prices"]
     return compute_prices(
-        listing.get("fields", {}),
+        listing["fields"],
         cluster=listing.get("cluster"),
         listed=listing.get("price_hint"),
     )

@@ -1,32 +1,44 @@
 import 'package:flutter/material.dart';
 import '../theme/ks_colors.dart';
+import '../theme/ks_text_styles.dart';
 
 class KsProgressBar extends StatelessWidget {
-  final int totalSteps;
-  final int currentStep;
-
   const KsProgressBar({
     super.key,
-    required this.totalSteps,
-    required this.currentStep,
+    required this.current,
+    required this.total,
+    required this.label,
   });
+
+  final int current;
+  final int total;
+  final String label;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: List.generate(totalSteps, (i) {
-        final active = i < currentStep;
-        return Expanded(
-          child: Container(
-            margin: i < totalSteps - 1 ? const EdgeInsets.only(right: 6) : EdgeInsets.zero,
-            height: 4,
-            decoration: BoxDecoration(
-              color: active ? KsColors.terracotta : KsColors.surface3,
-              borderRadius: BorderRadius.circular(2),
-            ),
+    final progress = (current / total).clamp(0.0, 1.0);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text(label, style: KsTextStyles.label),
+            const Spacer(),
+            Text('$current of $total Completed', style: KsTextStyles.caption),
+          ],
+        ),
+        const SizedBox(height: 7),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(20),
+          child: LinearProgressIndicator(
+            minHeight: 4,
+            value: progress,
+            backgroundColor: KsColors.surfaceMuted,
+            valueColor: const AlwaysStoppedAnimation(KsColors.terracotta),
           ),
-        );
-      }),
+        ),
+      ],
     );
   }
 }

@@ -4,8 +4,7 @@ import asyncio
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 
-from kalasetu_api.adapters.firebase import record_event, save_listing
-from kalasetu_api.deps import current_uid
+from kalasetu_api.deps import require_bearer
 from kalasetu_api.engines.studio import (
     PRESET_NAMES,
     StudioUnavailable,
@@ -22,7 +21,7 @@ async def enhance(
     bg_preset: str = Form("linen"),
     listing_id: str = Form(...),
     craft: str = Form(""),
-    uid: str = Depends(current_uid),
+    _: str = Depends(require_bearer),
 ) -> dict:
     listing_id = listing_id.strip()
     if not listing_id:
@@ -50,35 +49,7 @@ async def enhance(
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)
         ) from exc
-
     put_studio_media(listing_id, result)
-    orig_url = media_url(listing_id, "original.jpg")
-    stud_url = media_url(listing_id, "studio.jpg")
-
-    # Persist media URLs to artisan listing draft in Firestore
-    save_listing(
-        uid=uid,
-        listing_id=listing_id,
-        data={
-            "originalUrl": orig_url,
-            "studioUrl": stud_url,
-            "photo_url": stud_url if result.accepted else orig_url,
-            "bgPreset": result.bg_preset,
-            "deltaE": result.delta_e,
-            "craft": craft or None,
-        },
-    )
-    record_event(
-        uid=uid,
-        listing_id=listing_id,
-        kind="media.enhanced",
-        payload={
-            "accepted": result.accepted,
-            "deltaE": result.delta_e,
-            "bgPreset": result.bg_preset,
-        },
-    )
-
     return {
         "listing_id": listing_id,
         "accepted": result.accepted,
@@ -87,8 +58,8 @@ async def enhance(
         "bg_preset": result.bg_preset,
         "bg_reason": result.bg_reason,
         "reject_reason": result.reject_reason,
-        "original_url": orig_url,
-        "studio_url": stud_url,
+        "original_url": media_url(listing_id, "original"),
+        "studio_url": media_url(listing_id, "studio"),
         "used_studio": result.accepted,
         "provenance": result.provenance,
     }
