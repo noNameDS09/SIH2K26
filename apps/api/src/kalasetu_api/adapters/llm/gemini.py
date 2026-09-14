@@ -113,3 +113,55 @@ def generate_listing_json(
     if not isinstance(data, dict):
         raise GeminiError("Gemini JSON was not an object")
     return data
+
+
+def phrase_advisor_sentence(
+    *,
+    rule_id: str,
+    facts: dict[str, Any],
+    lang: str = "hi-IN",
+    settings: Settings | None = None,
+) -> str:
+    """Turn one advisor rule object into a single spoken sentence. Empty string on failure."""
+    settings = settings or get_settings()
+    if not settings.gemini_api_key:
+        raise GeminiError("GEMINI_API_KEY is missing")
+    model = settings.gemini_model
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+    prompt = (
+        f"Language: {lang}\n"
+        f"Rule: {rule_id}\n"
+        f"Facts: {json.dumps(facts, ensure_ascii=False)}\n"
+        "Write ONE short sentence the artisan should hear. No greeting. No extra tips."
+    )
+    payload = {
+        "systemInstruction": {
+            "parts": [
+                {
+                    "text": (
+                        "You phrase one business insight for an Indian artisan. "
+                        "Return only the sentence in the requested language."
+                    )
+                }
+            ]
+        },
+        "contents": [{"role": "user", "parts": [{"text": prompt}]}],
+        "generationConfig": {"temperature": 0, "maxOutputTokens": 80},
+    }
+    headers = {
+        "x-goog-api-key": settings.gemini_api_key,
+        "Content-Type": "application/json",
+    }
+    try:
+        with httpx.Client(timeout=20.0, trust_env=False) as client:
+            response = client.post(url, headers=headers, json=payload)
+    except httpx.HTTPError as exc:
+        raise GeminiError(f"Gemini network error: {exc}") from exc
+    if response.status_code >= 400:
+        raise GeminiError(f"Gemini {response.status_code}: {response.text[:300]}")
+    body = response.json()
+    try:
+        text = body["candidates"][0]["content"]["parts"][0]["text"]
+    except (KeyError, IndexError, TypeError) as exc:
+        raise GeminiError(f"Gemini response missing text: {body}") from exc
+    return str(text).strip().strip('"')

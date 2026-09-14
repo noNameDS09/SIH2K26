@@ -28,6 +28,8 @@ _MEM_LISTINGS: dict[tuple[str, str], dict[str, Any]] = {}
 _MEM_LISTING_INDEX: dict[str, str] = {}
 _MEM_PUBLISHED: dict[str, dict[str, Any]] = {}
 _MEM_EVENTS: list[dict[str, Any]] = []
+_MEM_SALES: dict[str, dict[str, Any]] = {}
+_MEM_TRENDS: dict[str, dict[str, Any]] = {}
 
 
 def normalize_phone(phone: str) -> str:
@@ -106,7 +108,10 @@ def get_firebase_app(settings: Settings | None = None):
 def get_firestore_client(settings: Settings | None = None):
     # During automated tests or offline runs, default to fast in-memory store
     # unless explicitly configured with FORCE_FIRESTORE=1
-    if os.environ.get("PYTEST_CURRENT_TEST") and not os.environ.get("FORCE_FIRESTORE"):
+    if (
+        (os.environ.get("PYTEST_CURRENT_TEST") or os.environ.get("KALASETU_OFFLINE"))
+        and not os.environ.get("FORCE_FIRESTORE")
+    ):
         return None
 
     app = get_firebase_app(settings)
@@ -161,13 +166,16 @@ def get_or_create_artisan(
     if db is not None:
         try:
             phone_doc_ref = db.collection("phone_index").document(norm_phone)
-            phone_snap = phone_doc_ref.get()
+            # Keep local/demo auth responsive when Firebase credentials exist but
+            # Firestore is unreachable (for example, offline DNS). Production
+            # still uses Firestore; an unavailable network falls back to memory.
+            phone_snap = phone_doc_ref.get(timeout=2.0)
             if phone_snap.exists:
                 data = phone_snap.to_dict() or {}
                 existing_uid = data.get("uid")
                 if existing_uid:
                     art_doc_ref = db.collection("artisans").document(existing_uid)
-                    art_snap = art_doc_ref.get()
+                    art_snap = art_doc_ref.get(timeout=2.0)
                     if art_snap.exists:
                         art_data = art_snap.to_dict() or {}
                         art_data["uid"] = existing_uid
@@ -193,13 +201,14 @@ def get_or_create_artisan(
                 "createdAt": now_iso,
                 "updatedAt": now_iso,
             }
-            db.collection("artisans").document(new_uid).set(new_artisan)
+            db.collection("artisans").document(new_uid).set(new_artisan, timeout=2.0)
             phone_doc_ref.set(
                 {
                     "uid": new_uid,
                     "phone": norm_phone,
                     "createdAt": now_iso,
-                }
+                },
+                timeout=2.0,
             )
             return new_artisan
         except Exception as exc:
@@ -233,6 +242,25 @@ def get_or_create_artisan(
     _MEM_PHONE_INDEX[norm_phone] = new_uid
     _MEM_ARTISANS[new_uid] = mem_artisan
     return mem_artisan
+
+
+def resolve_listing_uid(
+    listing_id: str,
+    settings: Settings | None = None,
+) -> str | None:
+    if listing_id in _MEM_LISTING_INDEX:
+        return _MEM_LISTING_INDEX[listing_id]
+    db = get_firestore_client(settings)
+    if db is not None:
+        try:
+            snap = db.collection("listing_index").document(listing_id).get()
+            if snap.exists:
+                return (snap.to_dict() or {}).get("uid")
+        except Exception as exc:
+            log.warning("Firestore resolve_listing_uid failed: %s", exc)
+    if listing_id in DEMO_LISTINGS:
+        return DEMO_LISTINGS[listing_id].get("artisanId") or DEMO_LISTINGS[listing_id].get("artisan", {}).get("uid")
+    return None
 
 
 def get_artisan(uid: str, settings: Settings | None = None) -> dict[str, Any] | None:
@@ -305,6 +333,38 @@ def record_event(
             log.warning("Firestore record_event failed: %s", exc)
     _MEM_EVENTS.append(event)
     return event
+
+
+def list_events(
+    uid: str,
+    *,
+    kind: str | None = None,
+    listing_id: str | None = None,
+    settings: Settings | None = None,
+) -> list[dict[str, Any]]:
+    items: list[dict[str, Any]] = []
+    db = get_firestore_client(settings)
+    if db is not None:
+        try:
+            query = db.collection("events").where("artisanId", "==", uid)
+            if kind:
+                query = query.where("kind", "==", kind)
+            docs = query.stream()
+            for d in docs:
+                m = d.to_dict() or {}
+                m["id"] = d.id
+                items.append(m)
+        except Exception as exc:
+            log.warning("Firestore list_events failed: %s", exc)
+
+    if not items:
+        items = [e for e in _MEM_EVENTS if e.get("artisanId") == uid]
+        if kind:
+            items = [e for e in items if e.get("kind") == kind]
+    if listing_id:
+        items = [e for e in items if e.get("listingId") == listing_id]
+    items.sort(key=lambda x: str(x.get("ts", "")), reverse=True)
+    return items
 
 
 # ---------------------------------------------------------------------------
@@ -462,6 +522,8 @@ def publish_listing_doc(
     now_iso = signing_meta.get("signed_at") or datetime.now(timezone.utc).isoformat()
     listing = get_listing(listing_id, uid=uid, settings=settings) or {}
 
+    was_published = (listing.get("status") == "published")
+
     updated_listing = {
         **listing,
         "id": listing_id,
@@ -533,20 +595,25 @@ def publish_listing_doc(
             db.collection("listing_index").document(listing_id).set({"uid": uid, "listingId": listing_id, "updatedAt": now_iso})
             # 3. Publish to public collection
             db.collection("publishedListings").document(listing_id).set(public_card)
-            # 4. Increment artisan's tradeRecord listings count
-            art_ref = db.collection("artisans").document(uid)
-            art_snap = art_ref.get()
-            if art_snap.exists:
-                trade_record = (art_snap.to_dict() or {}).get("tradeRecord", {})
-                current_count = trade_record.get("listings", 0)
-                trade_record["listings"] = current_count + 1
-                art_ref.update({"tradeRecord": trade_record})
+            # 4. Increment artisan's tradeRecord listings count on first publish
+            if not was_published:
+                art_ref = db.collection("artisans").document(uid)
+                art_snap = art_ref.get()
+                if art_snap.exists:
+                    trade_record = (art_snap.to_dict() or {}).get("tradeRecord", {})
+                    current_count = trade_record.get("listings", 0)
+                    trade_record["listings"] = current_count + 1
+                    art_ref.update({"tradeRecord": trade_record})
         except Exception as exc:
             log.warning("Firestore publish_listing_doc failed: %s", exc)
 
     _MEM_LISTINGS[(uid, listing_id)] = updated_listing
     _MEM_LISTING_INDEX[listing_id] = uid
     _MEM_PUBLISHED[listing_id] = public_card
+
+    if uid in _MEM_ARTISANS and not was_published:
+        trade = _MEM_ARTISANS[uid].setdefault("tradeRecord", {})
+        trade["listings"] = int(trade.get("listings") or 0) + 1
 
     record_event(uid=uid, listing_id=listing_id, kind="listing.signed", payload={"signature": signing_meta.get("signature")}, settings=settings)
     record_event(uid=uid, listing_id=listing_id, kind="listing.published", payload={"qrUrl": signing_meta.get("qr_url")}, settings=settings)
@@ -658,3 +725,195 @@ def bootstrap_firestore_catalog(settings: Settings | None = None) -> dict[str, A
     log.info("Bootstrapped %d listings and %d artisans to Firestore", count_listings, count_artisans)
     return {"artisans": count_artisans, "listings": count_listings, "mode": "firestore"}
 
+
+# ---------------------------------------------------------------------------
+# Sales + Trade Record
+# ---------------------------------------------------------------------------
+
+
+def save_sale(
+    *,
+    uid: str,
+    listing_id: str,
+    amount: float,
+    settings: Settings | None = None,
+    extra: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    listing = get_listing(listing_id, uid=uid, settings=settings) or {}
+    fields = listing.get("fields") or {}
+    colours = fields.get("colour") or []
+    if isinstance(colours, str):
+        colours = [colours]
+    colour = colours[0] if colours else ""
+    sale_id = str(uuid.uuid4())
+    now_iso = datetime.now(timezone.utc).isoformat()
+    rec = None
+    prices = listing.get("prices") or {}
+    if isinstance(prices, dict):
+        rec = (prices.get("recommended") or {}).get("value")
+    sale: dict[str, Any] = {
+        "id": sale_id,
+        "artisanId": uid,
+        "listingId": listing_id,
+        "craft": listing.get("craft") or fields.get("craft") or "",
+        "colour": colour,
+        "cluster": listing.get("cluster") or "varanasi",
+        "amount": float(amount),
+        "recommended": rec,
+        "confirmedAt": now_iso,
+        **(extra or {}),
+    }
+    db = get_firestore_client(settings)
+    if db is not None:
+        try:
+            db.collection("sales").document(sale_id).set(sale)
+            art_ref = db.collection("artisans").document(uid)
+            art_snap = art_ref.get()
+            if art_snap.exists:
+                trade_record = (art_snap.to_dict() or {}).get("tradeRecord", {})
+                trade_record["sales"] = int(trade_record.get("sales") or 0) + 1
+                art_ref.update({"tradeRecord": trade_record})
+        except Exception as exc:
+            log.warning("Firestore save_sale failed: %s", exc)
+
+    _MEM_SALES[sale_id] = sale
+    if uid in _MEM_ARTISANS:
+        trade = _MEM_ARTISANS[uid].setdefault("tradeRecord", {})
+        trade["sales"] = int(trade.get("sales") or 0) + 1
+    record_event(
+        uid=uid,
+        listing_id=listing_id,
+        kind="sale.confirmed",
+        payload={"amount": amount, "saleId": sale_id},
+        settings=settings,
+    )
+    return sale
+
+
+def list_artisan_sales(uid: str, settings: Settings | None = None) -> list[dict[str, Any]]:
+    items: list[dict[str, Any]] = []
+    db = get_firestore_client(settings)
+    if db is not None:
+        try:
+            docs = (
+                db.collection("sales")
+                .where("artisanId", "==", uid)
+                .order_by("confirmedAt", direction="DESCENDING")
+                .stream()
+            )
+            for d in docs:
+                m = d.to_dict() or {}
+                m["id"] = d.id
+                items.append(m)
+        except Exception as exc:
+            log.warning("Firestore list_artisan_sales failed: %s", exc)
+    if not items:
+        items = [s for s in _MEM_SALES.values() if s.get("artisanId") == uid]
+        items.sort(key=lambda x: str(x.get("confirmedAt", "")), reverse=True)
+    return items
+
+
+def list_all_sales(settings: Settings | None = None) -> list[dict[str, Any]]:
+    items: list[dict[str, Any]] = []
+    db = get_firestore_client(settings)
+    if db is not None:
+        try:
+            docs = db.collection("sales").stream()
+            for d in docs:
+                m = d.to_dict() or {}
+                m["id"] = d.id
+                items.append(m)
+        except Exception as exc:
+            log.warning("Firestore list_all_sales failed: %s", exc)
+    if not items:
+        items = list(_MEM_SALES.values())
+    return items
+
+
+def compute_trade_record(uid: str, settings: Settings | None = None) -> dict[str, Any]:
+    """Five unlock bars. Never labelled a credit score."""
+    artisan = get_artisan(uid, settings=settings) or {}
+    listings = list_artisan_listings(uid, settings=settings)
+    published = [item for item in listings if item.get("status") == "published"]
+    sales = list_artisan_sales(uid, settings=settings)
+    pehchan = artisan.get("pehchan") or {}
+    consent = bool(artisan.get("consentAt"))
+    identity = 5 if (pehchan.get("id") and consent) else (3 if (pehchan.get("id") or consent) else (1 if artisan.get("phone") else 0))
+    listing_bar = min(5, len(published))
+    sales_bar = min(5, len(sales))
+
+    latest = published[0].get("updatedAt") or published[0].get("signedAt") if published else None
+    consistency = 0
+    if latest:
+        try:
+            ts = datetime.fromisoformat(str(latest).replace("Z", "+00:00"))
+            age_days = (datetime.now(timezone.utc) - ts).days
+            if age_days <= 7:
+                consistency = 5
+            elif age_days <= 30:
+                consistency = 3
+            else:
+                consistency = 1
+        except ValueError:
+            consistency = 1 if published else 0
+    community = 5 if len(published) >= 2 else (3 if published else 0)
+
+    record = {
+        "identity": identity,
+        "listings": listing_bar,
+        "sales": sales_bar,
+        "consistency": consistency,
+        "community": community,
+        "counts": {
+            "published": len(published),
+            "sales": len(sales),
+            "drafts": len([item for item in listings if item.get("status") == "draft"]),
+        },
+        "label": "Trade Record",
+    }
+    update_artisan(uid, {"tradeRecord": {
+        "identity": identity,
+        "listings": len(published),
+        "sales": len(sales),
+        "consistency": consistency,
+        "community": community,
+    }}, settings=settings)
+    return record
+
+
+# ---------------------------------------------------------------------------
+# Public trends
+# ---------------------------------------------------------------------------
+
+
+def save_public_trends(
+    payload: dict[str, Any],
+    window_id: str = "current",
+    settings: Settings | None = None,
+) -> dict[str, Any]:
+    doc = {**payload, "windowId": window_id}
+    db = get_firestore_client(settings)
+    if db is not None:
+        try:
+            db.collection("public_trends").document(window_id).set(doc)
+        except Exception as exc:
+            log.warning("Firestore save_public_trends failed: %s", exc)
+    _MEM_TRENDS[window_id] = doc
+    return doc
+
+
+def get_public_trends(
+    window_id: str = "current",
+    settings: Settings | None = None,
+) -> dict[str, Any] | None:
+    db = get_firestore_client(settings)
+    if db is not None:
+        try:
+            snap = db.collection("public_trends").document(window_id).get()
+            if snap.exists:
+                data = snap.to_dict() or {}
+                data["windowId"] = window_id
+                return data
+        except Exception as exc:
+            log.warning("Firestore get_public_trends failed: %s", exc)
+    return _MEM_TRENDS.get(window_id)

@@ -48,7 +48,6 @@ export function LandingPage() {
       };
       root.addEventListener("pointermove", onPointerMove);
       gsap.to(collage, { y: -4, duration: 7, repeat: -1, yoyo: true, ease: "sine.inOut" });
-      gsap.to(".hero-sun", { scale: 1.08, duration: 4, repeat: -1, yoyo: true, ease: "sine.inOut" });
       return () => root.removeEventListener("pointermove", onPointerMove);
     }, root);
     return () => context.revert();
@@ -59,12 +58,11 @@ export function LandingPage() {
       <section className="hero-reference" aria-labelledby="hero-title">
         <div className="hero-reference-bg" aria-hidden="true" />
         <div className="hero-landscape" aria-hidden="true"><Image src="/assets/heroes/KS-Hero-2.png" alt="" width={2162} height={727} priority /></div>
-        <div className="hero-collage" aria-hidden="true"><Image src="/assets/heroes/KS-Hero.png" alt="" width={1374} height={1145} priority /></div>
-        <div className="hero-sun" aria-hidden="true" />
+        <div className="hero-collage" aria-hidden="true"><Image src="/assets/heroes/KS-Hero-transparent.png" alt="" width={1374} height={1145} priority /></div>
         <div className="hero-reference-copy">
           <span className="hero-eyebrow landing-reveal">Real people. Real progress.</span>
-          <h1 id="hero-title" className="landing-reveal">Empowering Artisans. Enabling Futures.</h1>
-          <p className="landing-reveal">KalaSetu helps you showcase your work, get listed on leading platforms, and grow your craft business with a strong support system.</p>
+          <h1 id="hero-title" className="landing-reveal"><span>List your craft</span><span>in your own</span><span>language.</span></h1>
+          <p className="landing-reveal">Speak about one product, keep the story yours, and turn a phone photo into a clear listing you can share.</p>
           <Link className="button-primary landing-reveal" href="/language">Enter as an Artisan <span aria-hidden="true">→</span></Link>
         </div>
         <div className="hero-reference-words landing-reveal" aria-hidden="true">
@@ -72,7 +70,6 @@ export function LandingPage() {
           <i />
           <span>A kinder</span><span>A brighter</span><span>tomorrow</span>
         </div>
-        <div className="hero-script" aria-hidden="true">Local<br />Craft<br /><em>Global</em><br />Opportunities</div>
       </section>
 
       <section className="partner-section" id="how-it-works" aria-labelledby="partner-title">
@@ -92,6 +89,7 @@ export function LandingPage() {
           ))}
         </div>
         <div className="hand-script" aria-hidden="true">Same<br />Hands.<br />New<br />Horizons.</div>
+        <div className="woven-ornament partner-ornament" aria-hidden="true"><span /><span /><span /><span /><span /><span /><span /><span /><span /></div>
       </section>
 
       <section className="feature-section" id="for-artisans" aria-labelledby="feature-title">
@@ -130,6 +128,7 @@ export function LandingPage() {
           ))}
           <Link className="many-crafts" href="/market">Many<br />Crafts.<br />One<br />Stronger<br />India. <span aria-hidden="true">→</span></Link>
         </div>
+        <div className="woven-ornament stories-ornament" aria-hidden="true"><span /><span /><span /><span /><span /><span /><span /><span /><span /></div>
       </section>
 
       <section className="impact-section" aria-labelledby="impact-title">
@@ -147,21 +146,22 @@ export function LandingPage() {
           <div><strong>1</strong><span>Stronger artisan community</span></div>
           <blockquote>“Craft is not just what we make, but the opportunities it creates.”</blockquote>
         </div>
+        <div className="woven-ornament impact-ornament" aria-hidden="true"><span /><span /><span /><span /><span /><span /><span /><span /><span /></div>
       </section>
 
       <section className="join-section" aria-labelledby="join-title">
         <Image src="/assets/Landing-Support.png" alt="" width={2048} height={768} />
         <div className="join-copy">
           <span className="section-mark">Ready to take your craft further?</span>
-          <h2 id="join-title">Join KalaSetu Today</h2>
-          <p>Get listed, reach new markets, and be part of a growing community of artisans across India.</p>
+          <h2 id="join-title">Try the artisan workspace</h2>
+          <p>Start with one product. KalaSetu helps you capture, describe, price, and share it with care.</p>
           <Link className="button-secondary" href="/language">Enter as an Artisan <span aria-hidden="true">→</span></Link>
         </div>
         <div className="join-points"><span>Simple onboarding</span><span>Real support</span><span>Bigger opportunities</span></div>
       </section>
 
       <footer className="landing-footer">
-        <div className="footer-brand"><Image src="/assets/brand/logo.jpeg" alt="KalaSetu" width={142} height={73} /><span>A kinder, a brighter tomorrow.</span></div>
+        <div className="footer-brand"><Image src="/assets/brand/logo-transparent.png" alt="KalaSetu" width={1141} height={535} /><span>A kinder, a brighter tomorrow.</span><Link className="footer-cta" href="/language">Enter as Artisan <span aria-hidden="true">→</span></Link></div>
         <div><strong>Explore</strong><Link href="/#how-it-works">How it works</Link><Link href="/insights">Success stories</Link><Link href="/market">Resources</Link><Link href="/about">About</Link></div>
         <div><strong>Support</strong><Link href="/settings">Help center</Link><Link href="/market">Contact</Link><Link href="/insights">Community</Link><Link href="/settings">Feedback</Link></div>
         <div><strong>Legal</strong><Link href="/settings">Privacy policy</Link><Link href="/settings">Terms of service</Link><Link href="/settings">Accessibility</Link></div>

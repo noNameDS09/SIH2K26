@@ -8,20 +8,27 @@ import { useState } from "react";
 export function SiteHeader() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const workspaceRoutes = ["/language", "/otp", "/onboarding", "/capture", "/studio", "/live", "/intelligence", "/pricing", "/approval", "/distribute", "/shop", "/money", "/insights", "/settings"];
+
+  if (workspaceRoutes.includes(pathname)) return null;
 
   return (
     <header className={`site-header${open ? " is-open" : ""}`}>
       <Link className="brand-lockup" href="/" aria-label="KalaSetu home" onClick={() => setOpen(false)}>
-        <Image src="/assets/brand/logo.jpeg" alt="KalaSetu" width={142} height={73} priority />
+        <Image src="/assets/brand/logo-transparent.png" alt="KalaSetu" width={1141} height={535} priority />
       </Link>
       <nav className="site-nav" aria-label="Primary navigation">
-        <Link href="/market" aria-current={pathname === "/market" ? "page" : undefined} onClick={() => setOpen(false)}>The collection</Link>
         <Link href="/#how-it-works" onClick={() => setOpen(false)}>How it works</Link>
-        <Link href="/#for-artisans" onClick={() => setOpen(false)}>For artisans</Link>
+        <Link href="/insights" aria-current={pathname === "/insights" ? "page" : undefined} onClick={() => setOpen(false)}>Success stories</Link>
+        <Link href="/market" aria-current={pathname === "/market" ? "page" : undefined} onClick={() => setOpen(false)}>Resources</Link>
+        <Link href="/about" aria-current={pathname === "/about" ? "page" : undefined} onClick={() => setOpen(false)}>About</Link>
       </nav>
       <div className="header-actions">
-        <Link className="language-chip" href="/language" onClick={() => setOpen(false)}>EN / हिं</Link>
-        <Link className="header-link" href="/language" onClick={() => setOpen(false)}>Artisan access</Link>
+        <Link className="language-chip" href="/language" onClick={() => setOpen(false)}>English⌄</Link>
+        <button className="header-search" type="button" aria-label="Search">
+          <svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="10.8" cy="10.8" r="6.6" /><path d="m16 16 5 5" /></svg>
+        </button>
+        <Link className="header-link" href="/language" onClick={() => setOpen(false)}>Enter as Artisan <span aria-hidden="true">→</span></Link>
       </div>
       <button className="menu-toggle" type="button" aria-label={open ? "Close menu" : "Open menu"} aria-expanded={open} onClick={() => setOpen((current) => !current)}>
         <span />

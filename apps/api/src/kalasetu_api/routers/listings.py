@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from typing import Any
 
-from fastapi import APIRouter, Depends, Header, HTTPException, status
+from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, UploadFile, status
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
@@ -16,12 +16,11 @@ from kalasetu_api.adapters.firebase import (
     record_event,
     save_listing,
 )
-from kalasetu_api.config import get_settings
 from kalasetu_api.demo_store import build_price_for
-from kalasetu_api.deps import current_uid, require_bearer
+from kalasetu_api.deps import current_uid
 from kalasetu_api.engines.pricing import compute_prices
 from kalasetu_api.engines.signing import sign_listing_payload
-from kalasetu_api.listing_media import listing_image_url, media_bytes, media_jpeg
+from kalasetu_api.listing_media import listing_image_url, media_bytes, media_jpeg, put_audio_media
 
 router = APIRouter(tags=["listings"])
 
@@ -299,6 +298,12 @@ async def sign_listing(
 
     # Publish to publishedListings collection and artisan record
     publish_listing_doc(uid=uid, listing_id=listing_id, signing_meta=signing_meta)
+    try:
+        from kalasetu_api.engines.trends import recompute_public_trends
+
+        recompute_public_trends()
+    except Exception:
+        pass
 
     return {
         "listing_id": listing_id,
@@ -384,15 +389,30 @@ async def listing_media(listing_id: str, kind: str) -> Response:
     return Response(content=jpeg, media_type="image/jpeg")
 
 
-@router.post("/v1/trends/recompute")
-async def recompute_trends(x_admin_token: str | None = Header(default=None)) -> dict:
-    settings = get_settings()
-    if not settings.admin_api_token or x_admin_token != settings.admin_api_token:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Admin token required")
-    return {
-        "ok": True,
-        "n": 2,
-        "seed": True,
-        "window": "current",
-        "source": "trend-agg.v1",
-    }
+@router.post("/v1/listings/{listing_id}/media")
+async def upload_listing_media(
+    listing_id: str,
+    file: UploadFile = File(...),
+    kind: str = Form("audio"),
+    uid: str = Depends(current_uid),
+) -> dict:
+    listing = get_listing(listing_id, uid=uid)
+    if listing is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Listing not found")
+    data = await file.read()
+    if not data:
+        raise HTTPException(status_code=400, detail="Empty file")
+    name = (kind or "audio").strip().lower()
+    filename = file.filename or "audio.opus"
+    if name in ("audio", "audio.opus"):
+        url = put_audio_media(
+            listing_id,
+            data,
+            uid=uid,
+            filename="audio.opus",
+            content_type=file.content_type or "audio/opus",
+        )
+        save_listing(uid=uid, listing_id=listing_id, data={"audioUrl": url})
+        record_event(uid=uid, listing_id=listing_id, kind="media.captured", payload={"kind": "audio"})
+        return {"ok": True, "kind": "audio", "url": url, "filename": "audio.opus"}
+    raise HTTPException(status_code=400, detail="Only kind=audio is accepted here; photos go through /v1/images/enhance")

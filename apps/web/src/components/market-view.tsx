@@ -14,6 +14,7 @@ const fallbackItems: CatalogItem[] = [
 
 export function MarketView() {
   const [items, setItems] = useState(fallbackItems);
+  const [demoMode, setDemoMode] = useState(true);
 
   useEffect(() => {
     const api = process.env.NEXT_PUBLIC_API_BASE_URL;
@@ -29,9 +30,9 @@ export function MarketView() {
           description: String(item.description ?? "A published KalaSetu listing."),
           image: String(item.image_url ?? item.photo_url ?? "/assets/Landing-Support.png"),
         }));
-        if (nextItems.length) setItems(nextItems);
+        if (nextItems.length) { setItems(nextItems); setDemoMode(false); }
       })
-      .catch(() => undefined);
+      .catch(() => setDemoMode(true));
   }, []);
 
   return (
@@ -40,6 +41,7 @@ export function MarketView() {
         <div><span className="section-mark">The KalaSetu show catalog</span><h1>Made to be found.</h1></div>
         <p>A living collection of craft, material, and the people who carry each tradition forward.</p>
       </section>
+      {demoMode && <div className="market-demo-note" role="status"><strong>Demo catalog</strong><span>The live catalog API is unavailable, so these preview cards are clearly marked and are not publishable records.</span></div>}
       <div className="market-toolbar" aria-label="Catalog filters"><span className="filter-chip">All craft</span><span className="filter-chip">All regions</span><span className="filter-chip">Verified records</span></div>
       <section className="catalog-grid" aria-label="Published craft listings">
         {items.map((item) => (

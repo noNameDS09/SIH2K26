@@ -65,6 +65,7 @@ def verify_otp(body: VerifyRequest) -> dict:
 
     # Mint Firebase custom token if Firebase Admin credentials are ready
     custom_token = mint_custom_token(uid, settings=settings)
+    firebase_ready = bool(custom_token)
 
     return {
         "ok": True,
@@ -72,6 +73,8 @@ def verify_otp(body: VerifyRequest) -> dict:
         "phone": artisan.get("phone", normalize_phone(body.phone)),
         "token": f"dev.{uid}",
         "firebase_custom_token": custom_token,
+        "firebase_ready": firebase_ready,
+        "auth_mode": "firebase" if firebase_ready else "dev",
         "artisan": artisan,
         "label": "Mock — for SIH demo",
     }
