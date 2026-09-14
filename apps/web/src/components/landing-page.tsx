@@ -61,8 +61,8 @@ export function LandingPage() {
         <div className="hero-collage" aria-hidden="true"><Image src="/assets/heroes/KS-Hero-transparent.png" alt="" width={1374} height={1145} priority /></div>
         <div className="hero-reference-copy">
           <span className="hero-eyebrow landing-reveal">Real people. Real progress.</span>
-          <h1 id="hero-title" className="landing-reveal"><span>List your craft</span><span>in your own</span><span>language.</span></h1>
-          <p className="landing-reveal">Speak about one product, keep the story yours, and turn a phone photo into a clear listing you can share.</p>
+          <h1 id="hero-title" className="landing-reveal"><span>Empowering</span><span>Artisans.</span><span>Enabling Futures.</span></h1>
+          <p className="landing-reveal">KalaSetu helps you showcase your work, get listed on leading platforms, and grow your craft business with a strong support system.</p>
           <Link className="button-primary landing-reveal" href="/language">Enter as an Artisan <span aria-hidden="true">→</span></Link>
         </div>
         <div className="hero-reference-words landing-reveal" aria-hidden="true">
