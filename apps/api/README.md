@@ -24,7 +24,7 @@ Ensure the key environment variables in `.env` are configured:
 ```dotenv
 # Port & Host
 PUBLIC_BASE_URL=http://localhost:8000
-CORS_ORIGINS=http://localhost:3000,http://127.0.0.1:3000,http://localhost:8501
+CORS_ORIGINS=http://localhost:3000,http://127.0.0.1:3000,http://localhost:8501,http://localhost:8080,http://127.0.0.1:8080
 
 # Secrets
 LISTING_HMAC_SECRET=your-random-32-byte-hex-secret
@@ -49,7 +49,7 @@ From the repository root:
 ```bash
 cd apps/api
 
-# Create & activate a virtual environment (Python 3.12+)
+# Create & activate a virtual environment (Python 3.11+)
 python3 -m venv .venv
 source .venv/bin/activate
 

@@ -123,12 +123,12 @@ class _Screen5OutwardState extends State<Screen5Outward> {
             children: [
               KsAppHeader(
                 title: 'KalaSetu',
-                onBack: () => Navigator.of(context).maybePop(),
+                onBack: () => context.go(AppRoutes.approval),
               ),
               const SizedBox(height: 12),
               const KsProgressBar(
-                current: 5,
-                total: 5,
+                currentStep: 5,
+                totalSteps: 5,
                 label: 'STAGE 5 — OUTWARD MULTI-CHANNEL DISTRIBUTION',
               ),
               const SizedBox(height: 18),
@@ -145,7 +145,7 @@ class _Screen5OutwardState extends State<Screen5Outward> {
                 ),
               ),
               const SizedBox(height: 8),
-              Text(KsStrings.publishedSubtitle, style: KsTextStyles.body),
+              Text(KsStrings.of(context).publishedSubtitle, style: KsTextStyles.body()),
               const SizedBox(height: 14),
               KsCard(child: _ListingCard(onTap: () => _showInfo('Published Listing', 'This listing is live across 3 verified buyer networks.'))),
               const SizedBox(height: 16),
@@ -300,7 +300,7 @@ class _Screen5OutwardState extends State<Screen5Outward> {
                     KsActionButton(
                       label: 'Create Another Product +',
                       icon: Icons.add_circle_outline,
-                      onPressed: () => context.go(AppRoutes.approval),
+                      onPressed: () => context.go(AppRoutes.capture),
                     ),
                   ],
                 ),

@@ -4,7 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:provider/provider.dart';
 import 'package:record/record.dart';
+import 'l10n/locale_provider.dart';
 import '../services/api_service.dart';
 
 class OnboardingScreen extends StatefulWidget {
@@ -46,10 +48,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   // ── Card scanning ──────────────────────────────────────────────────────────
 
   Future<void> _scanCard() async {
+    // Show choice dialog
+    final source = await _showSourceDialog();
+    if (source == null || !mounted) return;
     try {
-      // On mobile this opens the camera; on web it shows a file picker
       final photo = await _picker.pickImage(
-        source: ImageSource.gallery,
+        source: source,
         maxWidth: 1920,
         maxHeight: 1920,
         imageQuality: 90,
@@ -58,10 +62,62 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       final bytes = await photo.readAsBytes();
       if (!mounted) return;
       setState(() => _cardImageBytes = bytes);
-      _showSnack('Card scanned — demo extraction shown below');
+      _showSnack('Card scanned successfully');
     } catch (_) {
-      if (mounted) _showSnack('Camera / gallery unavailable');
+      // On web, camera may fail — try gallery as fallback
+      if (source == ImageSource.camera) {
+        try {
+          final photo = await _picker.pickImage(source: ImageSource.gallery);
+          if (photo == null || !mounted) return;
+          final bytes = await photo.readAsBytes();
+          if (!mounted) return;
+          setState(() => _cardImageBytes = bytes);
+          _showSnack('Card uploaded');
+        } catch (_) {
+          if (mounted) _showSnack('Camera / gallery unavailable');
+        }
+      } else {
+        if (mounted) _showSnack('Camera / gallery unavailable');
+      }
     }
+  }
+
+  Future<ImageSource?> _showSourceDialog() async {
+    return showModalBottomSheet<ImageSource>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 8),
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: const Color(0xFFD9C9C0),
+                borderRadius: BorderRadius.circular(4),
+              ),
+            ),
+            const SizedBox(height: 16),
+            ListTile(
+              leading: const Icon(Icons.camera_alt_outlined,
+                  color: Color(0xFF9F3C07)),
+              title: const Text('Open Camera'),
+              onTap: () => Navigator.pop(ctx, ImageSource.camera),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined,
+                  color: Color(0xFF9F3C07)),
+              title: const Text('Upload from Gallery'),
+              onTap: () => Navigator.pop(ctx, ImageSource.gallery),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
   }
 
   // ── Voice consent recording ────────────────────────────────────────────────
@@ -103,6 +159,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   Future<void> _stopConsentRecording() async {
     if (!mounted) return;
+    final locale = context.read<LocaleProvider>().locale;
     setState(() {
       _isRecordingConsent = false;
       _consentVerifying = true;
@@ -115,7 +172,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
     if (_pcmChunks.isNotEmpty) {
       final wav = _buildWav(_pcmChunks);
-      final transcript = await ApiService.transcribeAudio(wav, 'hi-IN');
+      final sarvamCode = _toSarvamCode(locale.languageCode);
+      final transcript = await ApiService.transcribeAudio(wav, sarvamCode);
       if (!mounted) return;
       // Any non-trivial speech counts as consent (liveness check)
       final verified = transcript.trim().length > 2;
@@ -137,6 +195,25 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       });
       _showSnack('✓ Demo consent granted');
     }
+  }
+
+  static String _toSarvamCode(String langCode) {
+    const map = {
+      'en': 'en-IN',
+      'hi': 'hi-IN',
+      'mr': 'mr-IN',
+      'ta': 'ta-IN',
+      'te': 'te-IN',
+      'kn': 'kn-IN',
+      'bn': 'bn-IN',
+      'gu': 'gu-IN',
+      'pa': 'pa-IN',
+      'ml': 'ml-IN',
+      'as': 'as-IN',
+      'or': 'od-IN',
+      'ur': 'ur-IN',
+    };
+    return map[langCode] ?? 'hi-IN';
   }
 
   static Uint8List _buildWav(List<Uint8List> chunks,
@@ -183,8 +260,37 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     );
   }
 
+  static String _proceedText(String langCode) {
+    switch (langCode) {
+      case 'hi':
+        return 'सहेजें और आगे बढ़ें / Save & Proceed';
+      case 'mr':
+        return 'जतन करा आणि पुढे जा / Save & Proceed';
+      case 'ta':
+        return 'சேமி தொடரவும் / Save & Proceed';
+      case 'te':
+        return 'సేవ్ చేసి కొనసాగించు / Save & Proceed';
+      case 'kn':
+        return 'ಉಳಿಸಿ ಮುಂದುವರಿಸಿ / Save & Proceed';
+      case 'bn':
+        return 'সংরক্ষণ করুন / Save & Proceed';
+      case 'gu':
+        return 'સાચવો અને આગળ વધો / Save & Proceed';
+      case 'pa':
+        return 'ਸੁਰੱਖਿਅਤ ਕਰੋ ਅਤੇ ਅੱਗੇ ਵਧੋ / Save & Proceed';
+      case 'ml':
+        return 'സേവ് ചെയ്ത് തുടരുക / Save & Proceed';
+      default:
+        return 'Save & Proceed to Product Capture';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final langCode =
+        context.read<LocaleProvider>().locale.languageCode;
+    final buttonText = _proceedText(langCode);
+
     return Scaffold(
       backgroundColor: const Color(0xFFFEF8F4),
       body: SafeArea(
@@ -264,7 +370,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   ),
                   icon: const Icon(Icons.arrow_forward_rounded, size: 18),
                   label: Text(
-                    'Save & Proceed to Product Capture',
+                    buttonText,
                     style: GoogleFonts.plusJakartaSans(
                         fontSize: 12, fontWeight: FontWeight.w700),
                   ),

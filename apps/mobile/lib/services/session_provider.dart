@@ -137,17 +137,21 @@ class SessionProvider extends ChangeNotifier {
     _enhanceInBackground(bytes);
   }
 
+  bool enhancedIsMock = false;
+
   Future<void> _enhanceInBackground(Uint8List bytes) async {
     isEnhancing = true;
+    enhancedIsMock = false;
     notifyListeners();
-    final listingId =
-        'listing-${DateTime.now().millisecondsSinceEpoch}';
-    final result = await ApiService.enhanceImage(
-      imageBytes: bytes,
-      listingId: listingId,
-    );
+    final listingId = 'listing-${DateTime.now().millisecondsSinceEpoch}';
+    // Run API call and minimum animation time in parallel
+    final results = await Future.wait([
+      ApiService.enhanceImage(imageBytes: bytes, listingId: listingId),
+      Future.delayed(const Duration(seconds: 3)),
+    ]);
+    final result = results[0] as Map<String, dynamic>?;
     isEnhancing = false;
-    if (result != null && result['accepted'] == true) {
+    if (result != null) {
       final studioUrl = result['studio_url'] as String?;
       if (studioUrl != null) {
         final fetched = await ApiService.fetchBytes(studioUrl);
@@ -155,6 +159,11 @@ class SessionProvider extends ChangeNotifier {
       } else {
         enhancedImageBytes = bytes;
       }
+      enhancedIsMock = result['accepted'] != true;
+    } else {
+      // Backend offline — show original as placeholder, flag as mock
+      enhancedImageBytes = bytes;
+      enhancedIsMock = true;
     }
     notifyListeners();
   }

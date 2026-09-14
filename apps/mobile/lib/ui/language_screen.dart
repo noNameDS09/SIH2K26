@@ -13,18 +13,29 @@ class LanguageScreen extends StatefulWidget {
 
 class _LanguageScreenState extends State<LanguageScreen> {
   static const _languages = <_Language>[
-    _Language('English',   'English',   'en', 'Continue in English  →'),
-    _Language('Hindi',     'हिन्दी',     'hi', 'हिंदी में जारी रखें  →'),
-    _Language('Marathi',   'मराठी',     'mr', 'मराठीत सुरू ठेवा  →'),
-    _Language('Tamil',     'தமிழ்',     'ta', 'தமிழில் தொடரவும்  →'),
-    _Language('Telugu',    'తెలుగు',    'te', 'తెలుగులో కొనసాగించు  →'),
-    _Language('Kannada',   'ಕನ್ನಡ',     'kn', 'ಕನ್ನಡದಲ್ಲಿ ಮುಂದುವರಿಸಿ  →'),
-    _Language('Bengali',   'বাংলা',     'bn', 'বাংলায় চালিয়ে যান  →'),
-    _Language('Gujarati',  'ગુજરાતી',   'gu', 'ગુજરાતીમાં આગળ વધો  →'),
-    _Language('Punjabi',   'ਪੰਜਾਬੀ',   'pa', 'ਪੰਜਾਬੀ ਵਿੱਚ ਜਾਰੀ ਰੱਖੋ  →'),
-    _Language('Malayalam', 'മലയാളം',   'ml', 'മലയാളത്തിൽ തുടരുക  →'),
-    _Language('Assamese',  'অসমীয়া',  'as', 'অসমীয়াত আগবাঢ়ক  →'),
-    _Language('Odia',      'ଓଡ଼ିଆ',    'or', 'ଓଡ଼ିଆରେ ଜାରି ରଖ  →'),
+    _Language('English',   'English',      'en',  'Continue in English  →'),
+    _Language('Hindi',     'हिन्दी',        'hi',  'हिंदी में जारी रखें  →'),
+    _Language('Marathi',   'मराठी',        'mr',  'मराठीत सुरू ठेवा  →'),
+    _Language('Tamil',     'தமிழ்',        'ta',  'தமிழில் தொடரவும்  →'),
+    _Language('Telugu',    'తెలుగు',       'te',  'తెలుగులో కొనసాగించు  →'),
+    _Language('Kannada',   'ಕನ್ನಡ',        'kn',  'ಕನ್ನಡದಲ್ಲಿ ಮುಂದುವರಿಸಿ  →'),
+    _Language('Bengali',   'বাংলা',        'bn',  'বাংলায় চালিয়ে যান  →'),
+    _Language('Gujarati',  'ગુજરાતી',      'gu',  'ગુજરાતીમાં આગળ વધો  →'),
+    _Language('Punjabi',   'ਪੰਜਾਬੀ',      'pa',  'ਪੰਜਾਬੀ ਵਿੱਚ ਜਾਰੀ ਰੱਖੋ  →'),
+    _Language('Malayalam', 'മലയാളം',      'ml',  'മലയാളത്തിൽ തുടരുക  →'),
+    _Language('Assamese',  'অসমীয়া',     'as',  'অসমীয়াত আগবাঢ়ক  →'),
+    _Language('Odia',      'ଓଡ଼ିଆ',       'or',  'ଓଡ଼ିଆରେ ଜାରି ରଖ  →'),
+    _Language('Urdu',      'اُردُو',        'ur',  'اردو میں جاری رکھیں →'),
+    _Language('Maithili',  'मैथिली',       'mai', 'मैथिलीमे आगू बढ़ू →'),
+    _Language('Santali',   'संताली',       'sat', 'संतालीरे आगे बढ़ →'),
+    _Language('Kashmiri',  'कॉशुर',        'ks',  'कॉशुरमें जारी रखें →'),
+    _Language('Nepali',    'नेपाली',       'ne',  'नेपालीमा जारी राख्नुस् →'),
+    _Language('Sindhi',    'سنڌي',         'sd',  'سنڌيءَ ۾ جاري رکو →'),
+    _Language('Dogri',     'डोगरी',        'doi', 'डोगरीच जारी रखो →'),
+    _Language('Manipuri',  'মৈতৈলোন্',    'mni', 'মৈতৈলোন্দা লৈবাক্ →'),
+    _Language('Bodo',      'बड़ो',          'brx', 'बड़ो खोनफ्रनाय →'),
+    _Language('Sanskrit',  'संस्कृतम्',    'sa',  'संस्कृते अग्रे गच्छ →'),
+    _Language('Konkani',   'कोंकणी',       'kok', 'कोंकणींत पुडे वच →'),
   ];
 
   _Language _selectedLanguage = _languages.first;
@@ -238,9 +249,6 @@ class _ContinueBar extends StatelessWidget {
 
   final _Language language;
 
-  // Locales with full app translation support
-  static const _supportedLocales = {'en', 'hi', 'mr', 'kn'};
-
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -257,12 +265,7 @@ class _ContinueBar extends StatelessWidget {
         height: 52,
         child: FilledButton(
           onPressed: () {
-            final localeCode = _supportedLocales.contains(language.localeCode)
-                ? language.localeCode
-                : 'en';
-            context
-                .read<LocaleProvider>()
-                .setLocale(Locale(localeCode));
+            context.read<LocaleProvider>().setLocale(Locale(language.localeCode));
             context.go('/onboarding');
           },
           style: FilledButton.styleFrom(

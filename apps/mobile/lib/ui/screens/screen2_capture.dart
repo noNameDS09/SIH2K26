@@ -11,6 +11,7 @@ import '../theme/ks_text_styles.dart';
 import '../widgets/ks_app_header.dart';
 import '../widgets/ks_progress_bar.dart';
 import '../l10n/ks_strings.dart';
+import '../l10n/locale_provider.dart';
 
 class Screen2Capture extends StatefulWidget {
   const Screen2Capture({super.key});
@@ -33,6 +34,16 @@ class _Screen2CaptureState extends State<Screen2Capture> {
     });
   }
 
+  String get _sarvamLangCode {
+    final langCode = context.read<LocaleProvider>().locale.languageCode;
+    const map = {
+      'en': 'en-IN', 'hi': 'hi-IN', 'mr': 'mr-IN', 'ta': 'ta-IN',
+      'te': 'te-IN', 'kn': 'kn-IN', 'bn': 'bn-IN', 'gu': 'gu-IN',
+      'pa': 'pa-IN', 'ml': 'ml-IN', 'as': 'as-IN', 'or': 'od-IN', 'ur': 'ur-IN',
+    };
+    return map[langCode] ?? 'hi-IN';
+  }
+
   Future<void> _setImage(Uint8List bytes) async {
     setState(() => _localImageBytes = bytes);
     final provider = context.read<SessionProvider>();
@@ -43,9 +54,7 @@ class _Screen2CaptureState extends State<Screen2Capture> {
     try {
       final photo = await _picker.pickImage(
         source: ImageSource.camera,
-        maxWidth: 1920,
-        maxHeight: 1920,
-        imageQuality: 90,
+        maxWidth: 1920, maxHeight: 1920, imageQuality: 90,
       );
       if (photo == null || !mounted) return;
       final bytes = await photo.readAsBytes();
@@ -53,7 +62,17 @@ class _Screen2CaptureState extends State<Screen2Capture> {
       await _setImage(bytes);
       if (mounted) _showSnack(KsStrings.of(context).photoTaken);
     } catch (_) {
-      if (mounted) _showSnack(KsStrings.of(context).cameraUnavailable);
+      // On web, camera may not be available — fall back to gallery
+      try {
+        final photo = await _picker.pickImage(source: ImageSource.gallery);
+        if (photo == null || !mounted) return;
+        final bytes = await photo.readAsBytes();
+        if (!mounted) return;
+        await _setImage(bytes);
+        if (mounted) _showSnack(KsStrings.of(context).photoSelected);
+      } catch (_) {
+        if (mounted) _showSnack(KsStrings.of(context).cameraUnavailable);
+      }
     }
   }
 
@@ -83,13 +102,13 @@ class _Screen2CaptureState extends State<Screen2Capture> {
       return;
     }
     _setImage(bytes);
-    _showSnack('Requesting new enhancement…');
+    _showSnack(KsStrings.of(context).sampleLoaded);
   }
 
   Future<void> _toggleMic() async {
     final provider = context.read<SessionProvider>();
     if (provider.isRecording) {
-      await provider.stopRecordingAndSubmit(langCode: 'mr-IN');
+      await provider.stopRecordingAndSubmit(langCode: _sarvamLangCode);
     } else {
       await provider.startRecording();
     }
@@ -99,7 +118,7 @@ class _Screen2CaptureState extends State<Screen2Capture> {
     final provider = context.read<SessionProvider>();
     final question = provider.currentQuestion;
     if (question != null) {
-      await provider.speakText(question, langCode: 'mr-IN');
+      await provider.speakText(question, langCode: _sarvamLangCode);
     }
   }
 
@@ -121,7 +140,10 @@ class _Screen2CaptureState extends State<Screen2Capture> {
     return Consumer<SessionProvider>(
       builder: (context, provider, _) => Scaffold(
         backgroundColor: KsColors.background,
-        appBar: KsAppHeader(title: ks.productCapture),
+        appBar: KsAppHeader(
+          title: ks.productCapture,
+          onBack: () => context.go('/onboarding'),
+        ),
         body: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 20),
           child: Column(
@@ -386,7 +408,7 @@ class _CameraViewport extends StatelessWidget {
                         Text(retakeLabel, style: const TextStyle(color: Colors.white, fontSize: 9.5, fontWeight: FontWeight.w600)),
                       ]))
                     else
-                      _HudChip(child: const Text('4K 60FPS',
+                      _HudChip(child: const Text('Camera or Upload Below',
                           style: TextStyle(color: Colors.white, fontSize: 9.5, fontWeight: FontWeight.w600))),
                   ],
                 ),

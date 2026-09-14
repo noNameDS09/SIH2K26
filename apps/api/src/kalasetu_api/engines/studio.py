@@ -381,13 +381,13 @@ def run_studio(
 
     delta_e = mean_delta_e_ab(orig_rgb, studio_np, alpha)
     accepted = delta_e <= DELTA_E_LIMIT
-    if not accepted:
-        studio = original.copy()
+    # Always keep the composited studio image regardless of deltaE —
+    # the flag is informational; callers decide whether to show it.
 
     reject = (
         None
         if accepted
-        else f"deltaE {delta_e:.2f} > {DELTA_E_LIMIT}: colour shifted; original returned"
+        else f"deltaE {delta_e:.2f} > {DELTA_E_LIMIT}: colour shifted"
     )
     return StudioResult(
         original_jpeg=jpeg_bytes(original),

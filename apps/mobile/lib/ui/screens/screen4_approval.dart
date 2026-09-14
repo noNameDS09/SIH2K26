@@ -59,7 +59,7 @@ class _Screen4ApprovalState extends State<Screen4Approval> {
                 ],
               ),
               const SizedBox(height: 12),
-              Text(message, style: KsTextStyles.body),
+              Text(message, style: KsTextStyles.body()),
               const SizedBox(height: 16),
               SizedBox(
                 width: double.infinity,
@@ -139,12 +139,12 @@ class _Screen4ApprovalState extends State<Screen4Approval> {
             children: [
               KsAppHeader(
                 title: 'Artisan Approval',
-                onBack: () => Navigator.of(context).maybePop(),
+                onBack: () => context.go('/intelligence'),
               ),
               const SizedBox(height: 12),
               const KsProgressBar(
-                current: 4,
-                total: 5,
+                currentStep: 4,
+                totalSteps: 5,
                 label: 'STAGE 4 — ARTISAN APPROVAL & LISTING',
               ),
               const SizedBox(height: 22),
@@ -186,7 +186,7 @@ class _Screen4ApprovalState extends State<Screen4Approval> {
                 ],
               ),
               const SizedBox(height: 8),
-              Text(KsStrings.approvalSubtitle, style: KsTextStyles.body),
+              Text(KsStrings.of(context).approvalSubtitle, style: KsTextStyles.body()),
               const SizedBox(height: 16),
               Wrap(
                 spacing: 8,
@@ -433,7 +433,7 @@ class _ProvenanceCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Text('HERITAGE PROVENANCE STORY', style: KsTextStyles.label),
+              Text('HERITAGE PROVENANCE STORY', style: KsTextStyles.label()),
               const Spacer(),
               InkWell(
                 onTap: onListen,
@@ -448,7 +448,7 @@ class _ProvenanceCard extends StatelessWidget {
           const SizedBox(height: 7),
           Text(
             '“Woven painstakingly on a traditional pit-loom using fine mulberry silk warp and hand-spun zari motifs. Every woven motif reflects centuries of Malwa craftsmanship passed down through four unbroken generations.”',
-            style: KsTextStyles.body.copyWith(
+            style: KsTextStyles.body().copyWith(
               fontStyle: FontStyle.italic,
               color: KsColors.ink,
             ),
@@ -484,7 +484,7 @@ class _StatCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: KsTextStyles.label),
+          Text(label, style: KsTextStyles.label()),
           const SizedBox(height: 5),
           Text(value, style: KsTextStyles.section.copyWith(fontSize: 12)),
           Text(note, style: KsTextStyles.caption),

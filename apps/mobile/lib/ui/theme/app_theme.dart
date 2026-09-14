@@ -12,7 +12,7 @@ abstract final class AppTheme {
           surface: KsColors.background,
         ),
         textTheme: TextTheme(
-          bodyMedium: KsTextStyles.body,
+          bodyMedium: KsTextStyles.body(),
           titleMedium: KsTextStyles.section,
         ),
         splashFactory: InkSparkle.splashFactory,

@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../../services/session_provider.dart';
+import '../l10n/locale_provider.dart';
 import '../theme/ks_colors.dart';
 import '../theme/ks_text_styles.dart';
 import '../widgets/ks_app_header.dart';
@@ -25,10 +27,18 @@ class _Screen3IntelligenceState extends State<Screen3Intelligence> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
       final provider = context.read<SessionProvider>();
       // If cataloger isn't done yet, finalize with one more turn
       if (!provider.isDone) {
-        await provider.stopRecordingAndSubmit(langCode: 'mr-IN');
+        final locale = context.read<LocaleProvider>().locale;
+        const map = {
+          'en': 'en-IN', 'hi': 'hi-IN', 'mr': 'mr-IN', 'ta': 'ta-IN',
+          'te': 'te-IN', 'kn': 'kn-IN', 'bn': 'bn-IN', 'gu': 'gu-IN',
+          'pa': 'pa-IN', 'ml': 'ml-IN', 'as': 'as-IN', 'or': 'od-IN',
+        };
+        final code = map[locale.languageCode] ?? 'hi-IN';
+        await provider.stopRecordingAndSubmit(langCode: code);
       }
     });
   }
@@ -69,11 +79,21 @@ class _Screen3IntelligenceState extends State<Screen3Intelligence> {
 
   Future<void> _toggleAudio() async {
     final provider = context.read<SessionProvider>();
+    final locale = context.read<LocaleProvider>().locale;
+    const map = {
+      'en': 'en-IN', 'hi': 'hi-IN', 'mr': 'mr-IN', 'ta': 'ta-IN',
+      'te': 'te-IN', 'kn': 'kn-IN', 'bn': 'bn-IN', 'gu': 'gu-IN',
+      'pa': 'pa-IN', 'ml': 'ml-IN', 'as': 'as-IN', 'or': 'od-IN', 'ur': 'ur-IN',
+    };
+    final sarvamCode = map[locale.languageCode] ?? 'hi-IN';
     final listing = provider.listing;
-    final text = (listing?['title_mr'] as String?) ??
-        (listing?['title_en'] as String?) ??
-        'तुमची यादी तयार आहे';
-    await provider.speakText(text, langCode: 'mr-IN');
+    // Use the locale's language title if available
+    final titleKey = 'title_${locale.languageCode}';
+    final text = (listing?[titleKey] as String?)
+        ?? (listing?['title_hi'] as String?)
+        ?? (listing?['title_en'] as String?)
+        ?? 'तुमची यादी तयार आहे';
+    await provider.speakText(text, langCode: sarvamCode);
   }
 
   void _copyHashtag(String tag) async {
@@ -106,7 +126,10 @@ class _Screen3IntelligenceState extends State<Screen3Intelligence> {
 
         return Scaffold(
           backgroundColor: KsColors.background,
-          appBar: KsAppHeader(title: ks.intelligenceReview),
+          appBar: KsAppHeader(
+            title: ks.intelligenceReview,
+            onBack: () => context.go('/capture'),
+          ),
           body: provider.isLoading
               ? Center(
                   child: Column(
@@ -245,7 +268,10 @@ class _Screen3IntelligenceState extends State<Screen3Intelligence> {
                       // ── CTA ───────────────────────────────────────────────
                       _ReviewCtaButton(
                         label: ks.reviewCta,
-                        onTap: () => _showSnack(ks.readyToVerify),
+                        onTap: () {
+                          _showSnack(ks.readyToVerify);
+                          context.go('/approval');
+                        },
                       ),
                       const SizedBox(height: 12),
                       Center(
