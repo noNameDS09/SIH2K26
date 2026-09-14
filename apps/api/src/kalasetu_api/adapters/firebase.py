@@ -20,6 +20,7 @@ log = logging.getLogger("kalasetu.firebase")
 
 _firebase_initialized = False
 _firebase_app = None
+_firestore_client = None
 
 # In-memory fallbacks for offline testing / development
 _MEM_PHONE_INDEX: dict[str, str] = {}
@@ -106,6 +107,7 @@ def get_firebase_app(settings: Settings | None = None):
 
 
 def get_firestore_client(settings: Settings | None = None):
+    global _firestore_client
     # During automated tests or offline runs, default to fast in-memory store
     # unless explicitly configured with FORCE_FIRESTORE=1
     if (
@@ -114,17 +116,48 @@ def get_firestore_client(settings: Settings | None = None):
     ):
         return None
 
+    if _firestore_client is not None:
+        return _firestore_client
+
     app = get_firebase_app(settings)
     if not app:
         return None
     try:
-        from firebase_admin import firestore
+        # The default google-cloud-firestore gRPC transport can hang behind
+        # otherwise-working local proxies/firewalls. Firebase's REST endpoint
+        # is reachable in the same environment and exposes the same high-level
+        # document/query API, so use it for reliable local and hosted writes.
+        from google.cloud import firestore as google_firestore
+        from google.cloud.firestore_v1.services.firestore import client as firestore_client
+        from google.cloud.firestore_v1.services.firestore.transports import FirestoreRestTransport
+        from google.oauth2 import service_account
 
         settings = settings or get_settings()
-        kwargs: dict[str, Any] = {"app": app}
-        if settings.firestore_database and settings.firestore_database != "(default)":
-            kwargs["database_id"] = settings.firestore_database
-        return firestore.client(**kwargs)
+        credentials_path = settings.resolved_credentials_path
+        if credentials_path is None:
+            return None
+        credentials = service_account.Credentials.from_service_account_file(
+            str(credentials_path),
+            scopes=["https://www.googleapis.com/auth/datastore"],
+        )
+
+        class RestFirestoreClient(google_firestore.Client):
+            @property
+            def _firestore_api(self):
+                if self._firestore_api_internal is None:
+                    transport = FirestoreRestTransport(credentials=self._credentials)
+                    self._firestore_api_internal = firestore_client.FirestoreClient(
+                        transport=transport,
+                        client_options=self._client_options,
+                    )
+                return self._firestore_api_internal
+
+        _firestore_client = RestFirestoreClient(
+            project=settings.firebase_project_id or credentials.project_id,
+            credentials=credentials,
+            database=settings.firestore_database or "(default)",
+        )
+        return _firestore_client
     except Exception as exc:
         log.warning("Firestore client creation failed: %s", exc)
         return None
@@ -169,13 +202,13 @@ def get_or_create_artisan(
             # Keep local/demo auth responsive when Firebase credentials exist but
             # Firestore is unreachable (for example, offline DNS). Production
             # still uses Firestore; an unavailable network falls back to memory.
-            phone_snap = phone_doc_ref.get(timeout=2.0)
+            phone_snap = phone_doc_ref.get(timeout=15.0)
             if phone_snap.exists:
                 data = phone_snap.to_dict() or {}
                 existing_uid = data.get("uid")
                 if existing_uid:
                     art_doc_ref = db.collection("artisans").document(existing_uid)
-                    art_snap = art_doc_ref.get(timeout=2.0)
+                    art_snap = art_doc_ref.get(timeout=15.0)
                     if art_snap.exists:
                         art_data = art_snap.to_dict() or {}
                         art_data["uid"] = existing_uid
@@ -201,14 +234,14 @@ def get_or_create_artisan(
                 "createdAt": now_iso,
                 "updatedAt": now_iso,
             }
-            db.collection("artisans").document(new_uid).set(new_artisan, timeout=2.0)
+            db.collection("artisans").document(new_uid).set(new_artisan, timeout=15.0)
             phone_doc_ref.set(
                 {
                     "uid": new_uid,
                     "phone": norm_phone,
                     "createdAt": now_iso,
                 },
-                timeout=2.0,
+                timeout=15.0,
             )
             return new_artisan
         except Exception as exc:
