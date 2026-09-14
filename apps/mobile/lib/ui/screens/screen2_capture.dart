@@ -275,7 +275,20 @@ class _CameraViewport extends StatelessWidget {
             fit: StackFit.expand,
             children: [
               if (imageBytes != null)
-                Image.memory(imageBytes!, fit: BoxFit.cover)
+                Positioned.fill(
+                  child: Image.memory(
+                    imageBytes!,
+                    fit: BoxFit.cover,
+                    gaplessPlayback: true,
+                    errorBuilder: (ctx2, err, st) => Container(
+                      color: Colors.black54,
+                      child: const Center(
+                        child: Icon(Icons.broken_image_outlined,
+                            color: Colors.white54, size: 40),
+                      ),
+                    ),
+                  ),
+                )
               else ...[
                 Container(
                   decoration: const BoxDecoration(

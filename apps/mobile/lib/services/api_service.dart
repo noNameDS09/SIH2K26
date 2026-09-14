@@ -136,6 +136,19 @@ class ApiService {
     return null;
   }
 
+  // ── Generic byte fetch (for studio_url, etc.) ────────────────────────────
+
+  static Future<Uint8List?> fetchBytes(String url) async {
+    try {
+      final res = await http.get(
+        Uri.parse(url),
+        headers: {if (_token != null) 'Authorization': 'Bearer $_token'},
+      ).timeout(const Duration(seconds: 30));
+      if (res.statusCode == 200) return res.bodyBytes;
+    } catch (_) {}
+    return null;
+  }
+
   // ── Mock fallback (demo without backend) ──────────────────────────────────
 
   static int _mockStep = -1;

@@ -148,8 +148,13 @@ class SessionProvider extends ChangeNotifier {
     );
     isEnhancing = false;
     if (result != null && result['accepted'] == true) {
-      // In a real app, fetch studio_url and decode. For demo, keep original.
-      enhancedImageBytes = bytes;
+      final studioUrl = result['studio_url'] as String?;
+      if (studioUrl != null) {
+        final fetched = await ApiService.fetchBytes(studioUrl);
+        enhancedImageBytes = fetched ?? bytes;
+      } else {
+        enhancedImageBytes = bytes;
+      }
     }
     notifyListeners();
   }
