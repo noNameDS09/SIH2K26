@@ -94,6 +94,20 @@ paths:
           description: Bad image or preset
         "503":
           description: rembg not installed on the API process
+  /v1/listings/{id}/media/{filename}:
+    get:
+      summary: Original/studio JPEG or QR PNG for a listing
+      parameters:
+        - $ref: "#/components/parameters/listingId"
+        - name: filename
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Media file bytes (JPEG or PNG)
+        "404":
+          description: Media not found
   /v1/listings/{id}/media/{kind}.jpg:
     get:
       summary: Original or studio JPEG for a listing
@@ -175,30 +189,145 @@ paths:
       responses:
         "200":
           description: Session + table rows
-  /v1/listings/{id}/price:
-    post:
-      summary: Three-band price (not wired)
-      security: [{ bearerAuth: [] }]
-      parameters:
-        - $ref: "#/components/parameters/listingId"
-      responses:
-        "501":
-          description: Not wired
-  /v1/listings/{id}/sign:
-    post:
-      summary: HMAC + QR + publishedListings copy (not wired)
-      security: [{ bearerAuth: [] }]
-      parameters:
-        - $ref: "#/components/parameters/listingId"
-      responses:
-        "501":
-          description: Not wired
-  /v1/market:
+  /v1/listings:
     get:
-      summary: Published-market catalog
+      summary: Listings for the authenticated artisan
+      security: [{ bearerAuth: [] }]
       responses:
         "200":
-          description: Public catalog list
+          description: List of artisan listings
+    post:
+      summary: Create or draft a listing doc in Firestore
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                id: { type: string }
+                title: { type: string }
+                title_hi: { type: string }
+                title_en: { type: string }
+                description: { type: string }
+                desc_hi: { type: string }
+                desc_en: { type: string }
+                fields: { type: object }
+                cluster: { type: string }
+                price_hint: { type: number }
+                photo_url: { type: string }
+      responses:
+        "200":
+          description: Created listing document
+  /v1/listings/{id}:
+    get:
+      summary: Get full listing document
+      parameters:
+        - $ref: "#/components/parameters/listingId"
+      responses:
+        "200":
+          description: Full listing document
+        "404":
+          description: Listing not found
+    patch:
+      summary: Update fields or metadata on an artisan's draft listing
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/listingId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title: { type: string }
+                title_hi: { type: string }
+                title_en: { type: string }
+                description: { type: string }
+                desc_hi: { type: string }
+                desc_en: { type: string }
+                fields: { type: object }
+                cluster: { type: string }
+                price_hint: { type: number }
+                photo_url: { type: string }
+      responses:
+        "200":
+          description: Updated listing document
+        "404":
+          description: Listing not found
+  /v1/listings/{id}/price:
+    post:
+      summary: Four-tier price bands (floor, recommended, aspirational, listed)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/listingId"
+      responses:
+        "200":
+          description: Computed price bands with provenance
+        "404":
+          description: Listing not found
+  /v1/listings/{id}/sign:
+    post:
+      summary: Freeze listing, HMAC-SHA256 sign, generate QR code PNG, and publish
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/listingId"
+      responses:
+        "200":
+          description: Published status, signature, and QR URL
+        "404":
+          description: Listing not found
+  /v1/market:
+    get:
+      summary: Published-market catalog with search, filtering, and facets
+      parameters:
+        - name: category
+          in: query
+          required: false
+          schema: { type: string }
+        - name: craft
+          in: query
+          required: false
+          schema: { type: string }
+        - name: cluster
+          in: query
+          required: false
+          schema: { type: string }
+        - name: gi
+          in: query
+          required: false
+          schema: { type: string }
+        - name: tag
+          in: query
+          required: false
+          schema: { type: string }
+        - name: q
+          in: query
+          required: false
+          schema: { type: string }
+        - name: min_price
+          in: query
+          required: false
+          schema: { type: number }
+        - name: max_price
+          in: query
+          required: false
+          schema: { type: number }
+        - name: sort
+          in: query
+          required: false
+          schema: { type: string, enum: [price_asc, price_desc, latest] }
+      responses:
+        "200":
+          description: Filtered catalog items with metadata facets
+  /v1/market/seed:
+    post:
+      summary: Bootstrap all 30 handcrafted catalog items into Firestore
+      responses:
+        "200":
+          description: Seeding summary and count of records created
   /v/{id}:
     get:
       summary: Public listing card JSON

@@ -17,7 +17,8 @@ RUN pip install --no-cache-dir \
     "numpy>=2.0.0" \
     "rembg>=2.0.65" \
     "onnxruntime>=1.19.0" \
-    "firebase-admin>=6.5.0"
+    "firebase-admin>=6.5.0" \
+    "qrcode>=8.0"
 
 COPY src /app/src
 COPY assets /app/assets
