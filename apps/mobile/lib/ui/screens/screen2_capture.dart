@@ -21,6 +21,9 @@ class Screen2Capture extends StatefulWidget {
 
 class _Screen2CaptureState extends State<Screen2Capture> {
   final ImagePicker _picker = ImagePicker();
+  // Local copy so Image.memory renders immediately via setState,
+  // same as the onboarding scanner card which works reliably on web.
+  Uint8List? _localImageBytes;
 
   @override
   void initState() {
@@ -28,6 +31,12 @@ class _Screen2CaptureState extends State<Screen2Capture> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<SessionProvider>().init();
     });
+  }
+
+  Future<void> _setImage(Uint8List bytes) async {
+    setState(() => _localImageBytes = bytes);
+    final provider = context.read<SessionProvider>();
+    await provider.setCapturedImage(bytes);
   }
 
   Future<void> _openCamera() async {
@@ -41,10 +50,8 @@ class _Screen2CaptureState extends State<Screen2Capture> {
       if (photo == null || !mounted) return;
       final bytes = await photo.readAsBytes();
       if (!mounted) return;
-      final provider = context.read<SessionProvider>();
-      final ks = KsStrings.of(context);
-      await provider.setCapturedImage(bytes);
-      if (mounted) _showSnack(ks.photoTaken);
+      await _setImage(bytes);
+      if (mounted) _showSnack(KsStrings.of(context).photoTaken);
     } catch (_) {
       if (mounted) _showSnack(KsStrings.of(context).cameraUnavailable);
     }
@@ -61,10 +68,8 @@ class _Screen2CaptureState extends State<Screen2Capture> {
       if (photo == null || !mounted) return;
       final bytes = await photo.readAsBytes();
       if (!mounted) return;
-      final provider = context.read<SessionProvider>();
-      final ks = KsStrings.of(context);
-      await provider.setCapturedImage(bytes);
-      if (mounted) _showSnack(ks.photoSelected);
+      await _setImage(bytes);
+      if (mounted) _showSnack(KsStrings.of(context).photoSelected);
     } catch (_) {
       if (mounted) _showSnack(KsStrings.of(context).cameraUnavailable);
     }
@@ -72,12 +77,12 @@ class _Screen2CaptureState extends State<Screen2Capture> {
 
   void _loadSample() {
     final provider = context.read<SessionProvider>();
-    final bytes = provider.capturedImageBytes;
+    final bytes = _localImageBytes ?? provider.capturedImageBytes;
     if (bytes == null) {
       _showSnack(KsStrings.of(context).sampleLoaded);
       return;
     }
-    provider.setCapturedImage(bytes);
+    _setImage(bytes);
     _showSnack('Requesting new enhancement…');
   }
 
@@ -133,18 +138,18 @@ class _Screen2CaptureState extends State<Screen2Capture> {
               const SizedBox(height: 8),
               Text(ks.captureHint, style: KsTextStyles.body()),
               const SizedBox(height: 20),
-              // Show dual view when enhancement is ready, single view otherwise
-              if (provider.capturedImageBytes != null &&
-                  provider.enhancedImageBytes != null)
+              // Use _localImageBytes for immediate display (setState-driven, matches
+              // the scanner card pattern). Provider drives enhancement state only.
+              if (_localImageBytes != null && provider.enhancedImageBytes != null)
                 _DualImageView(
-                  originalBytes: provider.capturedImageBytes!,
+                  originalBytes: _localImageBytes!,
                   enhancedBytes: provider.enhancedImageBytes!,
                   retakeLabel: ks.retake,
                   onRetake: _openCamera,
                 )
               else
                 _CameraViewport(
-                  imageBytes: provider.capturedImageBytes,
+                  imageBytes: _localImageBytes,
                   isEnhancing: provider.isEnhancing,
                   tapLabel: ks.tapToCapture,
                   retakeLabel: ks.retake,
