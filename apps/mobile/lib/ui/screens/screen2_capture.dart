@@ -70,7 +70,16 @@ class _Screen2CaptureState extends State<Screen2Capture> {
     }
   }
 
-  void _loadSample() => _showSnack(KsStrings.of(context).sampleLoaded);
+  void _loadSample() {
+    final provider = context.read<SessionProvider>();
+    final bytes = provider.capturedImageBytes;
+    if (bytes == null) {
+      _showSnack(KsStrings.of(context).sampleLoaded);
+      return;
+    }
+    provider.setCapturedImage(bytes);
+    _showSnack('Requesting new enhancement…');
+  }
 
   Future<void> _toggleMic() async {
     final provider = context.read<SessionProvider>();
@@ -124,13 +133,23 @@ class _Screen2CaptureState extends State<Screen2Capture> {
               const SizedBox(height: 8),
               Text(ks.captureHint, style: KsTextStyles.body()),
               const SizedBox(height: 20),
-              _CameraViewport(
-                imageBytes: provider.capturedImageBytes,
-                isEnhancing: provider.isEnhancing,
-                tapLabel: ks.tapToCapture,
-                retakeLabel: ks.retake,
-                onTap: _openCamera,
-              ),
+              // Show dual view when enhancement is ready, single view otherwise
+              if (provider.capturedImageBytes != null &&
+                  provider.enhancedImageBytes != null)
+                _DualImageView(
+                  originalBytes: provider.capturedImageBytes!,
+                  enhancedBytes: provider.enhancedImageBytes!,
+                  retakeLabel: ks.retake,
+                  onRetake: _openCamera,
+                )
+              else
+                _CameraViewport(
+                  imageBytes: provider.capturedImageBytes,
+                  isEnhancing: provider.isEnhancing,
+                  tapLabel: ks.tapToCapture,
+                  retakeLabel: ks.retake,
+                  onTap: _openCamera,
+                ),
               const SizedBox(height: 12),
               _ActionButtons(
                 uploadLabel: ks.uploadPhoto,
@@ -671,6 +690,125 @@ class _VoiceQueryCardState extends State<_VoiceQueryCard>
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ─── Dual image view (original + enhanced) ────────────────────────────────────
+
+class _DualImageView extends StatelessWidget {
+  final Uint8List originalBytes;
+  final Uint8List enhancedBytes;
+  final String retakeLabel;
+  final VoidCallback onRetake;
+
+  const _DualImageView({
+    required this.originalBytes,
+    required this.enhancedBytes,
+    required this.retakeLabel,
+    required this.onRetake,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: _ImagePanel(
+                label: 'Original',
+                bytes: originalBytes,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _ImagePanel(
+                label: 'Enhanced',
+                bytes: enhancedBytes,
+                isEnhanced: true,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Align(
+          alignment: Alignment.centerRight,
+          child: GestureDetector(
+            onTap: onRetake,
+            child: Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                  color: KsColors.mainText,
+                  borderRadius: BorderRadius.circular(20)),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                const Icon(Icons.refresh, color: KsColors.white, size: 12),
+                const SizedBox(width: 4),
+                Text(retakeLabel,
+                    style: KsTextStyles.label(
+                        color: KsColors.white, size: 10)),
+              ]),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ImagePanel extends StatelessWidget {
+  final String label;
+  final Uint8List bytes;
+  final bool isEnhanced;
+
+  const _ImagePanel({
+    required this.label,
+    required this.bytes,
+    this.isEnhanced = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: SizedBox(
+        height: 180,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            Image.memory(bytes, fit: BoxFit.cover),
+            Positioned(
+              bottom: 8,
+              left: 8,
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: isEnhanced
+                      ? KsColors.terracotta
+                      : Colors.black54,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(label,
+                    style: KsTextStyles.label(
+                        color: KsColors.white, size: 9)),
+              ),
+            ),
+            if (isEnhanced)
+              const Positioned(
+                top: 8,
+                right: 8,
+                child: CircleAvatar(
+                  radius: 10,
+                  backgroundColor: Color(0xFF4ADE80),
+                  child: Icon(Icons.auto_awesome,
+                      size: 11, color: Colors.white),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }

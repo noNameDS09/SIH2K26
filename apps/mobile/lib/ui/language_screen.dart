@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
+import 'l10n/locale_provider.dart';
 
 class LanguageScreen extends StatefulWidget {
   const LanguageScreen({super.key});
@@ -11,18 +13,18 @@ class LanguageScreen extends StatefulWidget {
 
 class _LanguageScreenState extends State<LanguageScreen> {
   static const _languages = <_Language>[
-    _Language('English', 'English'),
-    _Language('Hindi', 'हिन्दी'),
-    _Language('Marathi', 'मराठी'),
-    _Language('Tamil', 'தமிழ்'),
-    _Language('Telugu', 'తెలుగు'),
-    _Language('Kannada', 'ಕನ್ನಡ'),
-    _Language('Bengali', 'বাংলা'),
-    _Language('Gujarati', 'ગુજરાતી'),
-    _Language('Punjabi', 'ਪੰਜਾਬੀ'),
-    _Language('Malayalam', 'മലയാളം'),
-    _Language('Assamese', 'অসমীয়া'),
-    _Language('Odia', 'ଓଡ଼ିଆ'),
+    _Language('English',   'English',   'en', 'Continue in English  →'),
+    _Language('Hindi',     'हिन्दी',     'hi', 'हिंदी में जारी रखें  →'),
+    _Language('Marathi',   'मराठी',     'mr', 'मराठीत सुरू ठेवा  →'),
+    _Language('Tamil',     'தமிழ்',     'ta', 'தமிழில் தொடரவும்  →'),
+    _Language('Telugu',    'తెలుగు',    'te', 'తెలుగులో కొనసాగించు  →'),
+    _Language('Kannada',   'ಕನ್ನಡ',     'kn', 'ಕನ್ನಡದಲ್ಲಿ ಮುಂದುವರಿಸಿ  →'),
+    _Language('Bengali',   'বাংলা',     'bn', 'বাংলায় চালিয়ে যান  →'),
+    _Language('Gujarati',  'ગુજરાતી',   'gu', 'ગુજરાતીમાં આગળ વધો  →'),
+    _Language('Punjabi',   'ਪੰਜਾਬੀ',   'pa', 'ਪੰਜਾਬੀ ਵਿੱਚ ਜਾਰੀ ਰੱਖੋ  →'),
+    _Language('Malayalam', 'മലയാളം',   'ml', 'മലയാളത്തിൽ തുടരുക  →'),
+    _Language('Assamese',  'অসমীয়া',  'as', 'অসমীয়াত আগবাঢ়ক  →'),
+    _Language('Odia',      'ଓଡ଼ିଆ',    'or', 'ଓଡ଼ିଆରେ ଜାରି ରଖ  →'),
   ];
 
   _Language _selectedLanguage = _languages.first;
@@ -64,7 +66,8 @@ class _LanguageScreenState extends State<LanguageScreen> {
                     _LanguageGrid(
                       languages: _languages,
                       selectedLanguage: _selectedLanguage,
-                      onSelected: (language) => setState(() => _selectedLanguage = language),
+                      onSelected: (language) =>
+                          setState(() => _selectedLanguage = language),
                     ),
                   ],
                 ),
@@ -77,6 +80,8 @@ class _LanguageScreenState extends State<LanguageScreen> {
     );
   }
 }
+
+// ─── Logo ─────────────────────────────────────────────────────────────────────
 
 class _KalaSetuLogo extends StatelessWidget {
   const _KalaSetuLogo();
@@ -109,12 +114,15 @@ class _LogoFallback extends StatelessWidget {
       child: Center(
         child: Text(
           'Add assets/images/kalasetu_logo.png',
-          style: GoogleFonts.plusJakartaSans(color: const Color(0xFF8A7268), fontSize: 12),
+          style: GoogleFonts.plusJakartaSans(
+              color: const Color(0xFF8A7268), fontSize: 12),
         ),
       ),
     );
   }
 }
+
+// ─── Language grid ────────────────────────────────────────────────────────────
 
 class _LanguageGrid extends StatelessWidget {
   const _LanguageGrid({
@@ -164,47 +172,58 @@ class _LanguageButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: selected ? const Color(0xFF370E00) : const Color(0xFFF8F2EE),
-      borderRadius: BorderRadius.circular(12),
-      child: InkWell(
-        onTap: onPressed,
+    return AnimatedScale(
+      scale: selected ? 1.09 : 1.0,
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeOutBack,
+      child: Material(
+        color: selected ? const Color(0xFF370E00) : const Color(0xFFF8F2EE),
         borderRadius: BorderRadius.circular(12),
-        child: Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: selected ? const Color(0xFF370E00) : const Color(0xFFE7E1DD),
+        elevation: selected ? 4 : 0,
+        shadowColor: const Color(0x559F3C07),
+        child: InkWell(
+          onTap: onPressed,
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: selected
+                    ? const Color(0xFF370E00)
+                    : const Color(0xFFE7E1DD),
+              ),
             ),
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 8),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                language.nativeName,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.center,
-                style: GoogleFonts.plusJakartaSans(
-                  color: selected ? Colors.white : const Color(0xFF32302E),
-                  fontSize: 14,
-                  fontWeight: FontWeight.w800,
+            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 8),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  language.nativeName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.plusJakartaSans(
+                    color: selected ? Colors.white : const Color(0xFF32302E),
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 5),
-              Text(
-                language.name,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.center,
-                style: GoogleFonts.plusJakartaSans(
-                  color: selected ? const Color(0xFFF4DED4) : const Color(0xFF8A7268),
-                  fontSize: 9,
-                  fontWeight: FontWeight.w600,
+                const SizedBox(height: 5),
+                Text(
+                  language.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.plusJakartaSans(
+                    color: selected
+                        ? const Color(0xFFF4DED4)
+                        : const Color(0xFF8A7268),
+                    fontSize: 9,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -212,10 +231,15 @@ class _LanguageButton extends StatelessWidget {
   }
 }
 
+// ─── Continue bar ─────────────────────────────────────────────────────────────
+
 class _ContinueBar extends StatelessWidget {
   const _ContinueBar({required this.language});
 
   final _Language language;
+
+  // Locales with full app translation support
+  static const _supportedLocales = {'en', 'hi', 'mr', 'kn'};
 
   @override
   Widget build(BuildContext context) {
@@ -223,13 +247,24 @@ class _ContinueBar extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
       decoration: const BoxDecoration(
         color: Color(0xE6FEF8F4),
-        boxShadow: [BoxShadow(color: Color(0x12000000), blurRadius: 12, offset: Offset(0, -3))],
+        boxShadow: [
+          BoxShadow(
+              color: Color(0x12000000), blurRadius: 12, offset: Offset(0, -3))
+        ],
       ),
       child: SizedBox(
         width: double.infinity,
         height: 52,
         child: FilledButton(
-          onPressed: () => context.go('/onboarding'),
+          onPressed: () {
+            final localeCode = _supportedLocales.contains(language.localeCode)
+                ? language.localeCode
+                : 'en';
+            context
+                .read<LocaleProvider>()
+                .setLocale(Locale(localeCode));
+            context.go('/onboarding');
+          },
           style: FilledButton.styleFrom(
             backgroundColor: const Color(0xFF9F3C07),
             foregroundColor: Colors.white,
@@ -237,8 +272,9 @@ class _ContinueBar extends StatelessWidget {
             shape: const StadiumBorder(),
           ),
           child: Text(
-            'Continue in ${language.name}  →',
-            style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w700),
+            language.continueText,
+            style: GoogleFonts.plusJakartaSans(
+                fontSize: 13, fontWeight: FontWeight.w700),
           ),
         ),
       ),
@@ -246,9 +282,14 @@ class _ContinueBar extends StatelessWidget {
   }
 }
 
+// ─── Data class ───────────────────────────────────────────────────────────────
+
 class _Language {
-  const _Language(this.name, this.nativeName);
+  const _Language(
+      this.name, this.nativeName, this.localeCode, this.continueText);
 
   final String name;
   final String nativeName;
+  final String localeCode;
+  final String continueText;
 }

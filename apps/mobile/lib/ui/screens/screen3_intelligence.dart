@@ -18,6 +18,8 @@ class Screen3Intelligence extends StatefulWidget {
 
 class _Screen3IntelligenceState extends State<Screen3Intelligence> {
   int _selectedBand = 1;
+  bool _useCustomPrice = false;
+  final TextEditingController _customPriceController = TextEditingController();
 
   @override
   void initState() {
@@ -45,8 +47,24 @@ class _Screen3IntelligenceState extends State<Screen3Intelligence> {
   }
 
   void _selectBand(int index, String label) {
-    setState(() => _selectedBand = index);
+    setState(() {
+      _selectedBand = index;
+      _useCustomPrice = false;
+    });
     _showSnack('$label ${KsStrings.of(context).priceBandSelected}');
+  }
+
+  void _activateCustomPrice() {
+    setState(() {
+      _useCustomPrice = true;
+      _selectedBand = -1;
+    });
+  }
+
+  @override
+  void dispose() {
+    _customPriceController.dispose();
+    super.dispose();
   }
 
   Future<void> _toggleAudio() async {
@@ -191,6 +209,12 @@ class _Screen3IntelligenceState extends State<Screen3Intelligence> {
                               recLabel: ks.recommendedPrice,
                               highestLabel: ks.highestPrice,
                               onSelect: _selectBand,
+                            ),
+                            const SizedBox(height: 10),
+                            _CustomPriceInput(
+                              controller: _customPriceController,
+                              active: _useCustomPrice,
+                              onActivate: _activateCustomPrice,
                             ),
                           ],
                         ),
@@ -634,6 +658,87 @@ class _PriceBandSelector extends StatelessWidget {
           ),
         );
       }),
+    );
+  }
+}
+
+// ─── Custom price input ───────────────────────────────────────────────────────
+
+class _CustomPriceInput extends StatelessWidget {
+  final TextEditingController controller;
+  final bool active;
+  final VoidCallback onActivate;
+
+  const _CustomPriceInput({
+    required this.controller,
+    required this.active,
+    required this.onActivate,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onActivate,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: active ? KsColors.peach3 : KsColors.white,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+              color: active ? KsColors.terracotta : KsColors.peach3),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Custom Price',
+                style: KsTextStyles.label(color: KsColors.brown3, size: 9)),
+            const SizedBox(height: 6),
+            Row(
+              children: [
+                Text('₹',
+                    style: KsTextStyles.price(
+                        color: KsColors.mainText, size: 20)),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: TextField(
+                    controller: controller,
+                    keyboardType: TextInputType.number,
+                    onTap: onActivate,
+                    decoration: InputDecoration(
+                      hintText: 'Enter your price',
+                      hintStyle:
+                          KsTextStyles.body(color: KsColors.brown3, size: 14),
+                      border: InputBorder.none,
+                      isDense: true,
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                    style: KsTextStyles.price(color: KsColors.mainText, size: 20),
+                  ),
+                ),
+                ValueListenableBuilder<TextEditingValue>(
+                  valueListenable: controller,
+                  builder: (ctx, v, child) {
+                    if (v.text.isNotEmpty && active) {
+                      return Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 5),
+                        decoration: BoxDecoration(
+                            color: KsColors.terracotta,
+                            borderRadius: BorderRadius.circular(8)),
+                        child: Text('Use This',
+                            style: KsTextStyles.label(
+                                color: KsColors.white, size: 10)),
+                      );
+                    }
+                    return const SizedBox.shrink();
+                  },
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
