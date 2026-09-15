@@ -85,7 +85,19 @@ export const api = {
   advisor: () => request<AdvisorResult>("/v1/advisor"),
   insights: () => request<InsightsResult>("/v1/insights"),
   trends: () => request<{ rising?: string[]; n?: number; seed?: boolean; provenance?: Provenance }>("/v1/trends/current", {}, false),
-  exportListing: (id: string, channel: string) => request<{ channel: string; label: string; payload: Record<string, unknown>; provenance?: Provenance }>(`/v1/listings/${encodeURIComponent(id)}/export`, { method: "POST", body: JSON.stringify({ channel }) }),
+  exportListing: (id: string, channel: string) => request<{
+    ok: boolean;
+    channel: string;
+    channel_name: string;
+    schema: string;
+    label: string;
+    live_write: false;
+    listing_id: string;
+    exported_at: string;
+    record: Record<string, unknown>;
+    public: Record<string, unknown>;
+    provenance?: Provenance;
+  }>(`/v1/listings/${encodeURIComponent(id)}/export`, { method: "POST", body: JSON.stringify({ channel }) }),
   price: (id: string) => request<{ prices: Listing["prices"] }>(`/v1/listings/${encodeURIComponent(id)}/price`, { method: "POST" }),
   sign: (id: string) => request<{ listing_id: string; status: string; qr_url: string; public_url: string; signature: string }>(`/v1/listings/${encodeURIComponent(id)}/sign`, { method: "POST" }),
   market: () => request<{ items: Listing[] }>("/v1/market", {}, false),

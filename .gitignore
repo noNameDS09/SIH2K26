@@ -42,3 +42,6 @@ weights/
 *.pt
 *.ses
 apps/api/studio_out/
+
+# Local agent workspace notes
+.impeccable/

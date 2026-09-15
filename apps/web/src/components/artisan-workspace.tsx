@@ -1,190 +1,53 @@
 "use client";
 
-import Image from "next/image";
-import Link from "next/link";
-import { useEffect, useMemo, useRef, useState, type ChangeEvent, type ReactNode } from "react";
-import gsap from "gsap";
-import { api, clearSession, currentListingId, rememberFirebaseSession, rememberListing, rememberSession, type Listing } from "@/lib/api-client";
+import type { ComponentType } from "react";
+import { AccessFlow } from "@/components/workspace/access-pages";
+import {
+  ApprovalPage,
+  CapturePage,
+  DistributionPage,
+  IntelligencePage,
+  LiveCatalogPage,
+  PricingPage,
+  StudioPage,
+} from "@/components/workspace/creation-pages";
+import {
+  CatalogPage,
+  HomePage,
+  InsightsPage,
+  MoneyPage,
+  SettingsPage,
+} from "@/components/workspace/management-pages";
+import { WorkspaceShell, type WorkspaceView } from "@/components/workspace/workspace-ui";
 
-export type WorkspaceView = "language" | "otp" | "onboarding" | "capture" | "studio" | "live" | "intelligence" | "pricing" | "approval" | "distribute" | "shop" | "money" | "insights" | "settings";
+export type ArtisanWorkspaceView = WorkspaceView | "language" | "otp" | "onboarding";
 
-function ProvenanceTag({ provenance, label = "AI value" }: { provenance?: { source?: string; version?: string; confidence?: number; ts?: string } | null; label?: string }) {
-  if (!provenance?.source) return <span className="provenance-tag provenance-tag--missing">{label} · provenance unavailable</span>;
-  const confidence = typeof provenance.confidence === "number" ? ` · ${Math.round(provenance.confidence * 100)}% confidence` : "";
-  const timestamp = provenance.ts ? ` · ${new Date(provenance.ts).toLocaleDateString()}` : "";
-  return <span className="provenance-tag" title={`${provenance.source}${provenance.version ? ` v${provenance.version}` : ""}${timestamp}`}>{label} · {provenance.source}{confidence}</span>;
-}
+const pages: Record<WorkspaceView, ComponentType> = {
+  home: HomePage,
+  capture: CapturePage,
+  studio: StudioPage,
+  live: LiveCatalogPage,
+  intelligence: IntelligencePage,
+  pricing: PricingPage,
+  approval: ApprovalPage,
+  distribute: DistributionPage,
+  shop: CatalogPage,
+  money: MoneyPage,
+  insights: InsightsPage,
+  settings: SettingsPage,
+};
 
-function DemoBanner() {
-  const [demo, setDemo] = useState(false);
-  useEffect(() => { const timer = window.setTimeout(() => setDemo(!window.localStorage.getItem("kalasetu_token")), 0); return () => window.clearTimeout(timer); }, []);
-  if (!demo) return null;
-  return <div className="demo-banner" role="status"><span>Demo view</span><p>You are viewing demo content. Sign in to create a real listing.</p><ProvenanceTag label="AI values" /><Link href="/language">Sign in</Link></div>;
-}
-
-const nav = [
-  ["My catalog", "/shop", "catalog"], ["Add product", "/capture", "plus"], ["Live cataloger", "/live", "voice"], ["Sales", "/money", "chart"], ["Insights", "/insights", "spark"],
-  ["Image studio", "/studio", "image"], ["Pricing", "/pricing", "tag"], ["Approval", "/approval", "check"], ["Distribution", "/distribute", "send"], ["Settings", "/settings", "settings"],
-] as const;
-
-function Glyph({ name }: { name: string }) {
-  const common = { fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
-  const paths: Record<string, ReactNode> = {
-    catalog: <><rect x="4" y="5" width="16" height="15" rx="2" /><path d="M8 3v4M16 3v4M7 11h10M7 15h6" /></>,
-    plus: <><circle cx="12" cy="12" r="8" /><path d="M12 8v8M8 12h8" /></>,
-    voice: <><rect x="9" y="4" width="6" height="11" rx="3" /><path d="M6 11a6 6 0 0 0 12 0M12 17v3M9 20h6" /></>,
-    chart: <><path d="M4 19h16M6 16l4-5 3 3 5-7" /><path d="M6 19v-3M10 19v-5M14 19v-2M18 19v-7" /></>,
-    spark: <><path d="m4 15 4-5 3 3 5-8 4 4" /><path d="M18 9h2v2" /></>,
-    image: <><rect x="4" y="5" width="16" height="14" rx="2" /><circle cx="9" cy="10" r="1.5" /><path d="m6 17 4-4 3 3 2-2 3 3" /></>,
-    tag: <><path d="M4 5h8l7 7-7 7-7-7V5Z" /><circle cx="9" cy="9" r="1" /></>,
-    check: <><path d="M20 12a8 8 0 1 1-4-6.9" /><path d="m9 12 2.2 2.2L20 5.5" /></>,
-    send: <><path d="m4 11 16-7-5 16-3-7-8-2Z" /><path d="m12 13 4-5" /></>,
-    settings: <><circle cx="12" cy="12" r="3" /><path d="M19 12a7.7 7.7 0 0 0-.1-1l2-1.5-2-3.4-2.4 1a8 8 0 0 0-1.7-1L14.5 3h-5l-.4 3.1a8 8 0 0 0-1.7 1l-2.4-1-2 3.4L5 11a7.7 7.7 0 0 0 0 2l-2 1.5 2 3.4 2.4-1a8 8 0 0 0 1.7 1l.4 3.1h5l.4-3.1a8 8 0 0 0 1.7-1l2.4 1 2-3.4-2-1.5c.1-.3.1-.7.1-1Z" /></>,
-    upload: <><path d="M12 16V4M8 8l4-4 4 4" /><path d="M5 15v4h14v-4" /></>,
-    camera: <><path d="M4 8h4l1.5-2h5L16 8h4v11H4V8Z" /><circle cx="12" cy="13" r="3" /></>,
-    arrow: <><path d="M5 12h14M14 7l5 5-5 5" /></>,
-    bell: <><path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4" /></>,
-  };
-  return <svg className="ws-icon" viewBox="0 0 24 24" aria-hidden="true" {...common}>{paths[name] ?? paths.catalog}</svg>;
-}
-
-function Button({ href, children, tone = "primary", onClick }: { href?: string; children: ReactNode; tone?: "primary" | "quiet"; onClick?: () => void }) {
-  const className = `ws-button ws-button--${tone}`;
-  return href ? <Link href={href} className={className}>{children}</Link> : <button className={className} type="button" onClick={onClick}>{children}</button>;
-}
-
-function Shell({ view, children }: { view: WorkspaceView; children: ReactNode }) {
-  const active = view === "capture" ? "/capture" : view === "live" ? "/live" : view === "studio" ? "/studio" : view === "intelligence" ? "/capture" : view === "approval" ? "/approval" : view === "distribute" ? "/distribute" : view === "money" ? "/money" : view === "insights" ? "/insights" : view === "settings" ? "/settings" : view === "pricing" ? "/pricing" : "/shop";
-  return <main className="workspace"><DemoBanner /><aside className="ws-sidebar"><Link href="/" className="ws-brand"><Image src="/assets/brand/logo-transparent.png" alt="KalaSetu" width={1141} height={535} /></Link><nav>{nav.map(([label, href, icon]) => <Link key={href} href={href} className={active === href ? "is-active" : undefined}><Glyph name={icon} /><span>{label}</span></Link>)}</nav><div className="ws-side-motif" aria-hidden="true"><span>People</span><span>Craft</span><span>Opportunity</span></div></aside><section className="ws-stage"><header className="ws-topbar"><Link href="/" className="ws-mobile-brand">KalaSetu</Link><div className="ws-top-actions"><button type="button">English⌄</button><button type="button"><Glyph name="voice" />Speak</button><button type="button" aria-label="Notifications"><Glyph name="bell" /><i /></button><span className="ws-avatar">M</span><button type="button">Meena⌄</button></div></header>{children}</section></main>;
-}
-
-function IntroFlow({ view }: { view: Extract<WorkspaceView, "language" | "otp" | "onboarding"> }) {
-  const [language, setLanguage] = useState("en-IN");
-  const [phone, setPhone] = useState("+91 98765 43210");
-  const [code, setCode] = useState("123456");
-  const [name, setName] = useState("Meena Devi");
-  const [cluster, setCluster] = useState("Varanasi, Uttar Pradesh");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-  const title = view === "language" ? "Choose the language that feels like home." : view === "otp" ? "A simple hello before we begin." : "Let the work meet the person.";
-  const continueFlow = async () => {
-    setBusy(true); setError("");
-    try {
-      if (view === "language") {
-        if (typeof window !== "undefined") window.localStorage.setItem("kalasetu_language", language);
-        window.location.href = "/otp";
-      } else if (view === "otp") {
-        await api.requestOtp(phone);
-        const verified = await api.verifyOtp(phone, code);
-        rememberSession(verified.token, verified.uid);
-        await rememberFirebaseSession(verified.firebase_custom_token);
-        window.location.href = "/onboarding";
-      } else {
-        await api.updateProfile({ name, cluster, lang: typeof window !== "undefined" ? window.localStorage.getItem("kalasetu_language") || "en-IN" : "en-IN", consentAt: new Date().toISOString(), pehchan: { source: "self-reported", label: "Mock — for SIH demo" } });
-        window.location.href = "/capture";
-      }
-    } catch (cause) { setError(cause instanceof Error ? cause.message : "We could not continue. Check your connection and try again."); }
-    finally { setBusy(false); }
-  };
-  return <main className="access-flow"><Image className="access-art" src="/assets/heroes/KS-Hero-transparent.png" alt="" width={1374} height={1145} priority /><section className="access-card workspace-reveal"><Link href="/" className="access-brand"><Image src="/assets/brand/logo-transparent.png" alt="KalaSetu" width={1141} height={535} /></Link><p className="ws-kicker">{view === "language" ? "Start with your voice" : view === "otp" ? "Secure access" : "Your craft identity"}</p><h1>{title}</h1>{view === "language" ? <div className="language-grid">{[["English", "en-IN"], ["हिन्दी", "hi-IN"], ["मराठी", "mr-IN"], ["தமிழ்", "ta-IN"], ["বাংলা", "bn-IN"], ["తెలుగు", "te-IN"]].map(([label, value]) => <button type="button" className={language === value ? "is-selected" : undefined} key={value} onClick={() => setLanguage(value)}>{label}</button>)}</div> : view === "otp" ? <div className="otp-flow"><label>Phone number<input value={phone} onChange={(event) => setPhone(event.target.value)} inputMode="tel" /></label><label>Six digit code<input value={code} onChange={(event) => setCode(event.target.value)} inputMode="numeric" /></label><small>Demo code: 123456 · {api.baseUrl}</small></div> : <div className="profile-flow"><label>Your name<input value={name} onChange={(event) => setName(event.target.value)} /></label><label>Craft cluster<input value={cluster} onChange={(event) => setCluster(event.target.value)} /></label><label className="consent"><input type="checkbox" defaultChecked /> I consent to use these details in my KalaSetu profile.</label><small>Identity verification is a mock for the SIH demo.</small></div>}{error && <p className="form-error" role="alert">{error}</p>}<Button onClick={continueFlow}>{busy ? "Connecting…" : "Continue"} <Glyph name="arrow" /></Button></section></main>;
-}
-
-function CapturePage() {
-  const [preview, setPreview] = useState<string | null>(null);
-  const [file, setFile] = useState<File | null>(null);
-  const [listingId, setListingId] = useState(currentListingId());
-  const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState("");
-  const change = (event: ChangeEvent<HTMLInputElement>) => { const selected = event.target.files?.[0]; if (selected) { setFile(selected); setPreview(URL.createObjectURL(selected)); setMessage(""); } };
-  const continueCapture = async () => {
-    if (!file) { setMessage("Choose a product photo first."); return; }
-    setBusy(true); setMessage("");
-    try {
-      const draft = listingId ? await api.getListing(listingId) : await api.createListing({ fields: {}, status: "draft" });
-      const id = String(draft.id); setListingId(id); rememberListing(id);
-      const result = await api.enhance(id, { file, bgPreset: "linen" });
-      setMessage(result.accepted ? `Studio image ready · ΔE ${result.deltaE.toFixed(2)} · source ${result.provenance.source}` : "The quality gate kept your original image. You can continue safely.");
-      window.location.href = "/studio";
-    } catch (cause) { setMessage(cause instanceof Error ? cause.message : "The image could not be processed."); }
-    finally { setBusy(false); }
-  };
-  return <Shell view="capture"><section className="ws-page capture-page"><div className="ws-title workspace-reveal"><p className="ws-kicker">Add product</p><h1>Capture your product</h1><p>Clear images help buyers see the care in your work.</p></div><div className="capture-layout workspace-reveal"><div className="capture-main"><div className="capture-tabs"><button className="is-active" type="button"><Glyph name="upload" />Upload image</button><button type="button"><Glyph name="voice" />Start with voice</button></div><label className="desktop-upload"><input type="file" accept="image/*" onChange={change} /><span><Glyph name="upload" /></span><strong>{file ? "Choose a different image" : "Upload product images"}</strong><p>Drag a clear product photo here, or browse your computer.</p></label><label className="mobile-camera"><input type="file" accept="image/*" capture="environment" onChange={change} /><Glyph name="camera" /><span>Take a photo</span></label>{preview ? <div className="capture-preview"><img src={preview} alt="Selected product preview" /><button type="button" onClick={() => { setFile(null); setPreview(null); }}>Remove</button></div> : <div className="capture-preview capture-preview--sample"><Image src="/assets/Landing-Support-2.png" alt="Example artisan product photograph" width={2172} height={724} /></div>}{message && <p className="form-message" role="status">{message}</p>}</div><aside className="capture-help"><h2>For the best result</h2><ul><li>Use natural, even light</li><li>Keep the background clear</li><li>Place one product in frame</li><li>Show the whole craft</li></ul><div className="help-media"><Image src="/assets/Landing-Support.png" alt="Craft process" width={2048} height={768} /><span>Need help? We will guide you step by step.</span></div></aside></div><div className="ws-bottom-actions"><Button tone="quiet" href="/shop">Save for later</Button><Button onClick={continueCapture}>{busy ? "Preparing image…" : "Continue"} <Glyph name="arrow" /></Button></div></section></Shell>;
-}
-
-const STUDIO_SURFACES = [
-  ["white", "White"],
-  ["linen", "Linen"],
-  ["beige", "Beige"],
-  ["slate", "Slate"],
-  ["jute", "Jute"],
-  ["wood", "Wood"],
-] as const;
-
-function withCacheBust(url?: string | null, stamp?: number) {
-  if (!url) return "";
-  if (!stamp) return url;
-  return `${url}${url.includes("?") ? "&" : "?"}t=${stamp}`;
-}
-
-function StudioPage() {
-  const [surface, setSurface] = useState("linen");
-  const [listing, setListing] = useState<Listing | null>(null);
-  const [error, setError] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [compare, setCompare] = useState(false);
-  const [stamp, setStamp] = useState(0);
-  useEffect(() => {
-    const id = currentListingId();
-    if (!id) return;
-    api.getListing(id).then((value) => {
-      setListing(value);
-      const preset = String(value.bgPreset || "linen").toLowerCase();
-      if (STUDIO_SURFACES.some(([id]) => id === preset)) setSurface(preset);
-    }).catch((cause) => setError(cause instanceof Error ? cause.message : "Could not load this draft."));
-  }, []);
-  const applySurface = async (preset: string) => {
-    const id = listing?.id || currentListingId();
-    setSurface(preset);
-    setCompare(false);
-    if (!id) { setError("Capture a product photo before changing the background."); return; }
-    setBusy(true); setError("");
-    try {
-      const result = await api.enhance(id, { bgPreset: preset, craft: String(listing?.fields?.craft || listing?.craft || "") });
-      setStamp((value) => value + 1);
-      const refreshed = await api.getListing(id).catch(() => listing);
-      setListing(refreshed ? { ...refreshed, studioUrl: result.studio_url, originalUrl: result.original_url, deltaE: result.deltaE, bgPreset: result.bg_preset, provenance: result.provenance ? [result.provenance] : refreshed.provenance } : listing);
-      if (!result.accepted) setError("The quality gate kept your original photo.");
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "The background could not be applied.");
-    } finally { setBusy(false); }
-  };
-  const original = withCacheBust(listing?.originalUrl || listing?.photo_url, stamp);
-  const studio = withCacheBust(listing?.studioUrl || listing?.photo_url, stamp);
-  const image = (compare ? original : studio) || "/assets/Landing-Support-2.png";
-  return <Shell view="studio"><section className="ws-page"><div className="ws-title workspace-reveal"><p className="ws-kicker">Image studio</p><h1>Your improved image</h1><p>Keep the original, then choose a calm surface that lets the craft speak.</p></div><div className="studio-grid workspace-reveal"><div className="studio-preview"><img src={image} alt={compare ? "Original product photo" : "Product studio preview"} /><button type="button" className="compare-button" onClick={() => setCompare((value) => !value)} disabled={!original}>{compare ? "Show studio image" : "Compare original"}</button></div><aside className="studio-controls"><h2>Background</h2><div className="surface-grid">{STUDIO_SURFACES.map(([id, label]) => <button key={id} type="button" disabled={busy} onClick={() => applySurface(id)} className={surface === id ? "is-selected" : undefined}><i className={`surface-${id}`} />{label}</button>)}</div><h2>Quick edits</h2><div className="quick-edits"><button type="button">Crop</button><button type="button">Rotate</button><button type="button">Adjust</button><button type="button">Remove clutter</button></div><div className="quality-note"><Glyph name="check" /><span><strong>{busy ? "Applying surface…" : listing?.deltaE !== undefined ? `Quality gate · ΔE ${Number(listing.deltaE).toFixed(2)}` : "Ready to use"}</strong>{error || "This image keeps the craft clear and natural."}</span></div><ProvenanceTag provenance={listing?.provenance?.[0]} label="Studio" /><Button href="/live">Use this image <Glyph name="arrow" /></Button></aside></div></section></Shell>;
-}
-
-function LivePage() { const [answer, setAnswer] = useState(""); const [session, setSession] = useState<Record<string, unknown>>({}); const [question, setQuestion] = useState("What is this product called?"); const [heard, setHeard] = useState(""); const [busy, setBusy] = useState(false); const [recording, setRecording] = useState(false); const [error, setError] = useState(""); const recorder = useRef<MediaRecorder | null>(null); const chunks = useRef<Blob[]>([]); const language = typeof window !== "undefined" ? window.localStorage.getItem("kalasetu_language") || "en-IN" : "en-IN"; const submitTranscript = async (transcript: string) => { if (!transcript.trim()) return; setBusy(true); setError(""); try { const result = await api.liveTurn({ transcript, language_code: language, cluster: "varanasi", session }); setSession(result.session); setQuestion(result.question || "What else should buyers know?"); setHeard(result.speak || transcript); setAnswer(""); if (result.listing && currentListingId()) await api.patchListing(currentListingId(), { fields: result.listing, title_en: result.listing.title_en, title_hi: result.listing.title_hi, desc_en: result.listing.desc_en, desc_hi: result.listing.desc_hi }); } catch (cause) { setError(cause instanceof Error ? cause.message : "The cataloger could not continue."); } finally { setBusy(false); } }; const sendAnswer = () => submitTranscript(answer); const toggleRecording = async () => { if (recording && recorder.current) { recorder.current.stop(); return; } try { const stream = await navigator.mediaDevices.getUserMedia({ audio: true }); const next = new MediaRecorder(stream); chunks.current = []; next.ondataavailable = (event) => { if (event.data.size) chunks.current.push(event.data); }; next.onstop = async () => { stream.getTracks().forEach((track) => track.stop()); setRecording(false); setBusy(true); try { const result = await api.stt(new Blob(chunks.current, { type: next.mimeType }), language); await submitTranscript(result.transcript); } catch (cause) { setBusy(false); setError(cause instanceof Error ? cause.message : "Speech could not be transcribed."); } }; recorder.current = next; next.start(); setRecording(true); } catch (cause) { setError(cause instanceof Error ? cause.message : "Microphone access was not available."); } }; return <Shell view="live"><section className="ws-page live-page"><div className="ws-title workspace-reveal"><p className="ws-kicker">Live cataloger</p><h1>Tell the story in your own voice.</h1><p>One useful question at a time. Speak, or type a response as a fallback.</p></div><div className="voice-stage workspace-reveal"><div className="voice-orbit" aria-hidden="true"><i /><i /><i /></div><p className="voice-step">The cataloger asks</p><h2>{question}</h2><textarea className="voice-answer" value={answer} onChange={(event) => setAnswer(event.target.value)} placeholder="Type what you would say…" /><div className="voice-actions"><button type="button" className="voice-button" onClick={toggleRecording} disabled={busy}><Glyph name="voice" /><span>{recording ? "Stop recording" : busy ? "Working…" : "Speak answer"}</span></button><button type="button" className="text-fallback" onClick={sendAnswer} disabled={busy}>Send typed answer</button></div><p className="voice-source">FastAPI STT + catalog turn · language {language}</p></div><aside className="voice-transcript workspace-reveal"><p className="ws-kicker">What we heard</p><blockquote>{heard ? `“${heard}”` : "Your confirmed answer will appear here."}</blockquote>{error && <p className="form-error" role="alert">{error}</p>}<small>AI-generated slots are stored with backend provenance.</small></aside></section></Shell>; }
-
-function IntelligencePage() { const [listing, setListing] = useState<Listing | null>(null); const [fields, setFields] = useState<Record<string, string>>({}); const [error, setError] = useState(""); useEffect(() => { const id = currentListingId(); if (!id) return; api.getListing(id).then((value) => { setListing(value); const source = value.fields || {}; setFields({ craft: String(source.craft || "Handloom textile"), material: String(source.material || "Handspun cotton"), technique: String(source.technique || "Handloom weaving"), colour: String(source.colour || "Natural white with maroon border") }); }).catch((cause) => setError(cause instanceof Error ? cause.message : "Could not load the draft.")); }, []); const saveField = async (key: string, value: string) => { setFields((current) => ({ ...current, [key]: value })); if (listing) { try { const updated = await api.patchListing(listing.id, { fields: { ...(listing.fields || {}), [key]: value } }); setListing(updated); } catch (cause) { setError(cause instanceof Error ? cause.message : "Could not save this detail."); } } }; const image = listing?.studioUrl || listing?.originalUrl || listing?.photo_url || "/assets/Landing-Support.png"; return <Shell view="intelligence"><section className="ws-page"><div className="ws-title workspace-reveal"><p className="ws-kicker">Listing draft</p><h1>Your product listing</h1><p>We created a draft from your answers. Every detail stays editable.</p></div><div className="listing-grid workspace-reveal"><section className="listing-fields"><div className="draft-progress"><span>Important details complete</span><i><b /></i><strong>{Object.values(fields).filter(Boolean).length} of 7</strong></div>{Object.entries(fields).map(([key, value]) => <label key={key}>{key.replace("_", " ")}<div><input value={value} onChange={(event) => saveField(key, event.target.value)} /><button type="button" onClick={() => saveField(key, value)}>Saved</button></div></label>)}<div className="missing-details"><Glyph name="plus" /><span><strong>AI provenance stays attached.</strong>Generated slots are editable and remain attributable to the backend source.</span></div>{error && <p className="form-error" role="alert">{error}</p>}</section><aside className="listing-preview"><img src={image} alt="Listing product preview" /><span className="draft-chip">Draft preview</span><h2>{listing?.title_en || "Your craft listing"}</h2><strong>{listing?.prices?.listed?.value ? `₹${listing.prices.listed.value}` : "Price next"}</strong><p>{String(listing?.cluster || "Your cluster")}</p><small>Draft · backend listing {listing?.id || "not started"}</small></aside></div><div className="ws-bottom-actions"><Button tone="quiet" href="/shop">Save for later</Button><Button href="/pricing">Continue <Glyph name="arrow" /></Button></div></section></Shell>; }
-
-function PricingPage() { const [selected, setSelected] = useState("recommended"); const [prices, setPrices] = useState<Listing["prices"]>({}); const [customPrice, setCustomPrice] = useState(""); const [saved, setSaved] = useState(""); const [error, setError] = useState(""); useEffect(() => { const id = currentListingId(); if (!id) return; api.price(id).then((result) => { setPrices(result.prices || {}); setCustomPrice(result.prices?.listed?.value ? String(result.prices.listed.value) : ""); }).catch((cause) => setError(cause instanceof Error ? cause.message : "Could not calculate prices.")); }, []); const choosePrice = async (key: string) => { const id = currentListingId(); const value = prices?.[key]?.value; setSelected(key); if (!id || !value) return; try { await api.patchListing(id, { price_hint: value }); setSaved(`₹${value} saved as your listing price.`); } catch (cause) { setError(cause instanceof Error ? cause.message : "Could not save this price."); } }; const applyCustom = async () => { const id = currentListingId(); const value = Number(customPrice.replace(/[^0-9.]/g, "")); if (!id || !Number.isFinite(value) || value <= 0) { setError("Enter a valid price in rupees."); return; } try { await api.patchListing(id, { price_hint: value }); setSaved(`₹${value} saved as your listing price.`); } catch (cause) { setError(cause instanceof Error ? cause.message : "Could not save this price."); } }; const bands = [["floor", "Minimum sustainable", "Covers your known costs"], ["recommended", "Recommended", "A balanced price based on craft and market demand"], ["aspirational", "Higher opportunity", "A higher price to test when demand supports it"]] as const; return <Shell view="pricing"><section className="ws-page"><div className="ws-title workspace-reveal"><p className="ws-kicker">Pricing</p><h1>Choose a fair price</h1><p>These options come from the backend pricing engine and retain their provenance.</p></div><div className="price-layout workspace-reveal"><div className="price-bands">{bands.map(([key, title, copy]) => <button type="button" className={selected === key ? "is-selected" : undefined} onClick={() => void choosePrice(key)} key={key}><span>{title}</span><small>{copy}</small><strong>{prices?.[key]?.value ? `₹${prices[key]?.value}` : "…"}</strong><i>{selected === key ? "Selected" : "Select"}</i>{prices?.[key]?.provenance && <em>{prices[key]?.provenance?.source}</em>}</button>)}</div><div className="own-price"><Glyph name="tag" /><label>Listed price is your decision<input value={customPrice} onChange={(event) => setCustomPrice(event.target.value)} inputMode="decimal" placeholder="Amount in INR" /></label><button type="button" onClick={() => void applyCustom()}>Apply</button></div><div className="price-breakdown"><h2>Backend recommendation</h2><dl><div><dt>Floor</dt><dd>{prices?.floor?.value ? `₹${prices.floor.value}` : "—"}</dd></div><div><dt>Recommended</dt><dd>{prices?.recommended?.value ? `₹${prices.recommended.value}` : "—"}</dd></div><div><dt>Aspirational</dt><dd>{prices?.aspirational?.value ? `₹${prices.aspirational.value}` : "—"}</dd></div></dl></div><div className="price-reason"><h2>Why this range?</h2><ul><li>Based on your entered costs</li><li>Compared with similar handmade work</li><li>Each value includes backend provenance</li></ul>{saved && <p className="form-message" role="status">{saved}</p>}{error && <p className="form-error" role="alert">{error}</p>}</div></div><div className="ws-bottom-actions"><Button tone="quiet" href="/shop">Save for later</Button><Button href="/approval">Continue <Glyph name="arrow" /></Button></div></section></Shell>; }
-
-function ApprovalPage() { const [listing, setListing] = useState<Listing | null>(null); const [checks, setChecks] = useState<Record<string, boolean>>({}); const [busy, setBusy] = useState(false); const [speaking, setSpeaking] = useState(false); const [error, setError] = useState(""); useEffect(() => { const id = currentListingId(); if (id) api.getListing(id).then(setListing).catch(() => undefined); }, []); const checklist = ["Product details are correct", "Price is your final decision", "Story sounds like your own voice", "Public card contains no unknown claims"]; const ready = checklist.every((item) => checks[item]); const approve = async () => { if (!listing) { setError("Start a listing before approving it."); return; } if (!ready) { setError("Please review and confirm all four statements before publishing."); return; } setBusy(true); try { await api.sign(listing.id); window.location.href = "/distribute"; } catch (cause) { setError(cause instanceof Error ? cause.message : "The listing could not be signed."); } finally { setBusy(false); } }; const listen = async () => { if (!listing) return; setSpeaking(true); try { const text = [listing.title_en, listing.desc_en].filter(Boolean).join(". "); const result = await api.tts(text || "Your KalaSetu listing", typeof window !== "undefined" ? window.localStorage.getItem("kalasetu_language") || "en-IN" : "en-IN"); const audio = new Audio(`data:${result.content_type};base64,${result.audio_b64}`); await audio.play(); } catch (cause) { setError(cause instanceof Error ? cause.message : "Audio could not be played."); } finally { setSpeaking(false); } }; const image = listing?.studioUrl || listing?.originalUrl || listing?.photo_url || "/assets/Landing-Support.png"; return <Shell view="approval"><section className="ws-page"><div className="ws-title workspace-reveal"><p className="ws-kicker">Review and approve</p><h1>Hear it before it leaves your hands.</h1><p>Check the card, listen to the story, and approve only when it feels true to your work.</p></div><div className="approval-grid workspace-reveal"><div className="approval-card"><img src={image} alt="Product listing preview" /><h2>{listing?.title_en || "Your product listing"}</h2><strong>{listing?.prices?.listed?.value ? `₹${listing.prices.listed.value}` : "Price selected in the next step"}</strong><p>{listing?.desc_en || "Your confirmed product story will appear here."}</p></div><div className="approval-checklist"><h2>Ready for approval</h2>{checklist.map((item) => <label key={item}><input type="checkbox" checked={Boolean(checks[item])} onChange={(event) => { setChecks((current) => ({ ...current, [item]: event.target.checked })); setError(""); }} />{item}</label>)}<button className="listen-card" type="button" onClick={listen}><Glyph name="voice" />{speaking ? "Reading…" : "Listen to full card"}</button>{error && <p className="form-error" role="alert">{error}</p>}</div></div><div className="ws-bottom-actions"><Button tone="quiet" href="/intelligence">Edit listing</Button><Button onClick={approve}>{busy ? "Signing…" : ready ? "Approve and publish" : "Review checklist"} <Glyph name="check" /></Button></div></section></Shell>; }
-
-function DistributePage() { const [listing, setListing] = useState<Listing | null>(null); const [copied, setCopied] = useState(false); const [exporting, setExporting] = useState(""); const [exportStatus, setExportStatus] = useState<Record<string, string>>({}); useEffect(() => { const id = currentListingId(); if (id) api.getListing(id).then(setListing).catch(() => undefined); }, []); const image = listing?.studioUrl || listing?.originalUrl || listing?.photo_url || "/assets/Landing-Support.png"; const publicUrl = listing?.public_url || (typeof window !== "undefined" ? `${window.location.origin}/v/${listing?.id || ""}` : ""); const share = async () => { if (navigator.share) await navigator.share({ title: listing?.title_en || "KalaSetu listing", url: publicUrl }); else { await navigator.clipboard.writeText(publicUrl); setCopied(true); } }; const exportChannel = async (channel: string) => { if (!listing) return; setExporting(channel); try { const result = await api.exportListing(listing.id, channel); setExportStatus((current) => ({ ...current, [channel]: `${result.label} · ${result.provenance?.source || "export.v1"}` })); } catch (cause) { setExportStatus((current) => ({ ...current, [channel]: cause instanceof Error ? cause.message : "Export failed" })); } finally { setExporting(""); } }; return <Shell view="distribute"><section className="ws-page"><div className="live-banner workspace-reveal"><Glyph name="check" /><span><strong>Your product is now live!</strong>Your public KalaSetu card is ready to share.</span><Button href={`/v/${listing?.id || ""}`}>View public listing <Glyph name="arrow" /></Button></div><div className="distribution-grid workspace-reveal"><div className="distribution-product"><img src={image} alt="Published listing" /><div><h2>{listing?.title_en || "Published craft"}</h2><strong>{listing?.prices?.listed?.value ? `₹${listing.prices.listed.value}` : "Price on card"}</strong><p>{String(listing?.cluster || "Your cluster")}</p><span>{listing?.status || "published"}</span></div></div><div className="qr-box"><img className="qr-image" src={listing?.qr_url || ""} alt={listing?.qr_url ? "Listing QR code" : "QR code will appear after signing"} /><h2>Public link & QR code</h2><p>Anyone can scan this to view your product story.</p><button type="button" onClick={share}>{copied ? "Link copied" : "Share listing"}</button></div><div className="distribution-details"><h2>Listing details</h2><p>Listing no. {listing?.id || "—"}</p><p>Status {listing?.status || "published"}</p><p>Signature {listing?.signature ? "Verified" : "Pending"}</p></div></div><div className="channel-row workspace-reveal">{[["KalaSetu Catalog", "catalog"], ["GeM", "gem"], ["ONDC", "ondc"], ["India Handmade", "ih"]].map(([item, channel], index) => <article key={item}><span>{index === 0 ? "Live" : "Mock — for SIH demo"}</span><strong>{item}</strong><button type="button" onClick={() => index === 0 ? share() : exportChannel(channel)}>{exporting === channel ? "Preparing…" : index === 0 ? "Share published card" : "Prepare export"}</button>{exportStatus[channel] && <small>{exportStatus[channel]}</small>}</article>)}</div><div className="ws-bottom-actions"><p className="share-note">External channels are shaped exports only; nothing is sent automatically.</p><Button href="/shop">Done <Glyph name="arrow" /></Button></div></section></Shell>; }
-
-function CatalogPage() { const [items, setItems] = useState<Listing[]>([]); const [error, setError] = useState(""); useEffect(() => { api.listListings().then((result) => setItems(result.items || [])).catch((cause) => setError(cause instanceof Error ? cause.message : "Could not load your catalog.")); }, []); return <Shell view="shop"><section className="ws-page"><div className="ws-title workspace-reveal"><p className="ws-kicker">My catalog</p><h1>Your work, in one calm place.</h1><p>Drafts and published cards stay easy to find. The public show catalog remains separate.</p></div>{error && <p className="form-error" role="alert">{error}</p>}<div className="catalog-workspace workspace-reveal">{items.length ? items.map((item) => <article key={item.id}><img src={item.studioUrl || item.originalUrl || item.photo_url || "/assets/Landing-Support-2.png"} alt={item.title_en || "Craft listing"} /><span>{item.status || "draft"}</span><h2>{item.title_en || item.title || "Untitled craft"}</h2><Link href={item.status === "published" ? `/v/${item.id}` : "/intelligence"}>{item.status === "published" ? "View card" : "Continue listing"} <Glyph name="arrow" /></Link></article>) : <article className="catalog-empty"><span>No listings yet</span><h2>Start with one product in your hands.</h2><Link href="/capture">Add a product <Glyph name="arrow" /></Link></article>}</div></section></Shell>; }
-
-function MoneyPage() { const [money, setMoney] = useState<Awaited<ReturnType<typeof api.money>> | null>(null); const [listings, setListings] = useState<Listing[]>([]); const [selectedListing, setSelectedListing] = useState(""); const [amount, setAmount] = useState(""); const [error, setError] = useState(""); const [saved, setSaved] = useState(""); const load = () => { Promise.all([api.money(), api.listListings()]).then(([moneyResult, listingResult]) => { setMoney(moneyResult); setListings(listingResult.items || []); setSelectedListing((current) => current || listingResult.items?.[0]?.id || ""); }).catch((cause) => setError(cause instanceof Error ? cause.message : "Could not load your trade record.")); }; useEffect(load, []); const recordSale = async () => { if (!selectedListing || !amount) return; try { await api.createSale(selectedListing, Number(amount)); setAmount(""); setSaved("Sale recorded in your Trade Record."); load(); } catch (cause) { setError(cause instanceof Error ? cause.message : "Could not record this sale."); } }; return <Shell view="money"><section className="ws-page"><div className="ws-title workspace-reveal"><p className="ws-kicker">Sales & trade record</p><h1>Keep money visible and human.</h1><p>Record sales you choose to add. KalaSetu does not turn your craft into a credit score.</p></div><div className="money-grid workspace-reveal"><div className="trade-total"><span>This record</span><strong>₹{Math.round(money?.total_inr || 0).toLocaleString("en-IN")}</strong><p>{money?.spoken || "Loading your spoken summary…"}</p></div><div className="trade-table"><h2>Recent sales</h2>{money?.sales.length ? money.sales.map((sale, index) => <div key={String(sale.id || index)}><span>{String(sale.listingId || sale.listing_id || "Listing")}</span><strong>₹{Number(sale.amount || 0).toLocaleString("en-IN")}</strong><small>Confirmed sale</small></div>) : <div><span>{money ? "No sales yet." : "Loading sales…"}</span><small>{money ? "Add a confirmed sale when one happens." : "Reading from FastAPI."}</small></div>}</div><div className="trade-note"><Glyph name="spark" /><p><strong>Trade Record</strong>{money?.trade_record ? ` ${Object.values(money.trade_record).filter((value) => Number(value) > 0).length} signals are active.` : "Signals will appear as your own record grows."}</p><ProvenanceTag provenance={{ source: "trade-record.v1", version: "1", confidence: 1 }} label="Backend record" /></div></div><div className="sale-entry"><h2>Record a confirmed sale</h2><select value={selectedListing} onChange={(event) => setSelectedListing(event.target.value)}><option value="">Choose a listing</option>{listings.map((item) => <option key={item.id} value={item.id}>{item.title_en || item.title || item.id}</option>)}</select><input value={amount} onChange={(event) => setAmount(event.target.value)} inputMode="decimal" placeholder="Amount in INR" /><button type="button" onClick={recordSale}>Save sale</button></div>{saved && <p className="form-message" role="status">{saved}</p>}{error && <p className="form-error" role="alert">{error}</p>}</section></Shell>; }
-
-function InsightsPage() { const [data, setData] = useState<Awaited<ReturnType<typeof api.insights>> | null>(null); const [error, setError] = useState(""); useEffect(() => { api.insights().then(setData).catch((cause) => setError(cause instanceof Error ? cause.message : "Could not load your insights.")); }, []); const advisor = data?.advisor; const trends = data?.trends; return <Shell view="insights"><section className="ws-page"><div className="ws-title workspace-reveal"><p className="ws-kicker">Insights</p><h1>Notice what your work is telling you.</h1><p>One useful suggestion at a time, based on your own records and anonymised craft context.</p></div><div className="insight-layout workspace-reveal"><div className="advisor-note"><span>Business advisor</span><h2>{advisor?.sentence || "Your advisor is quiet for now."}</h2><p>{advisor?.empty ? "There is no ranked suggestion yet. Keep recording your own work and sales." : "This sentence comes from your artisan record and the current advisor rules."}</p><ProvenanceTag provenance={advisor?.provenance} label="Advisor" /><Link className="advisor-link" href={advisor?.listing_id ? "/intelligence" : "/shop"}>Review your record <Glyph name="arrow" /></Link></div><div className="insight-list">{[["Demand signal", trends?.rising?.length ? trends.rising.join(", ") : "No trend signal yet"], ["Sample size", `${data?.n ?? "—"} observations${data?.seed ? " · seeded preview" : ""}`], ["Advisor history", `${data?.history?.length || 0} generated suggestion${data?.history?.length === 1 ? "" : "s"}`]].map(([title, copy]) => <article key={title}><Glyph name="spark" /><span><strong>{title}</strong>{copy}</span></article>)}<ProvenanceTag provenance={typeof trends?.provenance === "object" && trends.provenance ? trends.provenance as { source?: string; version?: string; confidence?: number; ts?: string } : null} label="Trends" /></div></div>{error && <p className="form-error" role="alert">{error}</p>}</section></Shell>; }
-
-function SettingsPage() { const [speak, setSpeak] = useState(true); const [largeText, setLargeText] = useState(false); const [language, setLanguage] = useState("en-IN"); const [saved, setSaved] = useState(""); useEffect(() => { document.documentElement.classList.toggle("large-text", largeText); return () => document.documentElement.classList.remove("large-text"); }, [largeText]); const save = async () => { try { await api.updateProfile({ lang: language }); setSaved("Saved to your artisan profile."); } catch (cause) { setSaved(cause instanceof Error ? cause.message : "Could not save settings."); } }; const exportRecords = async () => { const id = currentListingId(); if (!id) { setSaved("Create a listing before preparing an export."); return; } try { const result = await api.exportListing(id, "gem"); setSaved(`${result.label}: export prepared for ${result.channel}.`); } catch (cause) { setSaved(cause instanceof Error ? cause.message : "Could not prepare the export."); } }; const signOut = () => { clearSession(); window.location.href = "/language"; }; return <Shell view="settings"><section className="ws-page settings-page"><div className="ws-title workspace-reveal"><p className="ws-kicker">Settings</p><h1>Make the workspace feel like yours.</h1><p>Choose language, listening, and display preferences without losing your place.</p></div><div className="settings-list workspace-reveal"><label><span><strong>Preferred language</strong>Used for future catalog turns.</span><select value={language} onChange={(event) => setLanguage(event.target.value)}><option value="en-IN">English</option><option value="hi-IN">हिन्दी</option><option value="mr-IN">मराठी</option><option value="ta-IN">தமிழ்</option><option value="bn-IN">বাংলা</option><option value="te-IN">తెలుగు</option><option value="kn-IN">ಕನ್ನಡ</option><option value="gu-IN">ગુજરાતી</option><option value="pa-IN">ਪੰਜਾਬੀ</option><option value="ml-IN">മലയാളം</option><option value="od-IN">ଓଡ଼ିଆ</option></select></label><label><span><strong>Speak screens</strong>Read key actions aloud when you ask.</span><input type="checkbox" checked={speak} onChange={() => setSpeak(!speak)} /></label><label><span><strong>Larger text</strong>Make the workspace easier to read.</span><input type="checkbox" checked={largeText} onChange={() => setLargeText(!largeText)} /></label><label><span><strong>Export my records</strong>Prepare a labelled export for the current listing.</span><button type="button" onClick={exportRecords}>Prepare export</button></label><div className="settings-actions"><button className="ws-button ws-button--primary" type="button" onClick={save}>Save preferences</button><button className="ws-button ws-button--quiet" type="button" onClick={signOut}>Sign out</button></div>{saved && <p className="form-message" role="status">{saved}</p>}</div></section></Shell>; }
-
-export function ArtisanWorkspace({ view }: { view: WorkspaceView }) {
-  const root = useRef<HTMLDivElement>(null);
-  useEffect(() => { const scope = root.current; if (!scope || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return; const context = gsap.context(() => { gsap.fromTo(".workspace-reveal", { autoAlpha: 0, y: 18, filter: "blur(6px)" }, { autoAlpha: 1, y: 0, filter: "blur(0px)", duration: 0.7, stagger: 0.08, ease: "power3.out" }); gsap.to(".voice-orbit i", { rotate: 360, duration: 12, ease: "none", repeat: -1, stagger: 0.3 }); }, scope); return () => context.revert(); }, []);
-  const page = useMemo(() => ({ language: <IntroFlow view="language" />, otp: <IntroFlow view="otp" />, onboarding: <IntroFlow view="onboarding" />, capture: <CapturePage />, studio: <StudioPage />, live: <LivePage />, intelligence: <IntelligencePage />, pricing: <PricingPage />, approval: <ApprovalPage />, distribute: <DistributePage />, shop: <CatalogPage />, money: <MoneyPage />, insights: <InsightsPage />, settings: <SettingsPage /> })[view], [view]);
-  return <div ref={root}>{page}</div>;
+export function ArtisanWorkspace({ view }: { view: ArtisanWorkspaceView }) {
+  if (view === "language" || view === "otp" || view === "onboarding") {
+    return <AccessFlow view={view} />;
+  }
+  const Page = pages[view];
+  if (view === "home" || view === "shop" || view === "money" || view === "insights" || view === "settings") {
+    return <Page />;
+  }
+  return (
+    <WorkspaceShell view={view}>
+      <Page />
+    </WorkspaceShell>
+  );
 }
