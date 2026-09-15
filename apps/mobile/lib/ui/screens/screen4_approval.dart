@@ -157,6 +157,8 @@ class _Screen4ApprovalState extends State<Screen4Approval> {
         ? '#KS-${rawId.replaceFirst('listing-', '').substring(0, 8).toUpperCase()}'
         : '#KS-2025-IND-8942';
 
+    final ks = KsStrings.of(context);
+
     return Scaffold(
       appBar: null,
       body: SafeArea(
@@ -168,7 +170,7 @@ class _Screen4ApprovalState extends State<Screen4Approval> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               KsAppHeader(
-                title: 'Artisan Approval',
+                title: ks.approvalAppHeader,
                 onBack: () => context.go('/intelligence'),
               ),
               const SizedBox(height: 12),
@@ -184,11 +186,11 @@ class _Screen4ApprovalState extends State<Screen4Approval> {
                   Expanded(
                     child: Text.rich(
                       TextSpan(
-                        text: 'Verify Your ',
+                        text: '${ks.verifyYour} ',
                         style: KsTextStyles.display,
                         children: [
                           TextSpan(
-                            text: 'Product Card',
+                            text: ks.productCard,
                             style: KsTextStyles.displayAccent,
                           ),
                         ],
@@ -208,7 +210,7 @@ class _Screen4ApprovalState extends State<Screen4Approval> {
                       child: Padding(
                         padding: const EdgeInsets.all(2),
                         child: KsPill(
-                          text: verified ? 'Listen' : 'Review',
+                          text: verified ? ks.listenLabel : ks.reviewLabel,
                           icon: Icons.volume_up_outlined,
                         ),
                       ),
@@ -224,7 +226,7 @@ class _Screen4ApprovalState extends State<Screen4Approval> {
                 runSpacing: 8,
                 children: [
                   KsPill(
-                    text: verified ? 'Listing Agent: Verified' : 'Needs Review',
+                    text: verified ? ks.listingAgentVerified : ks.needsReview,
                     icon: verified ? Icons.check_circle : Icons.info_outline,
                     green: verified,
                   ),
@@ -256,11 +258,11 @@ class _Screen4ApprovalState extends State<Screen4Approval> {
               const SizedBox(height: 12),
               Row(
                 children: [
-                  const Expanded(child: _StatCard(label: 'MATERIAL', value: 'Handcrafted', note: 'Natural Dye')),
+                  Expanded(child: _StatCard(label: ks.material, value: ks.handcraftedLabel, note: ks.naturalDyeLabel)),
                   const SizedBox(width: 7),
-                  const Expanded(child: _StatCard(label: 'CRAFT TIME', value: 'Artisan', note: 'Traditional')),
+                  Expanded(child: _StatCard(label: ks.craftTime, value: ks.artisanCraftTime, note: ks.traditionalLabel)),
                   const SizedBox(width: 7),
-                  Expanded(child: _StatCard(label: 'PRICE', value: priceStr, note: 'Fair Wage Model')),
+                  Expanded(child: _StatCard(label: ks.priceLabel, value: priceStr, note: ks.fairWageModel)),
                 ],
               ),
               const SizedBox(height: 12),
@@ -270,13 +272,13 @@ class _Screen4ApprovalState extends State<Screen4Approval> {
               ),
               const SizedBox(height: 14),
               KsActionButton(
-                label: _isPublishing ? 'Publishing…' : 'Approve & Publish',
+                label: _isPublishing ? ks.publishingLabel : ks.approveAndPublish,
                 icon: Icons.publish_rounded,
                 onPressed: _isPublishing ? null : () => _publish(sp),
               ),
               const SizedBox(height: 8),
               KsActionButton(
-                label: verified ? 'Edit Details' : 'Mark Verified',
+                label: verified ? ks.editDetails : ks.markVerified,
                 icon: verified ? Icons.edit_outlined : Icons.check,
                 secondary: true,
                 onPressed: _editDetails,
@@ -284,7 +286,7 @@ class _Screen4ApprovalState extends State<Screen4Approval> {
               const SizedBox(height: 12),
               Center(
                 child: Text(
-                  'Your GI signature & craft copyright remain 100% owned by your guild.',
+                  ks.giSignatureFooter,
                   textAlign: TextAlign.center,
                   style: KsTextStyles.caption,
                 ),
@@ -333,7 +335,7 @@ class _VerifiedHeader extends StatelessWidget {
         const SizedBox(width: 9),
         Expanded(
           child: Text(
-            'KALASETU VERIFIED CARD\nCluster-Grade Handcrafted Certificate',
+            '${KsStrings.of(context).kalaSetuVerifiedCard}\n${KsStrings.of(context).clusterGradeCert}',
             style: KsTextStyles.caption.copyWith(
               color: KsColors.ink,
               fontWeight: FontWeight.w700,
@@ -387,7 +389,7 @@ class _ArtisanIdentity extends StatelessWidget {
               ),
             ),
           ),
-          const KsPill(text: 'GI Certified', green: true),
+          KsPill(text: KsStrings.of(context).giCertified, green: true),
         ],
       ),
     );
@@ -513,7 +515,7 @@ class _ProvenanceCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Text('HERITAGE PROVENANCE STORY', style: KsTextStyles.label()),
+              Text(KsStrings.of(context).heritageProvenance, style: KsTextStyles.label()),
               const Spacer(),
               InkWell(
                 onTap: onListen,
@@ -534,7 +536,7 @@ class _ProvenanceCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 6),
-          Text('AI Translation Model: Bhashini Indic-v4 • Verified',
+          Text(KsStrings.of(context).aiTranslationNote,
               style: KsTextStyles.caption),
         ],
       ),
@@ -596,11 +598,11 @@ class _GeoCard extends StatelessWidget {
             const SizedBox(width: 10),
             Expanded(
               child: Text(
-                'Geotag Proof\n$cluster',
+                '${KsStrings.of(context).geotagProof}\n$cluster',
                 style: const TextStyle(fontSize: 10, height: 1.35),
               ),
             ),
-            const KsPill(text: 'Approved', icon: Icons.check, green: true),
+            KsPill(text: KsStrings.of(context).approvedLabel, icon: Icons.check, green: true),
           ],
         ),
       ),

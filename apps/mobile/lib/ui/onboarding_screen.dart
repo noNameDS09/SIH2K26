@@ -6,7 +6,9 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:record/record.dart';
+import 'l10n/ks_strings.dart';
 import 'l10n/locale_provider.dart';
+import 'widgets/ks_progress_bar.dart';
 import '../services/api_service.dart';
 
 class OnboardingScreen extends StatefulWidget {
@@ -104,13 +106,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             ListTile(
               leading: const Icon(Icons.camera_alt_outlined,
                   color: Color(0xFF9F3C07)),
-              title: const Text('Open Camera'),
+              title: Text(KsStrings.of(ctx).openCamera),
               onTap: () => Navigator.pop(ctx, ImageSource.camera),
             ),
             ListTile(
               leading: const Icon(Icons.photo_library_outlined,
                   color: Color(0xFF9F3C07)),
-              title: const Text('Upload from Gallery'),
+              title: Text(KsStrings.of(ctx).uploadFromGallery),
               onTap: () => Navigator.pop(ctx, ImageSource.gallery),
             ),
             const SizedBox(height: 8),
@@ -260,36 +262,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     );
   }
 
-  static String _proceedText(String langCode) {
-    switch (langCode) {
-      case 'hi':
-        return 'सहेजें और आगे बढ़ें / Save & Proceed';
-      case 'mr':
-        return 'जतन करा आणि पुढे जा / Save & Proceed';
-      case 'ta':
-        return 'சேமி தொடரவும் / Save & Proceed';
-      case 'te':
-        return 'సేవ్ చేసి కొనసాగించు / Save & Proceed';
-      case 'kn':
-        return 'ಉಳಿಸಿ ಮುಂದುವರಿಸಿ / Save & Proceed';
-      case 'bn':
-        return 'সংরক্ষণ করুন / Save & Proceed';
-      case 'gu':
-        return 'સાચવો અને આગળ વધો / Save & Proceed';
-      case 'pa':
-        return 'ਸੁਰੱਖਿਅਤ ਕਰੋ ਅਤੇ ਅੱਗੇ ਵਧੋ / Save & Proceed';
-      case 'ml':
-        return 'സേവ് ചെയ്ത് തുടരുക / Save & Proceed';
-      default:
-        return 'Save & Proceed to Product Capture';
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    final langCode =
-        context.read<LocaleProvider>().locale.languageCode;
-    final buttonText = _proceedText(langCode);
+    final ks = KsStrings.of(context);
 
     return Scaffold(
       backgroundColor: const Color(0xFFFEF8F4),
@@ -299,7 +274,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const _StageHeader(),
+              KsProgressBar(currentStep: 1, totalSteps: 5, label: ks.stage1Label),
               const SizedBox(height: 18),
               RichText(
                 text: TextSpan(
@@ -309,9 +284,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     height: 1.18,
                     fontWeight: FontWeight.w600,
                   ),
-                  children: const [
-                    TextSpan(text: 'Namaste, welcome to '),
-                    TextSpan(
+                  children: [
+                    TextSpan(text: '${ks.welcomeTitle} '),
+                    const TextSpan(
                       text: 'KalaSetu.',
                       style: TextStyle(
                           color: Color(0xFF9F3C07),
@@ -322,7 +297,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               ),
               const SizedBox(height: 5),
               Text(
-                'आर्टिसन पहचान व क्लस्टर सत्यापन — AI डिजिटल सेतु',
+                ks.onboardingSubtitle,
                 style: GoogleFonts.plusJakartaSans(
                   color: const Color(0xFF705F58),
                   fontSize: 11,
@@ -380,7 +355,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   ),
                   icon: const Icon(Icons.arrow_forward_rounded, size: 18),
                   label: Text(
-                    buttonText,
+                    ks.proceedButton,
                     style: GoogleFonts.plusJakartaSans(
                         fontSize: 12, fontWeight: FontWeight.w700),
                   ),
@@ -396,55 +371,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           ),
         ),
       ),
-    );
-  }
-}
-
-// ─── Stage header ─────────────────────────────────────────────────────────────
-
-class _StageHeader extends StatelessWidget {
-  const _StageHeader();
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Row(
-          children: [
-            Text(
-              'STAGE 1 — ARTISAN ONBOARDING',
-              style: GoogleFonts.plusJakartaSans(
-                color: const Color(0xFF9F3C07),
-                fontSize: 10,
-                letterSpacing: .45,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-            const Spacer(),
-            Text('1 of 5 Steps',
-                style: GoogleFonts.plusJakartaSans(
-                    color: const Color(0xFF57423A), fontSize: 10)),
-          ],
-        ),
-        const SizedBox(height: 10),
-        Row(
-          children: List.generate(
-            5,
-            (index) => Expanded(
-              child: Container(
-                height: 5,
-                margin: EdgeInsets.only(right: index == 4 ? 0 : 6),
-                decoration: BoxDecoration(
-                  color: index == 0
-                      ? const Color(0xFF9F3C07)
-                      : const Color(0xFFE7E1DD),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ],
     );
   }
 }
@@ -581,7 +507,7 @@ class _ScannerCard extends StatelessWidget {
                     foregroundColor: Colors.white,
                     shape: const StadiumBorder()),
                 icon: const Icon(Icons.camera_alt_outlined, size: 17),
-                label: Text('Scan / Upload Card',
+                label: Text(KsStrings.of(context).scanUploadCard,
                     style: GoogleFonts.plusJakartaSans(
                         fontSize: 12, fontWeight: FontWeight.w700)),
               ),
@@ -692,6 +618,7 @@ class _RegistryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final ks = KsStrings.of(context);
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -706,7 +633,7 @@ class _RegistryCard extends StatelessWidget {
                   color: Color(0xFF476430), size: 17)),
           const SizedBox(width: 9),
           Expanded(
-              child: Text('Extracted Registry\nDetails',
+              child: Text(ks.extractedDetails,
                   style: GoogleFonts.plusJakartaSans(
                       color: const Color(0xFF32302E),
                       fontSize: 16,
@@ -715,19 +642,19 @@ class _RegistryCard extends StatelessWidget {
           const _VerificationPill(),
         ]),
         const SizedBox(height: 14),
-        const _InfoField(
-            label: 'शिल्पी / कारीगर नाम (Artisan / Guild Name)',
+        _InfoField(
+            label: ks.artisanGuildLabel,
             value: 'Devi Ram Weavers Guild',
             full: true),
         const SizedBox(height: 10),
-        const Row(children: [
+        Row(children: [
           Expanded(
               child: _InfoField(
-                  label: 'स्थान (Cluster)', value: 'Ashoknagar, MP')),
-          SizedBox(width: 9),
+                  label: ks.clusterFieldLabel, value: 'Ashoknagar, MP')),
+          const SizedBox(width: 9),
           Expanded(
               child: _InfoField(
-                  label: 'अनुभव (Mastery)', value: '24 Yrs Experience')),
+                  label: ks.masteryFieldLabel, value: '24 Yrs Experience')),
         ]),
         const SizedBox(height: 13),
         Row(children: [
@@ -763,7 +690,7 @@ class _VerificationPill extends StatelessWidget {
           const Icon(Icons.check_circle_outline,
               size: 13, color: Color(0xFF476430)),
           const SizedBox(width: 4),
-          Text('KYC-Lite\nVerified',
+          Text(KsStrings.of(context).kycVerified,
               style: GoogleFonts.plusJakartaSans(
                   color: const Color(0xFF0B2000),
                   fontSize: 9,
@@ -833,7 +760,7 @@ class _GovernmentLinksSection extends StatelessWidget {
         child: ExpansionTile(
           leading: const Icon(Icons.link_rounded, color: Color(0xFF476430)),
           title: Text(
-            'Government ID Links',
+            KsStrings.of(context).governmentIdLinks,
             style: GoogleFonts.plusJakartaSans(
                 fontSize: 12,
                 fontWeight: FontWeight.w700,
@@ -888,6 +815,7 @@ class _VoiceConsentCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final ks = KsStrings.of(context);
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -902,7 +830,7 @@ class _VoiceConsentCard extends StatelessWidget {
               size: 11),
           const SizedBox(width: 7),
           Expanded(
-              child: Text('TWO-WAY VOICE — SARVAM ASR',
+              child: Text(ks.voiceConsentHeader,
                   style: GoogleFonts.plusJakartaSans(
                       color: const Color(0xFF9F3C07),
                       fontSize: 11,
@@ -962,8 +890,8 @@ class _VoiceConsentCard extends StatelessWidget {
               isRecording
                   ? 'Listening… tap to stop'
                   : isVerifying
-                      ? 'Verifying…'
-                      : '"मेरी सहमति है / I agree to create my GI artisan profile"',
+                      ? ks.verifying
+                      : '"${ks.consentPrompt}"',
               textAlign: TextAlign.center,
               style: GoogleFonts.plusJakartaSans(
                   color: const Color(0xFF32302E),
@@ -1004,7 +932,7 @@ class _VoiceConsentCard extends StatelessWidget {
             ],
             const SizedBox(height: 10),
             Text(
-              'Tap the microphone and speak to affix your verbal digital signature for ONDC & GeM listing.',
+              ks.micInstruction,
               textAlign: TextAlign.center,
               style: GoogleFonts.plusJakartaSans(
                   color: const Color(0xFF705F58), fontSize: 11, height: 1.45),
@@ -1041,7 +969,7 @@ class _VoiceConsentCard extends StatelessWidget {
             const SizedBox(width: 10),
             Expanded(
                 child: Text(
-                    'Grant permission to create verifiable digital craft identity on ONDC, GeM, and export craft catalogs.',
+                    ks.consentGrantText,
                     style: GoogleFonts.plusJakartaSans(
                         color: const Color(0xFF32302E),
                         fontSize: 11,
@@ -1073,7 +1001,7 @@ class _AudioHelp extends StatelessWidget {
             const Icon(Icons.headphones_rounded,
                 color: Color(0xFF9F3C07), size: 17),
             const SizedBox(width: 7),
-            Text('सुनें (Audio Help)',
+            Text(KsStrings.of(context).audioHelp,
                 style: GoogleFonts.plusJakartaSans(
                     color: const Color(0xFF32302E),
                     fontSize: 11,

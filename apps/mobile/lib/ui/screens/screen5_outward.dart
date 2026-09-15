@@ -112,6 +112,7 @@ class _Screen5OutwardState extends State<Screen5Outward> {
 
   @override
   Widget build(BuildContext context) {
+    final ks = KsStrings.of(context);
     return Scaffold(
       body: SafeArea(
         child: SingleChildScrollView(
@@ -134,11 +135,11 @@ class _Screen5OutwardState extends State<Screen5Outward> {
               const SizedBox(height: 18),
               Text.rich(
                 TextSpan(
-                  text: 'Published & Ready to ',
+                  text: '${ks.publishedReadyTo} ',
                   style: KsTextStyles.display,
                   children: [
                     TextSpan(
-                      text: 'Sell.',
+                      text: ks.sell,
                       style: KsTextStyles.displayAccent,
                     ),
                   ],
@@ -151,10 +152,10 @@ class _Screen5OutwardState extends State<Screen5Outward> {
               const SizedBox(height: 16),
               Row(
                 children: [
-                  Text('Direct WhatsApp Pack', style: KsTextStyles.section),
+                  Text(ks.directWhatsAppPack, style: KsTextStyles.section),
                   const Spacer(),
-                  const KsPill(
-                    text: 'Instant Reach',
+                  KsPill(
+                    text: ks.instantReach,
                     icon: Icons.bolt_rounded,
                     green: true,
                   ),
@@ -168,16 +169,16 @@ class _Screen5OutwardState extends State<Screen5Outward> {
                     const SizedBox(height: 10),
                     Row(
                       children: [
-                        Expanded(child: _QuickAction(icon: Icons.qr_code_2_rounded, label: 'Printable A4 with QR', onTap: _showA4Card)),
+                        Expanded(child: _QuickAction(icon: Icons.qr_code_2_rounded, label: ks.printableA4, onTap: _showA4Card)),
                         const SizedBox(width: 7),
-                        Expanded(child: _QuickAction(icon: Icons.style_outlined, label: 'HD Story Card', onTap: _showStoryCard)),
+                        Expanded(child: _QuickAction(icon: Icons.style_outlined, label: ks.hdStoryCard, onTap: _showStoryCard)),
                         const SizedBox(width: 7),
-                        Expanded(child: _QuickAction(icon: Icons.record_voice_over_outlined, label: 'Hindi Voice Note', onTap: _showVoiceNote)),
+                        Expanded(child: _QuickAction(icon: Icons.record_voice_over_outlined, label: ks.voiceNoteLabel, onTap: _showVoiceNote)),
                       ],
                     ),
                     const SizedBox(height: 10),
                     KsActionButton(
-                      label: shared ? 'Shared on WhatsApp ✓' : 'Share on WhatsApp',
+                      label: shared ? ks.sharedOnWhatsApp : ks.shareOnWhatsApp,
                       icon: Icons.share_outlined,
                       onPressed: _share,
                     ),
@@ -187,9 +188,9 @@ class _Screen5OutwardState extends State<Screen5Outward> {
               const SizedBox(height: 16),
               Row(
                 children: [
-                  Text('Marketplace Adapters', style: KsTextStyles.section),
+                  Text(ks.marketplaceAdapters, style: KsTextStyles.section),
                   const Spacer(),
-                  const KsPill(text: '1-Click Live Sync'),
+                  KsPill(text: ks.oneClickLiveSync),
                 ],
               ),
               const SizedBox(height: 10),
@@ -211,7 +212,7 @@ class _Screen5OutwardState extends State<Screen5Outward> {
                 ),
               ),
               const SizedBox(height: 16),
-              Text('Cluster Field Verification', style: KsTextStyles.section),
+              Text(ks.clusterFieldVerification, style: KsTextStyles.section),
               const SizedBox(height: 10),
               KsCard(
                 child: Column(
@@ -261,7 +262,7 @@ class _Screen5OutwardState extends State<Screen5Outward> {
                             const SizedBox(width: 9),
                             Expanded(
                               child: Text(
-                                'Hub Batch Dispatch\nScheduled for tomorrow',
+                                '${ks.hubBatchDispatch}\n${ks.scheduledForTomorrow}',
                                 style: KsTextStyles.caption,
                               ),
                             ),
@@ -289,16 +290,16 @@ class _Screen5OutwardState extends State<Screen5Outward> {
                 ),
                 child: Column(
                   children: [
-                    Text('“क्या आप दूसरा उत्पाद जोड़ना चाहते हैं?”',
+                    Text('”${ks.addProductPrompt}”',
                         style: KsTextStyles.caption.copyWith(
                             color: KsColors.ink,
                             fontWeight: FontWeight.w700)),
                     const SizedBox(height: 4),
-                    Text('App speaks → Artisan answers (Bhashini NLP)',
+                    Text(ks.bhashiniNlpNote,
                         style: KsTextStyles.caption),
                     const SizedBox(height: 10),
                     KsActionButton(
-                      label: 'Create Another Product +',
+                      label: ks.createAnotherProduct,
                       icon: Icons.add_circle_outline,
                       onPressed: () => context.go(AppRoutes.capture),
                     ),
