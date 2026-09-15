@@ -25,6 +25,16 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.14.4
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/icon/KalaSetu_Logo_mobile_icon.png"
+
+  adaptive_icon_background: "#123D32"
+  adaptive_icon_foreground: "assets/icon/KalaSetu_Logo_mobile_icon.png"
+  adaptive_icon_foreground_inset: 0
 
 flutter:
   uses-material-design: true
