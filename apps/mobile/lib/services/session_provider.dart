@@ -37,6 +37,7 @@ class SessionProvider extends ChangeNotifier {
   Uint8List? capturedImageBytes;
   Uint8List? enhancedImageBytes;
   bool isEnhancing = false;
+  String? listingId;
 
   SessionProvider() {
     _player.onPlayerStateChanged.listen((state) {
@@ -143,10 +144,11 @@ class SessionProvider extends ChangeNotifier {
     isEnhancing = true;
     enhancedIsMock = false;
     notifyListeners();
-    final listingId = 'listing-${DateTime.now().millisecondsSinceEpoch}';
+    final id = 'listing-${DateTime.now().millisecondsSinceEpoch}';
+    listingId = id;
     // Run API call and minimum animation time in parallel
     final results = await Future.wait([
-      ApiService.enhanceImage(imageBytes: bytes, listingId: listingId),
+      ApiService.enhanceImage(imageBytes: bytes, listingId: id),
       Future.delayed(const Duration(seconds: 3)),
     ]);
     final result = results[0] as Map<String, dynamic>?;
@@ -179,6 +181,7 @@ class SessionProvider extends ChangeNotifier {
     table = null;
     capturedImageBytes = null;
     enhancedImageBytes = null;
+    listingId = null;
     ApiService.resetMock();
     notifyListeners();
   }

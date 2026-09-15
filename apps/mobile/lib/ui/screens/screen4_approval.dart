@@ -1,5 +1,7 @@
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 import '../l10n/ks_strings.dart';
 import '../routes/app_routes.dart';
 import '../theme/ks_colors.dart';
@@ -8,6 +10,8 @@ import '../widgets/ks_app_header.dart';
 import '../widgets/ks_bottom_nav.dart';
 import '../widgets/ks_cards.dart';
 import '../widgets/ks_progress_bar.dart';
+import '../../services/session_provider.dart';
+import '../../services/api_service.dart';
 
 class Screen4Approval extends StatefulWidget {
   const Screen4Approval({super.key});
@@ -18,11 +22,22 @@ class Screen4Approval extends StatefulWidget {
 
 class _Screen4ApprovalState extends State<Screen4Approval> {
   bool verified = true;
+  bool _isPublishing = false;
 
   void _message(String text) {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(SnackBar(content: Text(text)));
+  }
+
+  Future<void> _publish(SessionProvider sp) async {
+    if (_isPublishing) return;
+    setState(() => _isPublishing = true);
+    final id = sp.listingId ?? 'demo-${DateTime.now().millisecondsSinceEpoch}';
+    await ApiService.signListing(id);
+    if (!mounted) return;
+    setState(() => _isPublishing = false);
+    context.go(AppRoutes.distribute);
   }
 
   void _editDetails() {
@@ -32,7 +47,7 @@ class _Screen4ApprovalState extends State<Screen4Approval> {
         : 'Edit mode enabled — details can be reviewed.');
   }
 
-  void _showListenSheet(String title, String message) {
+  void _showListenSheet(String title, String message, {VoidCallback? onPlay}) {
     showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
@@ -69,7 +84,7 @@ class _Screen4ApprovalState extends State<Screen4Approval> {
                     backgroundColor: KsColors.terracotta,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                   ),
-                  onPressed: () => _message('Audio playback started.'),
+                  onPressed: onPlay ?? () => _message('Audio playback started.'),
                   icon: const Icon(Icons.play_arrow_rounded),
                   label: const Text('Play Audio'),
                 ),
@@ -81,13 +96,13 @@ class _Screen4ApprovalState extends State<Screen4Approval> {
     );
   }
 
-  void _showListingDetails() {
+  void _showListingDetails(String listingIdStr) {
     showDialog<void>(
       context: context,
       builder: (_) => AlertDialog(
         title: const Text('Verified Card'),
-        content: const Text(
-          'Listing #KS-2025-IND-8942\n\nThis card contains the cluster verification, artisan identity, provenance and pricing details prepared for publishing.',
+        content: Text(
+          'Listing $listingIdStr\n\nThis card contains the cluster verification, artisan identity, provenance and pricing details prepared for publishing.',
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close')),
@@ -103,13 +118,13 @@ class _Screen4ApprovalState extends State<Screen4Approval> {
     );
   }
 
-  void _showGeoProof() {
+  void _showGeoProof(String cluster) {
     showDialog<void>(
       context: context,
       builder: (_) => AlertDialog(
         title: const Text('Geotag Proof'),
-        content: const Text(
-          'Chanderi Weaver Cluster, Ashoknagar MP\nCoordinates: 24.0°\n\nCluster proof is approved and attached to this product card.',
+        content: Text(
+          '$cluster\n\nCluster proof is approved and attached to this product card.',
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close')),
@@ -127,6 +142,21 @@ class _Screen4ApprovalState extends State<Screen4Approval> {
 
   @override
   Widget build(BuildContext context) {
+    final sp = context.watch<SessionProvider>();
+    final listing = sp.listing;
+
+    final cluster = listing?['cluster'] as String? ?? 'Chanderi Cluster, MP';
+    final titleEn = listing?['title_en'] as String? ?? 'Heritage Craft Product';
+    final descEn = listing?['desc_en'] as String? ??
+        'Woven painstakingly on a traditional pit-loom using fine mulberry silk warp and hand-spun zari motifs.';
+    final priceNum = (listing?['prices']?['recommended'] as num?)?.toInt();
+    final priceStr = priceNum != null ? '₹$priceNum' : '₹3,850';
+    final imageBytes = sp.enhancedImageBytes ?? sp.capturedImageBytes;
+    final rawId = sp.listingId;
+    final listingIdStr = rawId != null
+        ? '#KS-${rawId.replaceFirst('listing-', '').substring(0, 8).toUpperCase()}'
+        : '#KS-2025-IND-8942';
+
     return Scaffold(
       appBar: null,
       body: SafeArea(
@@ -172,7 +202,8 @@ class _Screen4ApprovalState extends State<Screen4Approval> {
                       borderRadius: BorderRadius.circular(30),
                       onTap: () => _showListenSheet(
                         'Product Card Audio',
-                        'Listen to the translated product-card summary before publishing.',
+                        '$titleEn. $descEn',
+                        onPlay: () => sp.speakText('$titleEn. $descEn'),
                       ),
                       child: Padding(
                         padding: const EdgeInsets.all(2),
@@ -197,41 +228,51 @@ class _Screen4ApprovalState extends State<Screen4Approval> {
                     icon: verified ? Icons.check_circle : Icons.info_outline,
                     green: verified,
                   ),
-                  const KsPill(
-                    text: 'Price Agent: ₹3,850 Optimal',
+                  KsPill(
+                    text: 'Price Agent: $priceStr Optimal',
                     icon: Icons.sell_outlined,
                     green: true,
                   ),
                 ],
               ),
               const SizedBox(height: 14),
-              _VerifiedHeader(onTap: _showListingDetails),
+              _VerifiedHeader(
+                listingIdStr: listingIdStr,
+                onTap: () => _showListingDetails(listingIdStr),
+              ),
               const SizedBox(height: 14),
-              _ArtisanIdentity(),
+              _ArtisanIdentity(cluster: cluster),
               const SizedBox(height: 12),
-              _ProductVisual(),
+              _ProductVisual(imageBytes: imageBytes),
               const SizedBox(height: 14),
-              _ProvenanceCard(onListen: () => _showListenSheet(
-                'Heritage Provenance Story',
-                'Woven painstakingly on a traditional pit-loom using fine mulberry silk warp and hand-spun zari motifs.',
-              )),
+              _ProvenanceCard(
+                description: descEn,
+                onListen: () => _showListenSheet(
+                  'Heritage Provenance Story',
+                  descEn,
+                  onPlay: () => sp.speakText(descEn),
+                ),
+              ),
               const SizedBox(height: 12),
-              const Row(
+              Row(
                 children: [
-                  Expanded(child: _StatCard(label: 'MATERIAL', value: 'Pure Silk Zari', note: 'Natural Dye')),
-                  SizedBox(width: 7),
-                  Expanded(child: _StatCard(label: 'CRAFT TIME', value: '14 Days', note: 'Pit-Loom Hours')),
-                  SizedBox(width: 7),
-                  Expanded(child: _StatCard(label: 'PRICE', value: '₹3,850', note: 'Fair Wage Model')),
+                  const Expanded(child: _StatCard(label: 'MATERIAL', value: 'Handcrafted', note: 'Natural Dye')),
+                  const SizedBox(width: 7),
+                  const Expanded(child: _StatCard(label: 'CRAFT TIME', value: 'Artisan', note: 'Traditional')),
+                  const SizedBox(width: 7),
+                  Expanded(child: _StatCard(label: 'PRICE', value: priceStr, note: 'Fair Wage Model')),
                 ],
               ),
               const SizedBox(height: 12),
-              _GeoCard(onTap: _showGeoProof),
+              _GeoCard(
+                cluster: cluster,
+                onTap: () => _showGeoProof(cluster),
+              ),
               const SizedBox(height: 14),
               KsActionButton(
-                label: 'Approve & Publish',
+                label: _isPublishing ? 'Publishing…' : 'Approve & Publish',
                 icon: Icons.publish_rounded,
-                onPressed: () => context.go(AppRoutes.distribute),
+                onPressed: _isPublishing ? null : () => _publish(sp),
               ),
               const SizedBox(height: 8),
               KsActionButton(
@@ -272,7 +313,8 @@ class _Screen4ApprovalState extends State<Screen4Approval> {
 }
 
 class _VerifiedHeader extends StatelessWidget {
-  const _VerifiedHeader({required this.onTap});
+  const _VerifiedHeader({required this.listingIdStr, required this.onTap});
+  final String listingIdStr;
   final VoidCallback onTap;
 
   @override
@@ -301,10 +343,10 @@ class _VerifiedHeader extends StatelessWidget {
         InkWell(
           onTap: onTap,
           borderRadius: BorderRadius.circular(8),
-          child: const Padding(
-            padding: EdgeInsets.all(8),
-            child: Text('#KS-2025-IND-8942',
-                style: TextStyle(
+          child: Padding(
+            padding: const EdgeInsets.all(8),
+            child: Text(listingIdStr,
+                style: const TextStyle(
                     fontSize: 9,
                     fontWeight: FontWeight.w700,
                     color: KsColors.terracotta)),
@@ -316,6 +358,9 @@ class _VerifiedHeader extends StatelessWidget {
 }
 
 class _ArtisanIdentity extends StatelessWidget {
+  const _ArtisanIdentity({required this.cluster});
+  final String cluster;
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -335,7 +380,7 @@ class _ArtisanIdentity extends StatelessWidget {
           const SizedBox(width: 10),
           Expanded(
             child: Text(
-              'Devi Ram Weavers Guild\nChanderi Cluster, MP • Master Weaver (24 yrs exp)',
+              'Artisan\n$cluster',
               style: KsTextStyles.caption.copyWith(
                 color: KsColors.ink,
                 fontWeight: FontWeight.w600,
@@ -350,8 +395,42 @@ class _ArtisanIdentity extends StatelessWidget {
 }
 
 class _ProductVisual extends StatelessWidget {
+  const _ProductVisual({this.imageBytes});
+  final Uint8List? imageBytes;
+
   @override
   Widget build(BuildContext context) {
+    if (imageBytes != null) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(11),
+        child: SizedBox(
+          height: 190,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              Image.memory(imageBytes!, fit: BoxFit.cover),
+              const Positioned(
+                left: 10,
+                top: 10,
+                child: KsPill(
+                  text: 'Enhanced Image',
+                  icon: Icons.auto_fix_high_rounded,
+                  green: true,
+                ),
+              ),
+              const Positioned(
+                right: 10,
+                bottom: 10,
+                child: KsPill(
+                  text: 'AI Studio',
+                  icon: Icons.view_in_ar_outlined,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
     return Container(
       height: 190,
       decoration: BoxDecoration(
@@ -417,7 +496,8 @@ class _FabricPainter extends CustomPainter {
 }
 
 class _ProvenanceCard extends StatelessWidget {
-  const _ProvenanceCard({required this.onListen});
+  const _ProvenanceCard({required this.description, required this.onListen});
+  final String description;
   final VoidCallback onListen;
 
   @override
@@ -447,7 +527,7 @@ class _ProvenanceCard extends StatelessWidget {
           ),
           const SizedBox(height: 7),
           Text(
-            '“Woven painstakingly on a traditional pit-loom using fine mulberry silk warp and hand-spun zari motifs. Every woven motif reflects centuries of Malwa craftsmanship passed down through four unbroken generations.”',
+            '"$description"',
             style: KsTextStyles.body().copyWith(
               fontStyle: FontStyle.italic,
               color: KsColors.ink,
@@ -495,7 +575,8 @@ class _StatCard extends StatelessWidget {
 }
 
 class _GeoCard extends StatelessWidget {
-  const _GeoCard({required this.onTap});
+  const _GeoCard({required this.cluster, required this.onTap});
+  final String cluster;
   final VoidCallback onTap;
 
   @override
@@ -509,17 +590,17 @@ class _GeoCard extends StatelessWidget {
           color: KsColors.surfaceWarm,
           borderRadius: BorderRadius.circular(10),
         ),
-        child: const Row(
+        child: Row(
           children: [
-            Icon(Icons.qr_code_2_rounded, size: 30, color: KsColors.ink),
-            SizedBox(width: 10),
+            const Icon(Icons.qr_code_2_rounded, size: 30, color: KsColors.ink),
+            const SizedBox(width: 10),
             Expanded(
               child: Text(
-                'Geotag Proof: 24.0°\nChanderi Weaver Cluster, Ashoknagar MP',
-                style: TextStyle(fontSize: 10, height: 1.35),
+                'Geotag Proof\n$cluster',
+                style: const TextStyle(fontSize: 10, height: 1.35),
               ),
             ),
-            KsPill(text: 'Approved', icon: Icons.check, green: true),
+            const KsPill(text: 'Approved', icon: Icons.check, green: true),
           ],
         ),
       ),

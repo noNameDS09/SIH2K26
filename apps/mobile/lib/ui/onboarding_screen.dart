@@ -359,8 +359,18 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 width: double.infinity,
                 height: 48,
                 child: FilledButton.icon(
-                  onPressed:
-                      _consent ? () => context.go('/capture') : null,
+                  onPressed: _consent
+                      ? () async {
+                          final locale =
+                              context.read<LocaleProvider>().locale;
+                          ApiService.updateProfile({
+                            'lang': locale.languageCode,
+                            'consentAt':
+                                DateTime.now().toIso8601String(),
+                          });
+                          if (context.mounted) context.go('/capture');
+                        }
+                      : null,
                   style: FilledButton.styleFrom(
                     backgroundColor: const Color(0xFF9F3C07),
                     disabledBackgroundColor: const Color(0xFFF1DBD1),
