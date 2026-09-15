@@ -64,6 +64,37 @@ def test_enhance_returns_urls_and_provenance(monkeypatch):
     assert studio_jpg.headers["content-type"].startswith("image/jpeg")
 
 
+def test_reenhance_reuses_stored_original(monkeypatch):
+    monkeypatch.setattr(studio, "cutout_isnet", _opaque_cutout)
+    listing_id = "draft-reenhance-studio"
+    first = client.post(
+        "/v1/images/enhance",
+        files={"file": ("saree.jpg", _jpeg(), "image/jpeg")},
+        data={"listing_id": listing_id, "bg_preset": "linen"},
+        headers=AUTH,
+    )
+    assert first.status_code == 200
+    second = client.post(
+        "/v1/images/enhance",
+        data={"listing_id": listing_id, "bg_preset": "wood"},
+        headers=AUTH,
+    )
+    assert second.status_code == 200
+    body = second.json()
+    assert body["bg_preset"] == "wood"
+    assert body["reused_original"] is True
+    assert client.get(f"/v1/listings/{listing_id}/media/studio.jpg").status_code == 200
+
+
+def test_reenhance_without_original_fails():
+    response = client.post(
+        "/v1/images/enhance",
+        data={"listing_id": "draft-missing-original", "bg_preset": "linen"},
+        headers=AUTH,
+    )
+    assert response.status_code == 400
+
+
 def test_enhance_uses_slate_for_metal_craft(monkeypatch):
     monkeypatch.setattr(studio, "cutout_isnet", _opaque_cutout)
     response = client.post(

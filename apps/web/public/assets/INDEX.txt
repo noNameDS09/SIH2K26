@@ -1,0 +1,23 @@
+KalaSetu — 15-style supporting illustration library
+===================================================
+
+Use on side rails, empty states, quote cards, and soft backgrounds.
+Not product photos.
+
+01 Warli circle ............... tribal rice-paste figures on terracotta disc
+02 Madhubani tree of life ..... Mithila folk, fish + lotus + tree
+03 Watercolor botanical wash .. airy left-corner background
+04 Minimal line botanical ..... tall olive stem for sidebars
+05 Flat vector artisan ........ modern editorial woman at the wheel
+06 Blockprint paisley ......... textile background tile
+07 Terracotta relief .......... stamped-clay gateway medallion
+08 Miniature pavilion ......... muted Rajasthani court landscape
+09 Ink wash leaf .............. brush-painted banana leaf + bamboo
+10 Papercut basket + diya ..... layered handmade paper collage
+11 Kalamkari tree + peacocks .. South Indian temple-cloth painting
+12 Gond deer .................. dotted tribal animal motif
+13 Pastel village path ........ soft landscape with walking artisan
+14 Jaali side panel ........... architectural screen for page edge
+15 Risograph craft stack ...... grainy print of pot + leaf + arch
+
+JPG for all. PNG (white knocked out) for isolated motifs.

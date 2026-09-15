@@ -24,7 +24,7 @@ Ensure the key environment variables in `.env` are configured:
 ```dotenv
 # Port & Host
 PUBLIC_BASE_URL=http://localhost:8000
-CORS_ORIGINS=http://localhost:3000,http://127.0.0.1:3000,http://localhost:8501,http://localhost:8080,http://127.0.0.1:8080
+CORS_ORIGINS=http://localhost:3000,http://127.0.0.1:3000,http://localhost:8501
 
 # Secrets
 LISTING_HMAC_SECRET=your-random-32-byte-hex-secret
@@ -49,7 +49,7 @@ From the repository root:
 ```bash
 cd apps/api
 
-# Create & activate a virtual environment (Python 3.11+)
+# Create & activate a virtual environment (Python 3.12+)
 python3 -m venv .venv
 source .venv/bin/activate
 
@@ -152,7 +152,7 @@ Accessible at **`http://localhost:8501`**.
 
 | Method | Route | Auth | Description |
 |---|---|:---:|---|
-| `POST` | `/v1/images/enhance` | Bearer | Multipart upload (`file`, `listing_id`, `bg_preset`, `craft`). Performs subject cutout (ISNet/rembg), checks CIELAB $\Delta E \le 2.0$ color fidelity, composites onto selected background preset (`linen`, `jute`, `wood`, `slate`, `beige`, `white`), and stores media URLs in the listing draft. |
+| `POST` | `/v1/images/enhance` | Bearer | Multipart (`listing_id` required; `file` optional on re-edit; `bg_preset`, `craft`). Performs subject cutout (ISNet/rembg), checks CIELAB $\Delta E \le 2.0$ color fidelity, composites onto a locked preset (`white`, `linen`, `beige`, `slate`, `jute`, `wood`). If `file` is omitted, the stored `original.jpg` is reused. |
 
 ---
 
@@ -178,9 +178,11 @@ Accessible at **`http://localhost:8501`**.
 | `GET` | `/v1/listings/{id}` | Bearer | Retrieve an artisan's listing details. |
 | `PATCH` | `/v1/listings/{id}` | Bearer | Update listing fields, cluster, photos, or descriptions. |
 | `POST` | `/v1/listings/{id}/price` | Bearer | Calculate 4-tier price bands (`floor`, `recommended`, `aspirational`, `listed`) based on hours, materials, cluster wage benchmarks, and GI premiums. |
-| `POST` | `/v1/listings/{id}/sign` | Bearer | Freeze listing, compute deterministic HMAC-SHA256 signature, generate high-contrast QR code PNG, and publish document to Firestore (`publishedListings`). |
-| `GET` | `/v1/listings/{id}/media/{filename}` | None | Serve generated listing media files (`studio.jpg`, `original.jpg`, `qr.png`). |
+| `POST` | `/v1/listings/{id}/sign` | Bearer | Freeze listing, compute deterministic HMAC-SHA256 signature, generate high-contrast QR code PNG, upload `qr.png` to Firebase Storage (in-memory fallback), and publish to Firestore (`publishedListings`). |
+| `GET` | `/v1/listings/{id}/media/{filename}` | None | Serve `studio.jpg`, `original.jpg`, `qr.png`, or `audio.opus` from memory or Firebase Storage. |
 | `GET` | `/v1/listings/{id}/media/{kind}.jpg` | None | Legacy image route serving `original.jpg` or `studio.jpg`. |
+| `POST` | `/v1/listings/{id}/media` | Bearer | Upload listing audio (`kind=audio`). Photos still go through `/v1/images/enhance`. |
+| `GET` / `POST` | `/v1/listings/{id}/export` | Bearer | Mocked GeM / ONDC / India Handloom export record. Always labelled `Mock — for SIH demo`. No live write. |
 
 ---
 
@@ -194,6 +196,33 @@ Accessible at **`http://localhost:8501`**.
 
 ---
 
+### 7. Sales, Money & Trade Record
+
+| Method | Route | Auth | Description |
+|---|---|:---:|---|
+| `POST` | `/v1/sales` | Bearer | Confirm a sale `{ listing_id, amount }` for the artisan. Writes `sales/{id}` and updates Trade Record. |
+| `GET` | `/v1/sales` | Bearer | List this artisan's sales and `total_inr`. |
+| `GET` | `/v1/money` | Bearer | Spoken-first money screen: sales, total, empty-state line, Trade Record bars. Never called a credit score. |
+| `GET` | `/v1/trade-record` | Bearer | Five bars: identity, listings, sales, consistency, community. |
+
+---
+
+### 8. Advisor & Trends
+
+| Method | Route | Auth | Description |
+|---|---|:---:|---|
+| `GET` | `/v1/advisor` | Bearer | Agent B: one ranked rule, one sentence (or empty). Provenance `advisor-rules.v1/<rule_id>`. |
+| `GET` | `/v1/insights` | Bearer | Advisor snapshot, insight history, and current public trend line. |
+| `GET` | `/v1/trends/current` | None | Agent C read model. `n` visible; `seed: true` labelled when n < 20. |
+| `POST` | `/v1/trends/recompute` | Admin | Rebuild `public_trends/current` from last-30-day sales (listings if no sales). Header `X-Admin-Token` when `ADMIN_API_TOKEN` is set. |
+
+Auth notes:
+- `POST /v1/auth/verify` always returns a `dev.{uid}` API bearer for FastAPI.
+- `firebase_custom_token` is minted when Admin SDK credentials are valid (`auth_mode=firebase`). Otherwise `auth_mode=dev` and `firebase_custom_token` is `null`.
+- Image/QR/audio bytes are stored in process memory **and** uploaded to Firebase Storage path `artisans/{uid}/listings/{id}/…` when the Admin SDK bucket is available.
+
+---
+
 ## 📂 Project Architecture
 
 ```
@@ -203,18 +232,19 @@ apps/api/
 ├── requirements-studio.txt      # Rembg / Onnxruntime dependencies
 ├── streamlit_cataloger.py       # Standalone voice testing tool
 ├── assets/                      # Bundled background presets (linen, jute, etc.)
-├── tests/                       # Pytest test suite (30 end-to-end tests)
+├── tests/                       # Pytest test suite
 └── src/kalasetu_api/
     ├── main.py                  # FastAPI app factory, CORS, and top-level routes
     ├── config.py                # Pydantic Settings and env loader
-    ├── deps.py                  # Auth dependencies (require_bearer, current_uid)
+    ├── deps.py                  # Auth dependencies (require_bearer, current_uid, require_admin)
     ├── catalog_seed.py          # 30 authentic handicraft product definitions
     ├── demo_store.py            # In-memory baseline store and price builder
-    ├── listing_media.py         # Media memory cache and URL generators
+    ├── listing_media.py         # Media memory cache + Storage mirror
     ├── adapters/
-    │   ├── firebase.py          # Firestore operations, auth minting, in-memory fallback
+    │   ├── firebase.py          # Firestore, Auth minting, sales, trends, in-memory fallback
+    │   ├── storage.py           # Firebase Storage upload/download
     │   ├── llm/
-    │   │   ├── gemini.py        # Gemini client for text extraction
+    │   │   ├── gemini.py        # Gemini client for text extraction + advisor phrasing
     │   │   └── gemini_live.py   # Gemini Live WebSocket configuration & session handlers
     │   └── speech/
     │       ├── sarvam.py        # Sarvam Saaras STT & Bulbul TTS HTTP client
@@ -224,11 +254,18 @@ apps/api/
     │   ├── languages.py         # Indic language codes
     │   ├── pricing.py           # 4-tier formula using wages & materials benchmarks
     │   ├── signing.py           # HMAC-SHA256 signature and QR code generation
-    │   └── studio.py            # Image cut-out, Delta E calculation, composition
+    │   ├── studio.py            # Image cut-out, Delta E calculation, composition
+    │   ├── advisor.py           # Agent B rule ranker
+    │   ├── trends.py            # Agent C public_trends aggregation
+    │   └── export.py            # Mocked GeM / ONDC / IH records
     └── routers/
         ├── auth.py              # OTP and artisan identity endpoints
         ├── images.py            # Image Studio enhancement endpoint
-        ├── listings.py          # Listings, pricing, signing, and /v1/market
+        ├── listings.py          # Listings, pricing, signing, market, media
+        ├── sales.py             # Sales, money, Trade Record
+        ├── advisor.py           # Advisor + insights
+        ├── trends.py            # public_trends current + recompute
+        ├── export.py            # Mocked channel export
         ├── speech.py            # STT, TTS, and REST turn endpoints
         └── speech_live.py       # Gemini Live WebSocket & test harness
 ```

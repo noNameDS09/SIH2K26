@@ -14,6 +14,7 @@ from __future__ import annotations
 import argparse
 import io
 import json
+import os
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from functools import lru_cache
@@ -116,6 +117,7 @@ class StudioResult:
 
 def studio_deps_ok() -> bool:
     try:
+        os.environ.setdefault("NUMBA_DISABLE_JIT", "1")
         import onnxruntime  # noqa: F401
         import rembg  # noqa: F401
     except Exception:
@@ -300,6 +302,7 @@ def resize_long_edge(img: Image.Image, long_edge: int = LONG_EDGE) -> Image.Imag
 @lru_cache(maxsize=1)
 def _rembg_session():
     try:
+        os.environ.setdefault("NUMBA_DISABLE_JIT", "1")
         from rembg import new_session
     except Exception as exc:
         raise StudioUnavailable(

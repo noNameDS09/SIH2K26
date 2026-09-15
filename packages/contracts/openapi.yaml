@@ -2,7 +2,7 @@ openapi: 3.1.0
 info:
   title: KalaSetu API
   version: 0.1.0
-  description: Contract names from agent-coding-guide/13_API.md. Studio enhance and speech are wired; listings/sign/trends still use demo data.
+  description: Contract names from agent-coding-guide/13_API.md. Auth, studio, speech, listings, market, sales, advisor, trends, and mocked export adapters are wired.
 servers:
   - url: http://localhost:8000
 paths:
@@ -78,9 +78,12 @@ paths:
           multipart/form-data:
             schema:
               type: object
-              required: [file, listing_id]
+              required: [listing_id]
               properties:
-                file: { type: string, format: binary }
+                file:
+                  type: string
+                  format: binary
+                  description: Optional on re-edit. If omitted, the stored original.jpg is reused.
                 listing_id: { type: string }
                 bg_preset:
                   type: string
@@ -94,6 +97,20 @@ paths:
           description: Bad image or preset
         "503":
           description: rembg not installed on the API process
+  /v1/listings/{id}/media/{filename}:
+    get:
+      summary: Original/studio JPEG or QR PNG for a listing
+      parameters:
+        - $ref: "#/components/parameters/listingId"
+        - name: filename
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Media file bytes (JPEG or PNG)
+        "404":
+          description: Media not found
   /v1/listings/{id}/media/{kind}.jpg:
     get:
       summary: Original or studio JPEG for a listing
@@ -175,30 +192,145 @@ paths:
       responses:
         "200":
           description: Session + table rows
-  /v1/listings/{id}/price:
-    post:
-      summary: Three-band price (not wired)
-      security: [{ bearerAuth: [] }]
-      parameters:
-        - $ref: "#/components/parameters/listingId"
-      responses:
-        "501":
-          description: Not wired
-  /v1/listings/{id}/sign:
-    post:
-      summary: HMAC + QR + publishedListings copy (not wired)
-      security: [{ bearerAuth: [] }]
-      parameters:
-        - $ref: "#/components/parameters/listingId"
-      responses:
-        "501":
-          description: Not wired
-  /v1/market:
+  /v1/listings:
     get:
-      summary: Published-market catalog
+      summary: Listings for the authenticated artisan
+      security: [{ bearerAuth: [] }]
       responses:
         "200":
-          description: Public catalog list
+          description: List of artisan listings
+    post:
+      summary: Create or draft a listing doc in Firestore
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                id: { type: string }
+                title: { type: string }
+                title_hi: { type: string }
+                title_en: { type: string }
+                description: { type: string }
+                desc_hi: { type: string }
+                desc_en: { type: string }
+                fields: { type: object }
+                cluster: { type: string }
+                price_hint: { type: number }
+                photo_url: { type: string }
+      responses:
+        "200":
+          description: Created listing document
+  /v1/listings/{id}:
+    get:
+      summary: Get full listing document
+      parameters:
+        - $ref: "#/components/parameters/listingId"
+      responses:
+        "200":
+          description: Full listing document
+        "404":
+          description: Listing not found
+    patch:
+      summary: Update fields or metadata on an artisan's draft listing
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/listingId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title: { type: string }
+                title_hi: { type: string }
+                title_en: { type: string }
+                description: { type: string }
+                desc_hi: { type: string }
+                desc_en: { type: string }
+                fields: { type: object }
+                cluster: { type: string }
+                price_hint: { type: number }
+                photo_url: { type: string }
+      responses:
+        "200":
+          description: Updated listing document
+        "404":
+          description: Listing not found
+  /v1/listings/{id}/price:
+    post:
+      summary: Four-tier price bands (floor, recommended, aspirational, listed)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/listingId"
+      responses:
+        "200":
+          description: Computed price bands with provenance
+        "404":
+          description: Listing not found
+  /v1/listings/{id}/sign:
+    post:
+      summary: Freeze listing, HMAC-SHA256 sign, generate QR code PNG, and publish
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/listingId"
+      responses:
+        "200":
+          description: Published status, signature, and QR URL
+        "404":
+          description: Listing not found
+  /v1/market:
+    get:
+      summary: Published-market catalog with search, filtering, and facets
+      parameters:
+        - name: category
+          in: query
+          required: false
+          schema: { type: string }
+        - name: craft
+          in: query
+          required: false
+          schema: { type: string }
+        - name: cluster
+          in: query
+          required: false
+          schema: { type: string }
+        - name: gi
+          in: query
+          required: false
+          schema: { type: string }
+        - name: tag
+          in: query
+          required: false
+          schema: { type: string }
+        - name: q
+          in: query
+          required: false
+          schema: { type: string }
+        - name: min_price
+          in: query
+          required: false
+          schema: { type: number }
+        - name: max_price
+          in: query
+          required: false
+          schema: { type: number }
+        - name: sort
+          in: query
+          required: false
+          schema: { type: string, enum: [price_asc, price_desc, latest] }
+      responses:
+        "200":
+          description: Filtered catalog items with metadata facets
+  /v1/market/seed:
+    post:
+      summary: Bootstrap all 30 handcrafted catalog items into Firestore
+      responses:
+        "200":
+          description: Seeding summary and count of records created
   /v/{id}:
     get:
       summary: Public listing card JSON
@@ -212,11 +344,120 @@ paths:
           description: Public listing card
   /v1/trends/recompute:
     post:
-      summary: Rebuild public_trends/current (not wired)
+      summary: Rebuild public_trends/current from sales (seed if n<20)
       security: [{ adminToken: [] }]
       responses:
-        "501":
-          description: Not wired
+        "200":
+          description: Aggregated trend document with n, rising, seed flag, provenance
+        "401":
+          description: Admin token required when ADMIN_API_TOKEN is set
+  /v1/trends/current:
+    get:
+      summary: Read public_trends/current (computes once if empty)
+      responses:
+        "200":
+          description: Current cluster trend line
+  /v1/advisor:
+    get:
+      summary: One-sentence business advisor for the authenticated artisan
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Sentence or empty with rule provenance
+  /v1/insights:
+    get:
+      summary: Advisor snapshot, insight history, and current trends
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Home/insights payload
+  /v1/sales:
+    get:
+      summary: Confirmed sales for the authenticated artisan
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Sales list and total
+    post:
+      summary: Confirm a sale against one of the artisan's listings
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [listing_id, amount]
+              properties:
+                listing_id: { type: string }
+                amount: { type: number }
+      responses:
+        "200":
+          description: Sale plus updated Trade Record
+        "404":
+          description: Listing not found
+  /v1/money:
+    get:
+      summary: Spoken money summary and Trade Record bars
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Sales, spoken line, Trade Record
+  /v1/trade-record:
+    get:
+      summary: Five-bar Trade Record (never a credit score)
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Trade Record bars and counts
+  /v1/listings/{id}/export:
+    get:
+      summary: Mock GeM / ONDC / India Handloom export record
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/listingId"
+        - name: channel
+          in: query
+          required: false
+          schema: { type: string, enum: [gem, ondc, ih] }
+      responses:
+        "200":
+          description: Mocked export payload labelled Mock — for SIH demo
+    post:
+      summary: Mock export record (same as GET)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/listingId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                channel: { type: string, enum: [gem, ondc, ih] }
+      responses:
+        "200":
+          description: Mocked export payload
+  /v1/listings/{id}/media:
+    post:
+      summary: Upload listing audio (photos use /v1/images/enhance)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/listingId"
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file: { type: string, format: binary }
+                kind: { type: string, default: audio }
+      responses:
+        "200":
+          description: Audio URL
 components:
   securitySchemes:
     bearerAuth:
