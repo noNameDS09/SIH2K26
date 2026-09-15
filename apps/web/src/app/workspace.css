@@ -217,18 +217,69 @@
   padding: clamp(28px, 4vw, 54px);
 }
 .ks-content::after {
-  position: fixed;
-  z-index: 0;
-  inset-inline-end: -54px;
-  inset-block-end: -62px;
-  width: 220px;
-  height: 285px;
-  background: url("/assets/patterns/leaf-thread.svg") center / contain no-repeat;
-  content: "";
-  opacity: .18;
-  pointer-events: none;
+  display: none;
 }
 .ks-content > * { position: relative; z-index: 1; }
+
+/* Desktop art is composed as a quiet horizon, not a poster behind the UI. */
+@media (min-width: 1081px) {
+  .ks-content {
+    padding-bottom: clamp(152px, 11vw, 206px);
+  }
+  .ks-content::after {
+    display: none;
+  }
+  .ks-ambient-art {
+    top: auto !important;
+    right: clamp(28px, 5vw, 86px) !important;
+    bottom: 18px !important;
+    left: auto !important;
+    width: min(38vw, 520px) !important;
+    height: 142px !important;
+    opacity: .38 !important;
+    transform: none !important;
+    mask-image: linear-gradient(90deg, transparent 0%, #000 11%, #000 82%, transparent 100%);
+  }
+  .ks-ambient-art img {
+    object-fit: cover;
+    object-position: center bottom;
+  }
+  .ks-ambient-art::after {
+    background: linear-gradient(180deg, rgba(245,234,216,.08), rgba(245,234,216,.16) 54%, #f5ead8 100%);
+  }
+  .ks-ambient-art--home,
+  .ks-ambient-art--shop {
+    width: min(45vw, 610px) !important;
+    height: 158px !important;
+    opacity: .34 !important;
+  }
+  .ks-ambient-art--capture,
+  .ks-ambient-art--studio,
+  .ks-ambient-art--live,
+  .ks-ambient-art--distribute,
+  .ks-ambient-art--money {
+    width: min(34vw, 460px) !important;
+  }
+  .ks-ambient-art--intelligence,
+  .ks-ambient-art--insights,
+  .ks-ambient-art--settings {
+    right: clamp(30px, 5vw, 86px) !important;
+    width: 250px !important;
+    height: 124px !important;
+    opacity: .3 !important;
+  }
+  .ks-ambient-art--approval {
+    right: clamp(30px, 5vw, 86px) !important;
+    width: min(30vw, 400px) !important;
+    height: 116px !important;
+    opacity: .32 !important;
+  }
+  .ks-ambient-art--pricing {
+    width: min(42vw, 560px) !important;
+    height: 150px !important;
+    opacity: .18 !important;
+  }
+}
 .ks-page-intro { display: flex; align-items: flex-end; justify-content: space-between; gap: 28px; margin-block-end: 28px; }
 .ks-page-intro > div:first-child { max-width: 760px; }
 .ks-eyebrow { margin: 0 0 8px; color: var(--ks-brown); font-size: 0.72rem; font-weight: 800; letter-spacing: 0.13em; text-transform: uppercase; }

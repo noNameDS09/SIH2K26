@@ -32,18 +32,18 @@ const creationSteps = [
 ] as const;
 
 const workspaceArtwork: Partial<Record<WorkspaceView, { src: string; alt: string; className: string }>> = {
-  home: { src: "/assets/13-pastel-village-path.jpg", alt: "Pastel village path", className: "ks-ambient-art--home" },
-  capture: { src: "/assets/illustration-hillside-panel.jpg", alt: "Soft hillside craft landscape", className: "ks-ambient-art--capture" },
-  studio: { src: "/assets/15-risograph-craft-stack.png", alt: "Craft stack and material motif", className: "ks-ambient-art--studio" },
-  live: { src: "/assets/illustration-artisan-speaking.png", alt: "Artisan speaking about a craft", className: "ks-ambient-art--live" },
-  intelligence: { src: "/assets/09-ink-wash-leaf.png", alt: "Ink-wash leaf motif", className: "ks-ambient-art--intelligence" },
+  home: { src: "/assets/illustration-village-watercolor.jpg", alt: "Watercolor village landscape", className: "ks-ambient-art--home" },
+  capture: { src: "/assets/illustration-temple-hill-banner.jpg", alt: "Temple hill landscape banner", className: "ks-ambient-art--capture" },
+  studio: { src: "/assets/illustration-crafts-still-life.jpg", alt: "Craft still life illustration", className: "ks-ambient-art--studio" },
+  live: { src: "/assets/illustration-artisan-speaking.jpg", alt: "Artisan speaking about a craft", className: "ks-ambient-art--live" },
+  intelligence: { src: "/assets/03-watercolor-botanical-wash.jpg", alt: "Watercolor botanical wash", className: "ks-ambient-art--intelligence" },
   pricing: { src: "/assets/pattern-diamond-jaali.jpg", alt: "Diamond jaali pattern", className: "ks-ambient-art--pricing" },
-  approval: { src: "/assets/logo-mark-gateway.png", alt: "KalaSetu gateway mark", className: "ks-ambient-art--approval" },
-  distribute: { src: "/assets/illustration-woven-basket.png", alt: "Woven basket illustration", className: "ks-ambient-art--distribute" },
+  approval: { src: "/assets/illustration-village-hills-footer.jpg", alt: "Village hills landscape", className: "ks-ambient-art--approval" },
+  distribute: { src: "/assets/illustration-woven-basket.jpg", alt: "Woven basket illustration", className: "ks-ambient-art--distribute" },
   shop: { src: "/assets/11-kalamkari-tree-peacocks.jpg", alt: "Kalamkari tree and peacock motif", className: "ks-ambient-art--shop" },
-  money: { src: "/assets/illustration-artisan-painting.png", alt: "Artisan painting illustration", className: "ks-ambient-art--money" },
-  insights: { src: "/assets/01-warli-circle.png", alt: "Warli circle motif", className: "ks-ambient-art--insights" },
-  settings: { src: "/assets/04-minimal-line-botanical.png", alt: "Minimal botanical line motif", className: "ks-ambient-art--settings" },
+  money: { src: "/assets/illustration-artisan-painting.jpg", alt: "Artisan painting illustration", className: "ks-ambient-art--money" },
+  insights: { src: "/assets/01-warli-circle.jpg", alt: "Warli circle motif", className: "ks-ambient-art--insights" },
+  settings: { src: "/assets/14-jaali-side-panel.jpg", alt: "Jaali side panel pattern", className: "ks-ambient-art--settings" },
 };
 
 const navGroups = [
