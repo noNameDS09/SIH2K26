@@ -1,0 +1,530 @@
+Recreate the complete “KalaSetu” mobile artisan-commerce workflow as one Figma page containing exactly five 390px-wide mobile screens plus two detached interface elements. Arrange everything horizontally in workflow order. Preserve all bilingual English/Hindi content, imagery, icons, cards, badges, navigation, spacing, colors, typography, states, and visual hierarchy described below.
+
+GLOBAL DESIGN SYSTEM
+Use a warm Indian craft-tech aesthetic combining government-service credibility, editorial storytelling, and modern AI tooling.
+
+Colors:
+• Main canvas/background: warm ivory #FEF8F4.
+• Primary terracotta: #9F3C07.
+• Secondary orange: #C05421.
+• Main text: #1D1B19.
+• Charcoal: #32302E.
+• Dark brown: #370E00.
+• Supporting brown text: #57423A, #6B5B53, #705F58, and #8A7268.
+• Card/surface colors: #FFFFFF, #F8F2EE, #F3EDE9, #EDE7E3, #E7E1DD, #F1DBD1, #F4DED4, and #FFDBCE.
+• Verification green: #476430.
+• Pale success green: #CAEDAB.
+• Deep green: #0B2000.
+
+Typography:
+• Use Plus Jakarta Sans for interface text.
+• Use Playfair Display for editorial headlines and heritage storytelling.
+• Use a bold italic serif treatment for emphasized craft names.
+• Use appropriate Devanagari-compatible typography for Hindi copy.
+• Metadata and labels: 10–11px, medium/bold, often uppercase with 0.5–0.6px tracking.
+• Body copy: 12px with approximately 18px line height.
+• CTAs: 13px semibold.
+• Card titles: 16px semibold.
+• App-bar titles: 18px semibold.
+• Editorial headings: approximately 28px with 35–36px line height and slightly negative tracking.
+
+Components and styling:
+• Maintain 20px horizontal mobile gutters and a 350px content column.
+• Cards use 8px, 12px, or 16px corner radii.
+• Buttons and status pills use fully rounded corners.
+• Use restrained shadows such as 0 1px 2px rgba(0,0,0,.05), with occasional 0 2px 4px, 0 4px 6px, or 0 10px 15px depth.
+• Headers and bottom navigation use 90% opaque ivory, 24px background blur, and a subtle brown-tinted shadow.
+• Camera and AI diagnostic chips use dark translucent fills with background blur.
+• Primary CTAs use terracotta backgrounds and white text.
+• Use small line icons consistently for back, profile, audio, camera, upload, microphone, verification, download, arrows, marketplace, location, and navigation actions.
+• Preserve the airy parchment-like page background and tightly organized card stack.
+
+SCREEN 1 — ARTISAN ONBOARDING
+Create a 390 × 1369.5 mobile screen with an ivory background and a single 350px-wide vertical content column.
+
+At the top, place:
+• “STAGE 1 — ARTISAN ONBOARDING”
+• “1 of 5 Steps”
+• A five-part horizontal segmented progress indicator using narrow rounded segments with 6px gaps.
+• Editorial heading: “Namaste, welcome to KalaSetu.”
+• Hindi subtitle: “आर्टिसन पहचान व क्लस्टर सत्यापन — AI डिजिटल सेतु”
+
+Below the heading, preserve a 72px-tall reserved audio-guide area.
+
+Add a 350 × 40 mode switcher with a pale warm-gray background, 4px internal padding, 8px spacing, and 12px corners. Show a selected pill labeled:
+• “Pehchan OCR”
+
+Create a 350 × 240 OCR scanner card:
+• 16px radius and restrained shadow.
+• Use a photograph of a government artisan/handloom identification card placed on ochre-and-brown woven fabric.
+• The image area is approximately 350 × 176.
+• Add a subtle lower gradient scrim.
+• Place a pale-green rounded scanning outline inset 16px from the image edges.
+• Add translucent HUD chips:
+  – “AI DOCUMENT OCR”
+  – “MoT / DC-Handlooms Card”
+  – “98% Match”
+• Add a dark full-width bottom action:
+  – “Re-scan Card”
+  – Include a camera/scan icon.
+
+Create a verified registry details card:
+• 350 × 264, 16px inner horizontal and bottom padding, 12px internal spacing, 16px radius.
+• Header:
+  – “Extracted Registry
+     Details”
+  – Green status pill: “KYC-Lite
+     Verified”
+• Main white information field:
+  – “शिल्पी / कारीगर नाम (Artisan / Guild Name)”
+  – “Devi Ram Weavers Guild”
+  – Add a confirmation check.
+• Two side-by-side metadata fields:
+  – “स्थान (Cluster)” / “Ashoknagar, MP”
+  – “अनुभव (Mastery)” / “24 Yrs Experience”
+• Bottom identity row:
+  – “Pehchan ID: •••• 8842”
+  – “DC-Handlooms Reg.”
+
+Add a muted olive-green 350 × 44 button:
+• “government id redirection link”
+
+Create a voice-consent card with warm off-white fill and 16px radius:
+• Header:
+  – “TWO-WAY VOICE — BHASHINI
+     ASR”
+  – “Hindi /
+     Bundelkhandi”
+• Inside, place a large white acoustic panel with 12px radius.
+• Center a terracotta circular microphone button surrounded by a pale peach halo.
+• Add a decorative waveform/voice visualization.
+• Quote:
+  – “मेरी सहमति है / I agree to create my GI artisan
+     profile”
+• Guidance:
+  – “Tap the microphone and speak to affix your
+     verbal digital signature for ONDC & GeM
+     listing.”
+• Metadata:
+  – “Audio • Bhashini ASR • Encrypted Hash Stored”
+• Consent row with a square checkbox:
+  – “Grant permission to create verifiable digital craft
+     identity on ONDC, GeM, and export craft catalogs.”
+
+Add a 350 × 46 terracotta primary CTA:
+• “Save & Proceed to Product Capture”
+• Include a right-facing arrow.
+
+Finish with a pale 350 × 44 audio-help row:
+• “सुनें (Audio Help)”
+• Add an audio/waveform icon.
+
+SCREEN 2 — PRODUCT CAPTURE
+Create a 390 × 1246.5 mobile screen.
+
+Place a 64px translucent fixed-style header at the top:
+• Back arrow.
+• “Product Capture”
+• Audio icon.
+• Circular profile/account icon.
+
+The main content begins below the header with 20px side gutters.
+
+Progress area:
+• “STAGE 02 / 05”
+• “KALASETU AI PIPELINE”
+• Five-segment progress indicator.
+• “STAGE 2 — PRODUCT CAPTURE”
+
+Editorial heading:
+• “Hello Devi Ram, show us
+   your Bamboo & Zari Craft.”
+• Treat “Bamboo & Zari Craft.” as a contrasting rust-colored bold italic serif phrase.
+• Supporting copy:
+  – “Capture natural studio lighting or upload ancestral archive
+     photographs.”
+
+Create a 350 × 262.5 camera viewport:
+• 16px corners.
+• Use a warm craft photograph showing handmade natural-fiber vessels/baskets in an earthy studio environment.
+• Add a dark lower gradient for readability.
+• Top diagnostic overlays:
+  – “BiRefNet Preprocessing Active”
+  – “Mask: 99.4%”
+• Bottom diagnostic overlays:
+  – “QA: Artifacts None (0.4s)”
+  – “4K 60FPS”
+• Use dark translucent HUD capsules with small green indicators and white text.
+
+Below the image, add two 169.5 × 48 actions separated by 8px:
+• Dark primary secondary-action button: “Upload Photo” with upload icon.
+• Pale peach button: “Sample” with a small sample/refresh icon.
+
+Create a 350 × 366 Bhashini voice-query card:
+• 16px radius and warm pale surface.
+• Header:
+  – “TWO-WAY VOICE — BHASHINI
+     ASR”
+  – “Hindi /
+     Bundeli”
+• Add a centered terracotta microphone circle with multiple peach ripple rings.
+• Add a white prompt capsule with 14px padding and 12px radius.
+• Label:
+  – “ACTIVE AUDIO QUERY”
+• Hindi prompt:
+  – “इस शिल्प को बनाने में क्या सामग्री लगी और कितना समय
+     लगा?”
+• Supporting status:
+  – “Missing info prompt auto-triggers voice query
+     loop”
+• Include audio and waveform icons.
+
+Near the bottom, add a 350 × 56 terracotta CTA:
+• “Run Intelligence Engine”
+• Include an intelligence/lightbulb-style icon and right arrow.
+
+Below it, add:
+• “Step 2 of 5 • Automatic sync to offline draft storage”
+
+SCREEN 3 — AI INTELLIGENCE
+Create a 390 × 1860 mobile screen.
+
+Use a translucent 64px header:
+• Back arrow.
+• “Intelligence Review”
+• Audio control.
+• Profile icon.
+
+Main content uses 20px horizontal gutters.
+
+Progress area:
+• “STAGE 3 — INTELLIGENCE ENGINE”
+• “Step 3 of 5”
+• Segmented progress indicator.
+
+Heading region:
+• Green pill: “Confidence Gates: 98%”
+• Neutral pill: “LangGraph Multi-Agent”
+• Editorial heading:
+  – “Craft Intelligence &
+     Synthesis”
+• Supporting text:
+  – “Autonomous analysis synthesized from artisan audio stream &
+     craft imagery.”
+
+LISTING AGENT CARD
+Create a 350 × 288 card with 20px padding and 16px radius:
+• “LISTING AGENT (HINDI + EN)”
+• Peach status badge: “9 specs extracted”
+• Small label: “GENERATED SEO TITLE”
+• Main title:
+  – “Handwoven Pure Chanderi Zari Silk
+     Dupatta – Malwa Heritage”
+• Hindi description:
+  – “हस्तनिर्मित चंदेरी जरी सिल्क दुपट्टा • शुद्ध रेशम व पारम्परिक कड़वा बुनाई”
+• Hashtag pills:
+  – “#GeographicalIndication”
+  – “#Handloom”
+  – “#ZariKadwa”
+  – “#MalwaCraft”
+• Audio-summary row:
+  – “Bhashini Voice Summary: Malwa Dialect”
+  – Include a terracotta audio button.
+
+TREND AGENT CARD
+Create a 350 × 205 card:
+• “TREND AGENT: MARKET
+   DEMAND”
+• Green badge:
+  – “+34%
+     Surge”
+• Two metric cells:
+  – “Peak Windows” / “Oct – Feb Festive”
+  – “Top Hotspots” / “Delhi & Mumbai”
+• Body:
+  – “Festive bridal queries indicate surging preference for
+     authentic unbleached raw silk weaves with unpolished
+     gold zari motifs.”
+
+FAIR-PRICE AGENT CARD
+Create a detailed pricing card:
+• “FAIR-PRICE AGENT + ML”
+• Badge: “Fair-Wage Certified”
+• Line items:
+  – “Raw Material (Pure Silk + Zari)” / “₹1,400”
+  – “Artisan Labour (14 days @ ₹140/day)” / “₹1,960”
+  – “Finishing, Packaging & Buffer” / “₹490”
+• Recommendation summary:
+  – “RECOMMENDED TARGET”
+  – “₹3,850”
+  – Crossed/reference value: “₹4,400”
+  – “Anchor”
+• Margin:
+  – “NET ARTISAN MARGIN”
+  – “38%”
+  – “Guaranteed”
+• Three-column price selector:
+  – “Lowest price” / “1800”
+  – “recommended” / “3850”
+  – “highest price” / “5000”
+• Emphasize the recommended column and use terracotta for the high-price value.
+
+BUSINESS OPPORTUNITY CARD
+• “BUSINESS OPPORTUNITY AGENT”
+• Peach recommendation panel with small opportunity icon.
+• “Bundle Upsell
+   Recommendation”
+• “Artisan has ~0.4m cut silk left. Craft a
+   matching scrap-silk potli pouch to lift
+   bundle order value by +₹250.”
+
+STRUCTURED PAYLOAD CARD
+• “STRUCTURED PAYLOAD
+   PREVIEW”
+• Green pill:
+  – “Ready to
+     Verify”
+• Two-column details:
+  – “Origin Cluster” / “Chanderi, Ashoknagar (MP)”
+  – “Weave Technique” / “Interlocking Zari Kadwa”
+  – “Dispatch SLA” / “48 Hours Ready”
+  – “Channels Mapped” / “ONDC • GeM • Direct”
+
+Add a terracotta primary CTA:
+• “Review Verified Product Card”
+• Include a right arrow.
+
+Add an embedded 80px translucent bottom navigation:
+• Studio
+• Kala List
+• Raised central Bolo microphone action
+• Samuh
+• Bazaar
+The Bolo control is a 64px terracotta circle raised approximately 24px above the navigation surface, with a white microphone and white “Bolo” label.
+
+DETACHED SCREEN 3 ELEMENT
+Outside the screen frame, preserve a separate 350 × 48 pale warm-gray pill aligned visually over the Screen 3 region:
+• Fully rounded corners.
+• Edit icon.
+• “संशोधन (Edit details)”
+
+SCREEN 4 — ARTISAN APPROVAL
+Create a 390 × 1369.8 mobile screen.
+
+Add a translucent 64px header:
+• Back arrow.
+• “Artisan Approval”
+• Audio icon.
+• Profile icon.
+
+Progress area:
+• “STAGE 4 — ARTISAN APPROVAL & LISTING”
+• “4 of 5 Completed”
+• Five-part progress indicator.
+
+Heading:
+• “Verify Your Product
+   Card”
+• Supporting copy:
+  – “Review generated catalog details before
+     multi-channel catalog launch.”
+• Audio pill:
+  – “सुनें / Listen”
+
+Add a horizontally scrolling/overflowing orchestration-chip row:
+• “Listing Agent: Verified”
+• “Price Agent: ₹3,850 Optimal”
+• “GI Registry: Authenticated”
+Use small colored status dots.
+
+Create a large 350 × 905.8 certificate-style verified product card:
+• White/parchment surface.
+• 12px radius.
+• Soft shadow.
+• Subtle blurred parchment watermark behind content.
+
+Certificate header:
+• KalaSetu verification emblem.
+• “KALASETU VERIFIED CARD”
+• “Cluster-Grade Handcraft
+   Certificate”
+• Right-aligned certificate number:
+  – “#KS-2025-IND-”
+  – “8942”
+
+Guild profile:
+• Circular guild avatar/seal.
+• “Devi Ram Weavers Guild”
+• Green badge:
+  – “GI
+     Certified”
+• “Chanderi Cluster, MP • Master Weaver (24 yrs exp)”
+• “GI Reg ID: #GI-IN-0021-TXTL”
+
+Product image:
+• Approximately 318 × 224.
+• Show a close-up rust-red handwoven textile with repeated small gold motifs and visible folded fabric depth.
+• Add overlay badges:
+  – “4K Multiview Calibrated”
+  – “AR 3D Model Attached”
+
+Heritage section:
+• “HERITAGE PROVENANCE
+   STORY”
+• Audio pill:
+  – “सुनें
+     (Malwi/Hindi)”
+• Serif italic story:
+  – “Woven painstakingly on a traditional pit-
+     loom using fine mulberry silk warp and hand-
+     spun zari motifs. Every woven motif reflects
+     centuries of Malwa craftsmanship passed
+     down through four unbroken generations.”
+• Translation metadata:
+  – “AI Translation Model:”
+  – “Bhashini Indic-v4 • Verified”
+
+Create a three-column specification row:
+1. “सामग्री /
+   MATERIAL”
+   “Pure Silk
+   Zari”
+   “Natural Dye”
+2. “श्रम / CRAFT
+   TIME”
+   “14 Days”
+   “82 Pit-Loom
+   Hrs”
+3. “मूल्य / PRICE”
+   “₹3,850”
+   “Fair Wage
+   Model”
+
+Add a geotag and approval row:
+• QR/geotag graphic.
+• “Geotag Proof: 24.0622°N, 78.1340°E”
+• “Chanderi Weaver
+   Cluster, Ashoknagar
+   MP”
+• Green approval pill:
+  – “Approved”
+• “Cluster Officer #84”
+
+Below the card, add a wide terracotta publish CTA:
+• “स्वीकारें और प्रकाशित करें (Approve & Publish)”
+
+Add an ownership notice with a lock icon:
+• “Your GI signature & craft copyright remain 100% owned by
+   your guild.”
+
+SCREEN 5 — OUTWARD DISTRIBUTION
+Create a 390 × 1613.9 mobile screen.
+
+Use a taller 112px translucent header:
+• Top row: italic KalaSetu wordmark and circular account/profile icon.
+• Second row: five compact workflow labels:
+  – “1. Onboard”
+  – “2. Capture”
+  – “3. Intelligence”
+  – “4. Approval”
+  – “5. Outward”
+• Add a narrow progress underline showing the final stage.
+
+Main heading:
+• “STAGE 5 — OUTWARD MULTI-CHANNEL DISTRIBUTION”
+• “Published & Ready to Sell.”
+• Supporting copy:
+  – “Your handcrafted masterpiece is synchronized
+     across national buyer grids, open commerce
+     protocols, and artisan clusters.”
+
+PUBLISHED LISTING CARD
+• “Listing #KS-2025-IND-8942”
+• “Live across 3 verified buyer networks”
+• Green pill: “Active Now”
+• Use a 56 × 56 thumbnail showing natural bamboo vessels and vases.
+• Product:
+  – “Natural Bamboo Vessel & Vases”
+  – “₹ 1,850 · Free Cluster Hub Drop”
+• Include an audio button.
+
+DIRECT WHATSAPP PACK
+• Heading: “Direct WhatsApp Pack”
+• Status: “Instant Reach”
+• Toolkit card:
+  – WhatsApp-style icon.
+  – “High-Converting Chat Toolkit”
+  – “Send catalog, invoice & audio story to retail
+     buyers”
+• Three evenly spaced toolkit options:
+  – “Printable A4
+     with QR”
+  – “HD Story Card”
+  – “Hindi Voice
+     Note”
+• Large dark-green CTA:
+  – “Share on WhatsApp”
+• Add a separate download icon button.
+
+MARKETPLACE ADAPTERS
+• Heading: “Marketplace Adapters”
+• Badge: “1-Click Live Sync”
+• Three stacked integration rows, each with platform mark, title, subtitle, and an active terracotta toggle:
+  1. “GeM Portal (Govt e-Market)”
+     “Ready to Push · Govt Buyer Pool”
+  2. “ONDC Open Commerce”
+     “Live on Mystore & Magicpin”
+  3. “IndiaHandmade (Ministry of Textiles)”
+     “Synced · Export Inquiries Active”
+• All three toggle switches are on, with the circular knob positioned to the right.
+
+CLUSTER FIELD VERIFICATION
+• “CLUSTER FIELD
+   VERIFICATION”
+• Green badge:
+  – “Sign-off
+     Done”
+• Circular initials avatar: “ST”
+• “S. Trivedi”
+• “Indore West Craft Cluster Officer · Seal #771”
+• Phone/contact icon.
+• Dispatch row:
+  – “Hub Batch Dispatch
+     Scheduled”
+  – “Tomorrow, 11:30
+     AM”
+
+Preserve a 74px reserved spacer below this card.
+
+Bhashini follow-up:
+• “क्या आप दूसरा उत्पाद जोड़ना चाहते हैं?”
+• “App speaks → Artisan answers (Bhashini NLP)”
+
+Add a terracotta CTA:
+• “Create Another Product +”
+
+DETACHED BOTTOM NAVIGATION
+Create a separate 390 × 80 bottom navigation positioned below Screen 5 rather than parented inside it:
+• Translucent ivory background.
+• Background blur.
+• Subtle upper shadow.
+• Five items:
+  – Studio
+  – Kala List
+  – Raised center Bolo
+  – Samuh
+  – Bazaar
+• The center Bolo control is a 64px terracotta circle raised above the bar with a white microphone and white label.
+• Use terracotta to indicate Bazaar as the current destination.
+
+FINAL STRUCTURE
+The page must contain exactly seven top-level elements:
+1. Artisan Onboarding screen.
+2. Product Capture screen.
+3. AI Intelligence screen.
+4. Detached “संशोधन (Edit details)” pill.
+5. Artisan Approval screen.
+6. Outward Distribution screen.
+7. Detached bottom navigation.
+
+Keep the five mobile screens in sequential horizontal order, preserve their differing vertical heights, and do not remove the two intentionally detached interface elements.
