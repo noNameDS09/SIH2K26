@@ -148,9 +148,7 @@ class _Screen3IntelligenceState extends State<Screen3Intelligence> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const SizedBox(height: 16),
-                      _StageHeader(step3Label: ks.step3Of5),
-                      const SizedBox(height: 10),
-                      const KsProgressBar(totalSteps: 5, currentStep: 3),
+                      const KsProgressBar(totalSteps: 5, currentStep: 3, label: 'STAGE 3 — CRAFT INTELLIGENCE'),
                       const SizedBox(height: 12),
                       _StageBadge(label: ks.stage3Badge),
                       const SizedBox(height: 20),
@@ -288,23 +286,7 @@ class _Screen3IntelligenceState extends State<Screen3Intelligence> {
   }
 }
 
-// ─── Stage header / badge ──────────────────────────────────────────────────────
-
-class _StageHeader extends StatelessWidget {
-  final String step3Label;
-  const _StageHeader({required this.step3Label});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Text('STAGE 03 / 05', style: KsTextStyles.label(color: KsColors.terracotta, size: 10)),
-        const Spacer(),
-        Text('KALASETU AI PIPELINE', style: KsTextStyles.label(color: KsColors.brown3, size: 10)),
-      ],
-    );
-  }
-}
+// ─── Stage badge ──────────────────────────────────────────────────────────────
 
 class _StageBadge extends StatelessWidget {
   final String label;

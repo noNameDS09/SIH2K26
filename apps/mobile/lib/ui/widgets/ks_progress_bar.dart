@@ -16,27 +16,34 @@ class KsProgressBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final progress = (currentStep / totalSteps).clamp(0.0, 1.0);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
             if (label != null)
-              Text(label!, style: KsTextStyles.label()),
+              Text(label!, style: KsTextStyles.label(color: KsColors.terracotta, size: 10)),
             const Spacer(),
-            Text('$currentStep of $totalSteps Completed',
+            Text('$currentStep of $totalSteps Steps',
                 style: KsTextStyles.caption),
           ],
         ),
-        const SizedBox(height: 7),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(20),
-          child: LinearProgressIndicator(
-            minHeight: 4,
-            value: progress,
-            backgroundColor: KsColors.surfaceMuted,
-            valueColor: const AlwaysStoppedAnimation(KsColors.terracotta),
+        const SizedBox(height: 10),
+        Row(
+          children: List.generate(
+            totalSteps,
+            (index) => Expanded(
+              child: Container(
+                height: 5,
+                margin: EdgeInsets.only(right: index == totalSteps - 1 ? 0 : 6),
+                decoration: BoxDecoration(
+                  color: index < currentStep
+                      ? KsColors.terracotta
+                      : KsColors.surfaceMuted,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+              ),
+            ),
           ),
         ),
       ],

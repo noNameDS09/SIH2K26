@@ -150,9 +150,7 @@ class _Screen2CaptureState extends State<Screen2Capture> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const SizedBox(height: 16),
-              _StageHeader(stage: '02', total: '05'),
-              const SizedBox(height: 10),
-              const KsProgressBar(totalSteps: 5, currentStep: 2),
+              const KsProgressBar(totalSteps: 5, currentStep: 2, label: 'STAGE 2 — PRODUCT CAPTURE'),
               const SizedBox(height: 12),
               _StageBadge(label: ks.stage2Badge),
               const SizedBox(height: 20),
@@ -219,26 +217,6 @@ class _Screen2CaptureState extends State<Screen2Capture> {
   }
 }
 
-// ─── Stage header ─────────────────────────────────────────────────────────────
-
-class _StageHeader extends StatelessWidget {
-  final String stage;
-  final String total;
-  const _StageHeader({required this.stage, required this.total});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Text('STAGE $stage / $total',
-            style: KsTextStyles.label(color: KsColors.terracotta, size: 10)),
-        const Spacer(),
-        Text('KALASETU AI PIPELINE',
-            style: KsTextStyles.label(color: KsColors.brown3, size: 10)),
-      ],
-    );
-  }
-}
 
 class _StageBadge extends StatelessWidget {
   final String label;
