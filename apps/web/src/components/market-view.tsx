@@ -5,6 +5,7 @@ import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import gsap from "gsap";
 import { api, type Listing } from "@/lib/api-client";
 import { Icon, ProductMedia, Skeleton, StatusPill } from "@/components/workspace/workspace-ui";
+import { useTranslation } from "@/lib/language-context";
 
 function value(item: Listing, ...keys: string[]) {
   for (const key of keys) {
@@ -24,6 +25,7 @@ function unique(items: Listing[], getter: (item: Listing) => string) {
 
 export function MarketView() {
   const root = useRef<HTMLElement>(null);
+  const { t, language } = useTranslation();
   const [items, setItems] = useState<Listing[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -87,9 +89,9 @@ export function MarketView() {
   return (
     <main className="pub-catalog" ref={root}>
       <section className="pub-catalog__intro">
-        <p className="pub-eyebrow">KalaSetu public catalog</p>
-        <h1>Craft, carried forward.</h1>
-        <p>Explore signed product stories shared directly by artisan communities across India.</p>
+        <p className="pub-eyebrow">{t("market.eyebrow", "KalaSetu public catalog")}</p>
+        <h1>{t("market.title", "Craft, carried forward.")}</h1>
+        <p>{t("market.subtitle", "Explore signed product stories shared directly by artisan communities across India.")}</p>
       </section>
 
       <section className="pub-toolbar" aria-label="Catalog search and filters">
@@ -98,7 +100,7 @@ export function MarketView() {
           <span className="sr-only">Search catalog</span>
           <input
             type="search"
-            placeholder="Search products, crafts, materials or regions"
+            placeholder={t("market.search_placeholder", "Search products, crafts, materials or regions")}
             value={query}
             onChange={(event) => setQuery(event.target.value)}
           />
@@ -150,17 +152,18 @@ export function MarketView() {
       ) : filtered.length ? (
         <section className="pub-grid" aria-label="Published craft listings">
           {filtered.map((item) => {
-            const title = value(item, "title", "title_en", "title_hi") || "Untitled craft";
+            const tr = (item.translations as Record<string, { title?: string; description?: string }> | undefined)?.[language];
+            const title: string = String(tr?.title || (language.startsWith("hi") ? item.title_hi : undefined) || (language.startsWith("mr") ? (item.title_mr || item.title_hi) : undefined) || value(item, "title", "title_en", "title_hi") || "Untitled craft");
             const image = value(item, "image_url", "photo_url", "studioUrl", "originalUrl");
             const craft = value(item, "craft", "category", "fields.craft") || "Handmade craft";
             const itemRegion = value(item, "cluster_name", "cluster");
-            const artisan = typeof item.artisan === "object" && item.artisan ? item.artisan.name : "";
+            const artisan = typeof item.artisan === "object" && item.artisan ? String(item.artisan.name || "") : "";
             const price = item.prices?.listed?.value || item.prices?.recommended?.value || Number(item.listed_price || 0);
             return (
               <article className="pub-card" key={item.id} data-catalog-card>
                 <Link href={`/v/${item.id}`} className="pub-card__image" aria-label={`View ${title}`}>
                   <ProductMedia src={image} alt={title} />
-                  <StatusPill tone="success">Published</StatusPill>
+                  <StatusPill tone="success">{t("market.verified_tag", "Published")}</StatusPill>
                 </Link>
                 <div className="pub-card__copy">
                   <p>{craft}{itemRegion ? ` · ${itemRegion}` : ""}</p>
@@ -168,7 +171,7 @@ export function MarketView() {
                   {artisan ? <span>By {artisan}</span> : null}
                   <div>
                     <strong>{price ? `₹${Number(price).toLocaleString("en-IN")}` : "Price on request"}</strong>
-                    <Link href={`/v/${item.id}`}>View full details <Icon name="arrow" size={16} /></Link>
+                    <Link href={`/v/${item.id}`}>{t("market.view_details", "View full details")} <Icon name="arrow" size={16} /></Link>
                   </div>
                 </div>
               </article>
@@ -178,7 +181,7 @@ export function MarketView() {
       ) : (
         <section className="pub-state">
           <Icon name="search" size={28} />
-          <h2>{items.length ? "No crafts match those filters." : "The first collection is being prepared."}</h2>
+          <h2>{items.length ? t("market.no_results", "No crafts match those filters.") : "The first collection is being prepared."}</h2>
           <p>{items.length ? "Try removing a filter or using a broader search." : "Published artisan listings will appear here as soon as they are signed."}</p>
           {items.length ? <button type="button" onClick={reset}>Clear filters</button> : null}
         </section>

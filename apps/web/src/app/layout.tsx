@@ -3,6 +3,7 @@ import "./globals.css";
 import "./workspace.css";
 import "./workspace-pages.css";
 import { SiteHeader } from "@/components/site-header";
+import { LanguageProvider } from "@/lib/language-context";
 
 export const metadata: Metadata = {
   title: "KalaSetu — Bridging artisans to a brighter tomorrow",
@@ -14,8 +15,10 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   return (
     <html lang="en">
       <body>
-        <SiteHeader />
-        {children}
+        <LanguageProvider>
+          <SiteHeader />
+          {children}
+        </LanguageProvider>
       </body>
     </html>
   );

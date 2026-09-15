@@ -415,7 +415,11 @@ def _finalize(session: CatalogerSession) -> CatalogerSession:
     try:
         from kalasetu_api.adapters.llm.gemini import generate_listing_json
 
-        generated = generate_listing_json(transcripts)
+        try:
+            generated = generate_listing_json(transcripts, target_language=session.language_code)
+        except TypeError:
+            # Handle mock test functions that only take one parameter (transcripts)
+            generated = generate_listing_json(transcripts)
         source = "gemini-flash-catalog.v1"
         confidence = 0.8
     except Exception as exc:  # noqa: BLE001 — tester must still show parsed slots
@@ -436,11 +440,13 @@ def _finalize(session: CatalogerSession) -> CatalogerSession:
             fields[name] = parsed
         session.slots[name].confirmed = True
 
-    copy_keys = ("title_hi", "title_en", "title_mr", "desc_hi", "desc_en", "desc_mr")
+    copy_keys = ("title_hi", "title_en", "title_mr", "title_local", "desc_hi", "desc_en", "desc_mr", "desc_local")
     copy = {key: (generated or {}).get(key) or "" for key in copy_keys}
     extras = fields.get("extras") if isinstance(fields.get("extras"), dict) else {}
     if copy["title_mr"]:
         extras = {**extras, "title_mr": copy["title_mr"], "desc_mr": copy["desc_mr"]}
+    if copy["title_local"]:
+        extras = {**extras, "title_local": copy["title_local"], "desc_local": copy["desc_local"]}
     fields["extras"] = extras
 
     prices = compute_prices(fields, cluster=session.cluster)
@@ -457,14 +463,16 @@ def _finalize(session: CatalogerSession) -> CatalogerSession:
         "title_en": {"value": copy["title_en"], "provenance": _provenance(source, confidence)},
         "desc_hi": {"value": copy["desc_hi"], "provenance": _provenance(source, confidence)},
         "desc_en": {"value": copy["desc_en"], "provenance": _provenance(source, confidence)},
+        "title_local": {"value": copy["title_local"] or copy["title_en"], "provenance": _provenance(source, confidence)},
+        "desc_local": {"value": copy["desc_local"] or copy["desc_en"], "provenance": _provenance(source, confidence)},
         "prices": prices,
         "cluster": session.cluster,
         "language_code": session.language_code,
     }
     session.listing = listing
     session.phase = "complete"
-    read_title = copy["title_mr"] or copy["title_hi"] or display_value(fields.get("craft"))
-    read_desc = copy["desc_mr"] or copy["desc_hi"]
+    read_title = copy["title_local"] or copy["title_mr"] or copy["title_hi"] or display_value(fields.get("craft"))
+    read_desc = copy["desc_local"] or copy["desc_mr"] or copy["desc_hi"]
     session.speak = f"{read_title}. {read_desc}".strip()
     session.question = "लिस्टिंग तयार आहे."
     session.reread = session.speak

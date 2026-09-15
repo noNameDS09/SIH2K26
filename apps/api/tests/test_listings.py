@@ -112,3 +112,28 @@ def test_sign_unauthorized_and_not_found():
         headers=AUTH_HEADER,
     )
     assert not_found_resp.status_code == 404
+
+
+def test_translate_listing_endpoint():
+    # Create listing
+    create_resp = client.post(
+        "/v1/listings",
+        headers=AUTH_HEADER,
+        json={"fields": {"craft": "brass", "material": "brass"}, "title_en": "Brass Diya", "desc_en": "Handcrafted lamp."},
+    )
+    assert create_resp.status_code == 200
+    listing_id = create_resp.json()["id"]
+
+    # Request translation
+    trans_resp = client.post(f"/v1/listings/{listing_id}/translate?target_lang=hi-IN")
+    assert trans_resp.status_code == 200
+    body = trans_resp.json()
+    assert body["listing_id"] == listing_id
+    assert body["target_lang"] == "hi-IN"
+    assert "title" in body
+
+    # Second request is cached
+    cached_resp = client.post(f"/v1/listings/{listing_id}/translate?target_lang=hi-IN")
+    assert cached_resp.status_code == 200
+    assert cached_resp.json()["cached"] is True
+

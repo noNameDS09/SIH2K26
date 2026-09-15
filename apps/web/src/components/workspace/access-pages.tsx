@@ -98,8 +98,18 @@ function LanguageAccess() {
     return () => window.clearTimeout(timer);
   }, []);
 
-  const selectLanguage = (code: string, spokenName: string) => {
+  const selectLanguage = async (code: string, spokenName: string) => {
     setLanguage(code);
+    try {
+      const res = await api.tts(spokenName, code);
+      if (res.audio_b64) {
+        const audio = new Audio(`data:${res.content_type || "audio/wav"};base64,${res.audio_b64}`);
+        await audio.play();
+        return;
+      }
+    } catch {
+      // Fallback to browser SpeechSynthesis
+    }
     if ("speechSynthesis" in window && "SpeechSynthesisUtterance" in window) {
       window.speechSynthesis.cancel();
       const utterance = new SpeechSynthesisUtterance(spokenName);

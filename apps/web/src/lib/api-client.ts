@@ -5,9 +5,11 @@ export type Listing = {
   title?: string;
   title_en?: string;
   title_hi?: string;
+  title_mr?: string;
   description?: string;
   desc_en?: string;
   desc_hi?: string;
+  desc_mr?: string;
   fields?: Record<string, unknown>;
   prices?: Record<string, { value?: number; provenance?: Provenance }>;
   originalUrl?: string;
@@ -18,11 +20,16 @@ export type Listing = {
   craft?: string;
   image_url?: string;
   cluster?: string;
+  cluster_name?: string;
   artisan?: { name?: string; cluster?: string };
   provenance?: Provenance[];
   signature?: string;
   qr_url?: string;
   public_url?: string;
+  updatedAt?: string;
+  signedAt?: string;
+  createdAt?: string;
+  translations?: Record<string, { title?: string; description?: string }>;
   [key: string]: unknown;
 };
 export type AdvisorResult = { sentence: string; empty: boolean; rule_id?: string | null; listing_id?: string; provenance?: Provenance; trade_record?: Record<string, unknown> };
@@ -100,6 +107,7 @@ export const api = {
   }>(`/v1/listings/${encodeURIComponent(id)}/export`, { method: "POST", body: JSON.stringify({ channel }) }),
   price: (id: string) => request<{ prices: Listing["prices"] }>(`/v1/listings/${encodeURIComponent(id)}/price`, { method: "POST" }),
   sign: (id: string) => request<{ listing_id: string; status: string; qr_url: string; public_url: string; signature: string }>(`/v1/listings/${encodeURIComponent(id)}/sign`, { method: "POST" }),
+  translateListing: (id: string, targetLang = "hi-IN") => request<{ listing_id: string; target_lang: string; title: string; description: string; cached: boolean }>(`/v1/listings/${encodeURIComponent(id)}/translate?target_lang=${encodeURIComponent(targetLang)}`, { method: "POST" }, false),
   market: () => request<{ items: Listing[] }>("/v1/market", {}, false),
 };
 

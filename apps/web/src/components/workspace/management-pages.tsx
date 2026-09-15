@@ -56,8 +56,12 @@ function messageFrom(cause: unknown, fallback: string) {
   return cause instanceof Error ? cause.message : fallback;
 }
 
-function listingTitle(listing: Listing) {
-  return listing.title_en || listing.title_hi || listing.title || "Untitled listing";
+function listingTitle(listing: Listing, lang = "en-IN"): string {
+  const tr = (listing as { translations?: Record<string, { title?: string }> }).translations?.[lang];
+  if (tr?.title) return String(tr.title);
+  if (lang.startsWith("hi") && listing.title_hi) return String(listing.title_hi);
+  if (lang.startsWith("mr") && (listing.title_mr || listing.title_hi)) return String(listing.title_mr || listing.title_hi);
+  return String(listing.title_en || listing.title_hi || listing.title || "Untitled listing");
 }
 
 function listingImage(listing: Listing) {
@@ -542,7 +546,7 @@ export function MoneyPage() {
   }
   if (!money) return null;
 
-  const listingNames = new Map(listings.map((listing) => [listing.id, listingTitle(listing)]));
+  const listingNames = new Map<string, string>(listings.map((listing) => [listing.id, listingTitle(listing)]));
 
   return (
     <WorkspaceShell view="money">
@@ -926,6 +930,7 @@ export function SettingsPage() {
       window.localStorage.setItem("kalasetu_language", language);
       window.localStorage.setItem("kalasetu_speak_screens", String(speakScreens));
       window.localStorage.setItem("kalasetu_large_text", String(largeText));
+      window.dispatchEvent(new Event("kalasetu_lang_change"));
       setNotice("Preferences saved.");
     } catch (cause) {
       setError(messageFrom(cause, "Could not save your preferences."));

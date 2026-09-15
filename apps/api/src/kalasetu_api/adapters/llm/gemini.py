@@ -30,9 +30,12 @@ LISTING_SCHEMA: dict[str, Any] = {
         "title_hi": {"type": "string"},
         "title_en": {"type": "string"},
         "title_mr": {"type": "string"},
+        "title_local": {"type": "string"},
         "desc_hi": {"type": "string"},
         "desc_en": {"type": "string"},
         "desc_mr": {"type": "string"},
+        "desc_local": {"type": "string"},
+        "language_code": {"type": "string"},
         "extras": {"type": "object"},
     },
     "required": [
@@ -65,13 +68,15 @@ material_source = own | shop | trader.
 effort = simple | normal | skilled.
 colour = short English colour names.
 craft, material, technique, occasion = short English keywords (not sentences).
-title_* and desc_* must use only the given facts. Hindi, English, and Marathi.
+title_* and desc_* must use only the given facts. Hindi, English, and Marathi must always be provided.
+If target language is specified, title_local and desc_local must be written fluently in that target language.
 extras only holds extra facts they stated (weight, size, GI name, etc)."""
 
 
 def generate_listing_json(
     slot_transcripts: dict[str, Any],
     *,
+    target_language: str = "en-IN",
     settings: Settings | None = None,
 ) -> dict[str, Any]:
     settings = settings or get_settings()
@@ -80,6 +85,7 @@ def generate_listing_json(
     model = settings.gemini_model
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
     prompt = (
+        f"Target Artisan Language: {target_language}\n"
         "Interview transcripts keyed by slot. Normalize to the JSON schema.\n\n"
         f"{slot_transcripts}"
     )
@@ -165,3 +171,55 @@ def phrase_advisor_sentence(
     except (KeyError, IndexError, TypeError) as exc:
         raise GeminiError(f"Gemini response missing text: {body}") from exc
     return str(text).strip().strip('"')
+
+
+def translate_text(
+    *,
+    text: str,
+    target_language: str,
+    source_language: str = "en",
+    settings: Settings | None = None,
+) -> str:
+    """Translate product title or description into target regional language."""
+    clean = text.strip()
+    if not clean:
+        return ""
+    settings = settings or get_settings()
+    if not settings.gemini_api_key:
+        return clean
+    model = settings.gemini_model
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+    prompt = (
+        f"Translate the following Indian handicraft product text from {source_language} into {target_language}.\n"
+        "Keep cultural terms and craft names (like Saree, Banarasi, Jute, Dokra) natural and authentic.\n"
+        "Return ONLY the direct translation with no explanations or punctuation wrapping.\n\n"
+        f"{clean}"
+    )
+    payload = {
+        "systemInstruction": {
+            "parts": [
+                {
+                    "text": (
+                        "You are a professional translator specializing in Indian handicraft and handloom trade catalogs. "
+                        "Translate accurately and respectfully."
+                    )
+                }
+            ]
+        },
+        "contents": [{"role": "user", "parts": [{"text": prompt}]}],
+        "generationConfig": {"temperature": 0.1, "maxOutputTokens": 300},
+    }
+    headers = {
+        "x-goog-api-key": settings.gemini_api_key,
+        "Content-Type": "application/json",
+    }
+    try:
+        with httpx.Client(timeout=20.0, trust_env=False) as client:
+            response = client.post(url, headers=headers, json=payload)
+        if response.status_code == 200:
+            body = response.json()
+            return str(body["candidates"][0]["content"]["parts"][0]["text"]).strip().strip('"')
+    except Exception:
+        pass
+    return clean
+
