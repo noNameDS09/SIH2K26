@@ -140,6 +140,20 @@ class SessionProvider extends ChangeNotifier {
 
   bool enhancedIsMock = false;
 
+  /// Stores the artisan's explicit price choice separately from the AI
+  /// recommendation so the approval card can clearly use the override.
+  void setListedPrice(int price) {
+    final currentListing = listing ?? <String, dynamic>{};
+    final currentPrices = currentListing['prices'];
+    final prices = <String, dynamic>{
+      if (currentPrices is Map) ...currentPrices,
+      'listed': price,
+      'override': true,
+    };
+    listing = <String, dynamic>{...currentListing, 'prices': prices};
+    notifyListeners();
+  }
+
   Future<void> _enhanceInBackground(Uint8List bytes) async {
     isEnhancing = true;
     enhancedIsMock = false;

@@ -149,8 +149,12 @@ class _Screen4ApprovalState extends State<Screen4Approval> {
     final titleEn = listing?['title_en'] as String? ?? 'Heritage Craft Product';
     final descEn = listing?['desc_en'] as String? ??
         'Woven painstakingly on a traditional pit-loom using fine mulberry silk warp and hand-spun zari motifs.';
-    final priceNum = (listing?['prices']?['recommended'] as num?)?.toInt();
+    final prices = listing?['prices'];
+    final listedPrice = prices is Map ? prices['listed'] : null;
+    final priceNum = (listedPrice as num?)?.toInt() ??
+        (prices is Map ? prices['recommended'] as num? : null)?.toInt();
     final priceStr = priceNum != null ? '₹$priceNum' : '₹3,850';
+    final hasCustomPrice = listedPrice is num;
     final imageBytes = sp.enhancedImageBytes ?? sp.capturedImageBytes;
     final rawId = sp.listingId;
     final listingIdStr = rawId != null
@@ -231,7 +235,9 @@ class _Screen4ApprovalState extends State<Screen4Approval> {
                     green: verified,
                   ),
                   KsPill(
-                    text: 'Price Agent: $priceStr Optimal',
+                    text: hasCustomPrice
+                        ? 'Artisan price: $priceStr'
+                        : 'Price Agent: $priceStr Optimal',
                     icon: Icons.sell_outlined,
                     green: true,
                   ),

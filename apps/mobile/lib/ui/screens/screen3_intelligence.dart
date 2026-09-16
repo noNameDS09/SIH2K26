@@ -21,6 +21,7 @@ class Screen3Intelligence extends StatefulWidget {
 class _Screen3IntelligenceState extends State<Screen3Intelligence> {
   int _selectedBand = 1;
   bool _useCustomPrice = false;
+  String? _customPriceError;
   final TextEditingController _customPriceController = TextEditingController();
 
   @override
@@ -69,6 +70,24 @@ class _Screen3IntelligenceState extends State<Screen3Intelligence> {
       _useCustomPrice = true;
       _selectedBand = -1;
     });
+  }
+
+  void _useEnteredPrice() {
+    final price = int.tryParse(_customPriceController.text.trim());
+    if (price == null || price <= 0) {
+      setState(() => _customPriceError = 'Enter a valid price using numbers only.');
+      _showSnack('Please enter a valid price using numbers only.');
+      return;
+    }
+
+    context.read<SessionProvider>().setListedPrice(price);
+    FocusScope.of(context).unfocus();
+    setState(() {
+      _customPriceError = null;
+      _useCustomPrice = true;
+      _selectedBand = -1;
+    });
+    _showSnack('₹$price will be used on the final product card.');
   }
 
   @override
@@ -236,6 +255,13 @@ class _Screen3IntelligenceState extends State<Screen3Intelligence> {
                               controller: _customPriceController,
                               active: _useCustomPrice,
                               onActivate: _activateCustomPrice,
+                              onUse: _useEnteredPrice,
+                              errorText: _customPriceError,
+                              onChanged: (_) {
+                                if (_customPriceError != null) {
+                                  setState(() => _customPriceError = null);
+                                }
+                              },
                             ),
                           ],
                         ),
@@ -676,11 +702,17 @@ class _CustomPriceInput extends StatelessWidget {
   final TextEditingController controller;
   final bool active;
   final VoidCallback onActivate;
+  final VoidCallback onUse;
+  final String? errorText;
+  final ValueChanged<String> onChanged;
 
   const _CustomPriceInput({
     required this.controller,
     required this.active,
     required this.onActivate,
+    required this.onUse,
+    required this.errorText,
+    required this.onChanged,
   });
 
   @override
@@ -713,6 +745,7 @@ class _CustomPriceInput extends StatelessWidget {
                     controller: controller,
                     keyboardType: TextInputType.number,
                     onTap: onActivate,
+                    onChanged: onChanged,
                     decoration: InputDecoration(
                       hintText: 'Enter your price',
                       hintStyle:
@@ -728,15 +761,26 @@ class _CustomPriceInput extends StatelessWidget {
                   valueListenable: controller,
                   builder: (ctx, v, child) {
                     if (v.text.isNotEmpty && active) {
-                      return Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 5),
-                        decoration: BoxDecoration(
-                            color: KsColors.terracotta,
-                            borderRadius: BorderRadius.circular(8)),
-                        child: Text('Use This',
-                            style: KsTextStyles.label(
-                                color: KsColors.white, size: 10)),
+                      return Material(
+                        color: KsColors.terracotta,
+                        borderRadius: BorderRadius.circular(8),
+                        child: InkWell(
+                          onTap: onUse,
+                          borderRadius: BorderRadius.circular(8),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 5,
+                            ),
+                            child: Text(
+                              'Use This',
+                              style: KsTextStyles.label(
+                                color: KsColors.white,
+                                size: 10,
+                              ),
+                            ),
+                          ),
+                        ),
                       );
                     }
                     return const SizedBox.shrink();
@@ -744,6 +788,13 @@ class _CustomPriceInput extends StatelessWidget {
                 ),
               ],
             ),
+            if (errorText != null) ...[
+              const SizedBox(height: 6),
+              Text(
+                errorText!,
+                style: KsTextStyles.body(color: Colors.red.shade700, size: 11),
+              ),
+            ],
           ],
         ),
       ),
