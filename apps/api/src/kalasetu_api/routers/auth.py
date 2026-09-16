@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import json
+import uuid
+from datetime import datetime, timezone
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from pydantic import BaseModel, Field
 
 from kalasetu_api.adapters.firebase import (
@@ -12,6 +15,7 @@ from kalasetu_api.adapters.firebase import (
     normalize_phone,
     update_artisan,
 )
+from kalasetu_api.adapters.storage import upload_profile_document
 from kalasetu_api.config import get_settings
 from kalasetu_api.deps import require_bearer, uid_from_token
 
@@ -33,6 +37,9 @@ class ProfileUpdateRequest(BaseModel):
     cluster: str | None = None
     pehchan: dict[str, Any] | None = None
     consentAt: str | None = None
+
+
+DOCUMENT_TYPES = {"pm_vishwakarma", "pahchan", "weaver_id", "e_shram", "nfsa_ration"}
 
 
 @router.post("/otp")
@@ -100,3 +107,60 @@ def update_current_profile(
     if updated is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Artisan not found")
     return {"ok": True, "artisan": updated}
+
+
+@router.post("/documents")
+async def upload_identity_document(
+    document_type: str = Form(...),
+    details: str = Form("{}"),
+    file: UploadFile = File(...),
+    token: str = Depends(require_bearer),
+) -> dict:
+    """Save one artisan proof document and its structured details."""
+    document_type = document_type.strip().lower()
+    if document_type not in DOCUMENT_TYPES:
+        raise HTTPException(status_code=400, detail="Unsupported document type")
+    try:
+        parsed_details = json.loads(details or "{}")
+    except json.JSONDecodeError as exc:
+        raise HTTPException(status_code=400, detail="Document details must be valid JSON") from exc
+    if not isinstance(parsed_details, dict):
+        raise HTTPException(status_code=400, detail="Document details must be an object")
+
+    data = await file.read()
+    if not data:
+        raise HTTPException(status_code=400, detail="Document file is empty")
+    if len(data) > 10 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="Document must be 10 MB or smaller")
+    content_type = file.content_type or "application/octet-stream"
+    if content_type not in {"application/pdf", "image/jpeg", "image/png", "image/webp"}:
+        raise HTTPException(status_code=415, detail="Upload a PDF, JPG, PNG, or WebP file")
+
+    uid = uid_from_token(token)
+    artisan = get_artisan(uid)
+    if artisan is None:
+        raise HTTPException(status_code=404, detail="Artisan not found")
+    document_id = uuid.uuid4().hex[:16]
+    storage_path = upload_profile_document(
+        uid, document_id, file.filename or "document", data, content_type
+    )
+    if storage_path is None and get_settings().firebase_admin_ready:
+        raise HTTPException(status_code=503, detail="Document storage is temporarily unavailable")
+
+    record = {
+        "id": document_id,
+        "type": document_type,
+        "details": parsed_details,
+        "filename": file.filename or "document",
+        "contentType": content_type,
+        "storagePath": storage_path,
+        "uploadedAt": datetime.now(timezone.utc).isoformat(),
+        "status": "submitted",
+    }
+    documents = list(artisan.get("documents") or [])
+    documents = [item for item in documents if item.get("type") != document_type]
+    documents.append(record)
+    updated = update_artisan(uid, {"documents": documents, "verificationStatus": "submitted"})
+    if updated is None:
+        raise HTTPException(status_code=404, detail="Artisan not found")
+    return {"ok": True, "document": record, "artisan": updated}
