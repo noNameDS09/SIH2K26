@@ -1542,6 +1542,32 @@
   content: "";
 }
 
+.ks-price-breakdown {
+  display: grid;
+  grid-template-columns: minmax(180px, 0.7fr) minmax(0, 1.3fr);
+  gap: 22px;
+  margin-block-start: 24px;
+  padding: 20px;
+  border: 1px solid color-mix(in srgb, var(--ks-olive) 28%, transparent);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--ks-sage) 18%, var(--ks-paper));
+}
+.ks-price-breakdown > div:first-child { display: grid; align-content: start; gap: 6px; }
+.ks-price-breakdown > div:first-child span { color: var(--ks-brown); font-size: .72rem; letter-spacing: .12em; text-transform: uppercase; }
+.ks-price-breakdown dl { display: grid; gap: 8px; margin: 0; }
+.ks-price-breakdown dl > div { display: flex; justify-content: space-between; gap: 20px; padding-block-end: 7px; border-block-end: 1px solid color-mix(in srgb, var(--ks-olive) 18%, transparent); }
+.ks-price-breakdown dt, .ks-price-breakdown dd { margin: 0; }
+.ks-price-breakdown dd { font-weight: 700; }
+.ks-price-breakdown .is-total { padding-block-start: 5px; border-block-end: 0; color: var(--ks-ink); }
+.ks-price-breakdown > .ks-provenance { grid-column: 1 / -1; }
+
+.ks-sign-success { display: grid; place-items: center; min-height: 62vh; text-align: center; animation: ks-sign-in 500ms ease-out both; }
+.ks-sign-success__mark { display: grid; place-items: center; width: 84px; height: 84px; margin-block-end: 20px; border-radius: 50%; background: var(--ks-olive); color: var(--ks-paper); box-shadow: 0 0 0 12px color-mix(in srgb, var(--ks-sage) 42%, transparent); animation: ks-sign-pop 700ms cubic-bezier(.2,.9,.2,1.2) both; }
+.ks-sign-success h1 { margin: 0; font-size: clamp(2.4rem, 5vw, 4.8rem); }
+.ks-sign-success p:not(.ks-eyebrow) { max-width: 38ch; color: var(--ks-ink-soft); }
+@keyframes ks-sign-in { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes ks-sign-pop { from { opacity: 0; transform: scale(.45); } to { opacity: 1; transform: scale(1); } }
+
 /* Approval and distribution */
 .ks-approval-grid {
   grid-template-columns: minmax(0, 0.9fr) minmax(360px, 1.1fr);

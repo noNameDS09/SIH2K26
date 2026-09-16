@@ -135,6 +135,26 @@ _WORD_NUMBERS = {
     "eight": 8,
     "nine": 9,
     "ten": 10,
+    "ग्यारह": 11,
+    "बारह": 12,
+    "पंद्रह": 15,
+    "बीस": 20,
+    "तीस": 30,
+    "चालीस": 40,
+    "पचास": 50,
+    "सौ": 100,
+    "एक": 1,
+    "दो": 2,
+    "तीन": 3,
+    "चार": 4,
+    "पाँच": 5,
+    "पांच": 5,
+    "छह": 6,
+    "छः": 6,
+    "सात": 7,
+    "आठ": 8,
+    "नौ": 9,
+    "दस": 10,
 }
 
 _CONFIRM = (
@@ -253,11 +273,18 @@ def parse_slot(slot: str, transcript: str) -> tuple[Any, float]:
         number = _first_number(transcript)
         if number is None:
             return transcript.strip(), 0.4
-        if any(token in folded for token in ("दिवस", "day", "days")):
+        if any(token in folded for token in ("दिवस", "दिन", "day", "days")):
             return number * 8, 0.85
         return number, 0.9
     if slot == "material_cost_inr":
         number = _first_number(transcript)
+        folded_cost = _fold(transcript.translate(_DEV_DIGITS))
+        hundred_match = re.search(r"(एक|दो|तीन|चार|पाँच|पांच|छह|छः|सात|आठ|नौ|दस|ग्यारह|बारह)\s*(?:सौ|hundred)", folded_cost)
+        thousand_match = re.search(r"(एक|दो|तीन|चार|पाँच|पांच|छह|छः|सात|आठ|नौ|दस|ग्यारह|बारह)\s*(?:हज़ार|हजार|thousand)", folded_cost)
+        if hundred_match:
+            number = float(_WORD_NUMBERS[hundred_match.group(1)] * 100)
+        elif thousand_match:
+            number = float(_WORD_NUMBERS[thousand_match.group(1)] * 1000)
         if number is None:
             return None, 0.3
         return int(round(number)), 0.9
@@ -468,6 +495,45 @@ def _advance(session: CatalogerSession) -> None:
     _ask(session, nxt)
 
 
+def _fallback_copy(fields: dict[str, Any], language_code: str) -> dict[str, str]:
+    """Keep the card useful when Gemini is unavailable or returns blank copy."""
+    craft = display_value(fields.get("craft"))
+    material = display_value(fields.get("material"))
+    technique = display_value(fields.get("technique"))
+    if language_code == "hi-IN":
+        return {
+            "title_hi": f"हस्तनिर्मित {craft}",
+            "title_en": f"Handcrafted {craft}",
+            "title_mr": f"हस्तनिर्मित {craft}",
+            "title_local": f"हस्तनिर्मित {craft}",
+            "desc_hi": f"{material} से बनी {craft}, {technique} तकनीक से तैयार की गई।",
+            "desc_en": f"A handcrafted {craft} made with {material} using {technique} technique.",
+            "desc_mr": f"{material} पासून {technique} तंत्राने तयार केलेले {craft}.",
+            "desc_local": f"{material} से बनी {craft}, {technique} तकनीक से तैयार की गई।",
+        }
+    if language_code == "mr-IN":
+        return {
+            "title_hi": f"हस्तनिर्मित {craft}",
+            "title_en": f"Handcrafted {craft}",
+            "title_mr": f"हस्तनिर्मित {craft}",
+            "title_local": f"हस्तनिर्मित {craft}",
+            "desc_hi": f"{material} से बनी {craft}, {technique} तकनीक से तैयार की गई।",
+            "desc_en": f"A handcrafted {craft} made with {material} using {technique} technique.",
+            "desc_mr": f"{material} पासून {technique} तंत्राने तयार केलेले {craft}.",
+            "desc_local": f"{material} पासून {technique} तंत्राने तयार केलेले {craft}.",
+        }
+    return {
+        "title_hi": f"हस्तनिर्मित {craft}",
+        "title_en": f"Handcrafted {craft}",
+        "title_mr": f"हस्तनिर्मित {craft}",
+        "title_local": f"Handcrafted {craft}",
+        "desc_hi": f"{material} से बनी {craft}, {technique} तकनीक से तैयार की गई।",
+        "desc_en": f"A handcrafted {craft} made with {material} using {technique} technique.",
+        "desc_mr": f"{material} पासून {technique} तंत्राने तयार केलेले {craft}.",
+        "desc_local": f"A handcrafted {craft} made with {material} using {technique} technique.",
+    }
+
+
 def _finalize(session: CatalogerSession) -> CatalogerSession:
     transcripts = {
         name: {"raw": state.raw, "parsed": state.value, "confirmed": state.confirmed}
@@ -502,8 +568,9 @@ def _finalize(session: CatalogerSession) -> CatalogerSession:
             fields[name] = parsed
         session.slots[name].confirmed = True
 
+    fallback = _fallback_copy(fields, session.language_code)
     copy_keys = ("title_hi", "title_en", "title_mr", "title_local", "desc_hi", "desc_en", "desc_mr", "desc_local")
-    copy = {key: (generated or {}).get(key) or "" for key in copy_keys}
+    copy = {key: (generated or {}).get(key) or fallback[key] for key in copy_keys}
     extras = fields.get("extras") if isinstance(fields.get("extras"), dict) else {}
     if copy["title_mr"]:
         extras = {**extras, "title_mr": copy["title_mr"], "desc_mr": copy["desc_mr"]}

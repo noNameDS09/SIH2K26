@@ -272,6 +272,7 @@ async def price_listing(
     return {
         "listing_id": listing_id,
         "prices": prices,
+        "breakdown": prices.get("breakdown"),
         "source_label": listing.get("source_label", "KalaSetu Verified"),
     }
 
@@ -467,4 +468,3 @@ async def translate_listing(
         "description": translated_desc,
         "cached": False,
     }
-

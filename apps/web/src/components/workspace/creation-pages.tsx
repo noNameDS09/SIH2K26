@@ -15,6 +15,7 @@ import {
   sarvamAudioMimeType,
   supportedVoiceRecordingOptions,
   type Listing,
+  type PriceBreakdown,
   type Provenance as ProvenanceData,
 } from "@/lib/api-client";
 import {
@@ -113,7 +114,13 @@ function originalImage(listing: Listing | null) {
 }
 
 function listingTitle(listing: Listing | null) {
-  return listing?.title_en || listing?.title || listing?.title_hi || "Untitled product";
+  return listing?.title_en || listing?.title || listing?.title_hi || String(listing?.fields?.craft || "Untitled product");
+}
+
+function listingDescription(listing: Listing | null) {
+  if (!listing) return "";
+  return listing.desc_en || listing.description || listing.desc_hi ||
+    `A handcrafted ${String(listing.fields?.craft || "product")} made with ${String(listing.fields?.material || "care")} using ${String(listing.fields?.technique || "traditional techniques")}.`;
 }
 
 function persistedValue(value: unknown): unknown {
@@ -1164,6 +1171,7 @@ export function IntelligencePage() {
 export function PricingPage() {
   const [listing, setListing] = useState<Listing | null>(null);
   const [prices, setPrices] = useState<Listing["prices"]>({});
+  const [breakdown, setBreakdown] = useState<PriceBreakdown | null>(null);
   const [selected, setSelected] = useState<PriceBandKey>("recommended");
   const [customPrice, setCustomPrice] = useState("");
   const [useCustomPrice, setUseCustomPrice] = useState(false);
@@ -1184,6 +1192,7 @@ export function PricingPage() {
       .then(([listingResult, priceResult]) => {
         setListing(listingResult);
         setPrices(priceResult.prices || {});
+        setBreakdown(priceResult.breakdown || null);
         const existing = listedPrice(listingResult);
         if (typeof existing === "number") setCustomPrice(String(existing));
       })
@@ -1221,6 +1230,7 @@ export function PricingPage() {
       const recalculated = await api.price(listing.id);
       setListing(updated);
       setPrices(recalculated.prices || {});
+      setBreakdown(recalculated.breakdown || null);
       setCustomPrice(String(value));
       setSaved(true);
       setMessage(`${formatMoney(value)} saved as your public listing price.`);
@@ -1342,6 +1352,24 @@ export function PricingPage() {
           </ul>
         </section>
 
+        {breakdown ? (
+          <section className="ks-price-breakdown" data-reveal>
+            <div>
+              <span>Cost breakdown</span>
+              <strong>How this suggestion was calculated</strong>
+            </div>
+            <dl>
+              <div><dt>Materials</dt><dd>{formatMoney(breakdown.material_cost_inr)}</dd></div>
+              <div><dt>Work time</dt><dd>{breakdown.hours} hours</dd></div>
+              <div><dt>Wage rate</dt><dd>{formatMoney(breakdown.wage_inr_per_hour)} / hour</dd></div>
+              <div><dt>Labour</dt><dd>{formatMoney(breakdown.labour_cost_inr)}</dd></div>
+              <div><dt>Overhead</dt><dd>{formatMoney(breakdown.overhead_inr)}</dd></div>
+              <div className="is-total"><dt>Total cost</dt><dd>{formatMoney(breakdown.total_cost_inr)}</dd></div>
+            </dl>
+            <Provenance value={breakdown.provenance} label="Breakdown source" />
+          </section>
+        ) : null}
+
         {message ? <Notice>{message}</Notice> : null}
         {error ? <Notice tone="error">{error}</Notice> : null}
 
@@ -1371,6 +1399,7 @@ export function ApprovalPage() {
   const [speaking, setSpeaking] = useState(false);
   const [heardCard, setHeardCard] = useState(false);
   const [signing, setSigning] = useState(false);
+  const [signed, setSigned] = useState(false);
   const [error, setError] = useState("");
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
@@ -1402,8 +1431,8 @@ export function ApprovalPage() {
     setHeardCard(false);
 
     const text = [
-      listing.title_hi || listing.title_en || listing.title,
-      listing.desc_hi || listing.desc_en || listing.description,
+      listing.title_hi || listing.title_en || listing.title || listing.fields?.craft,
+      listingDescription(listing),
       typeof listedPrice(listing) === "number"
         ? `Listed price ${listedPrice(listing)} rupees.`
         : "",
@@ -1452,7 +1481,8 @@ export function ApprovalPage() {
 
     try {
       await api.sign(listing.id);
-      router.push("/distribute");
+      setSigned(true);
+      window.setTimeout(() => router.push("/shop"), 1800);
     } catch (cause) {
       setError(errorMessage(cause, "The listing could not be signed."));
     } finally {
@@ -1488,6 +1518,19 @@ export function ApprovalPage() {
     );
   }
 
+  if (signed) {
+    return (
+      <WorkspaceShell view="approval">
+        <section className="ks-sign-success" role="status" aria-live="polite">
+          <div className="ks-sign-success__mark"><Icon name="check" size={34} /></div>
+          <p className="ks-eyebrow">KalaSetu verified</p>
+          <h1>Signed successfully</h1>
+          <p>Your product is now ready in My Catalog. Taking you there…</p>
+        </section>
+      </WorkspaceShell>
+    );
+  }
+
   return (
     <WorkspaceShell view="approval">
       <section className="ks-creation-page ks-approval-page">
@@ -1514,10 +1557,7 @@ export function ApprovalPage() {
               <h2>{listingTitle(listing)}</h2>
               <strong>{formatMoney(listedPrice(listing))}</strong>
               <p>
-                {listing.desc_en ||
-                  listing.description ||
-                  listing.desc_hi ||
-                  "No product description has been saved."}
+                {listingDescription(listing)}
               </p>
               <Provenance
                 value={listing.prices?.listed?.provenance}

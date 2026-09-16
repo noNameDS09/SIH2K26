@@ -35,6 +35,17 @@ export type Listing = {
 export type AdvisorResult = { sentence: string; empty: boolean; rule_id?: string | null; listing_id?: string; provenance?: Provenance; trade_record?: Record<string, unknown> };
 export type MoneyResult = { sales: Array<Record<string, unknown>>; total_inr: number; count: number; empty: boolean; spoken: string; trade_record: Record<string, unknown> };
 export type InsightsResult = { advisor: AdvisorResult; history: Array<Record<string, unknown>>; trends: { rising?: string[]; provenance?: Provenance; [key: string]: unknown }; n?: number; seed?: boolean };
+export type PriceBreakdown = {
+  material_cost_inr: number;
+  hours: number;
+  wage_inr_per_hour: number;
+  effort_factor: number;
+  labour_cost_inr: number;
+  overhead_inr: number;
+  total_cost_inr: number;
+  recommended_margin_inr: number;
+  provenance?: Provenance;
+};
 
 /** Sarvam rejects the WebM/Opus container emitted by MediaRecorder defaults. */
 export function supportedVoiceRecordingOptions(): MediaRecorderOptions | null {
@@ -180,7 +191,7 @@ export const api = {
     public: Record<string, unknown>;
     provenance?: Provenance;
   }>(`/v1/listings/${encodeURIComponent(id)}/export`, { method: "POST", body: JSON.stringify({ channel }) }),
-  price: (id: string) => request<{ prices: Listing["prices"] }>(`/v1/listings/${encodeURIComponent(id)}/price`, { method: "POST" }),
+  price: (id: string) => request<{ prices: Listing["prices"]; breakdown?: PriceBreakdown }>(`/v1/listings/${encodeURIComponent(id)}/price`, { method: "POST" }),
   sign: (id: string) => request<{ listing_id: string; status: string; qr_url: string; public_url: string; signature: string }>(`/v1/listings/${encodeURIComponent(id)}/sign`, { method: "POST" }),
   translateListing: (id: string, targetLang = "hi-IN") => request<{ listing_id: string; target_lang: string; title: string; description: string; cached: boolean }>(`/v1/listings/${encodeURIComponent(id)}/translate?target_lang=${encodeURIComponent(targetLang)}`, { method: "POST" }, false),
   market: () => request<{ items: Listing[] }>("/v1/market", {}, false),
