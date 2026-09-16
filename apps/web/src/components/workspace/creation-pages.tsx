@@ -829,12 +829,16 @@ export function LiveCatalogPage() {
               </span>
               <strong>
                 {recording
-                  ? "Stop and use answer"
+                  ? "Finish answer & continue"
                   : busy
                     ? "Preparing the next question…"
                     : "Speak answer"}
               </strong>
-              <small>Microphone audio is sent to KalaSetu speech services.</small>
+              <small>
+                {recording
+                  ? "Tap once when you have finished. KalaSetu will save this answer and ask the next field."
+                  : "Answer this question, then finish to save it and continue."}
+              </small>
             </button>
 
             <div className="ks-live-divider">
@@ -856,7 +860,7 @@ export function LiveCatalogPage() {
                 type="submit"
                 disabled={!typedAnswer.trim() || busy || recording || done}
               >
-                Send answer
+                Save answer & next question
                 <Icon name="arrow" size={16} />
               </button>
             </form>
