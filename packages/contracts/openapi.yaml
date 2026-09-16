@@ -125,6 +125,56 @@ paths:
           description: JPEG
         "404":
           description: No enhance yet
+  /v1/speech/detect-language:
+    post:
+      summary: Spoken language auto-detection via Sarvam Saaras LID + Bulbul greeting
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file: { type: string, format: binary }
+      responses:
+        "200":
+          description: Detected language code, greeting text, and confirmation audio
+  /v1/speech/voice-action:
+    post:
+      summary: Unified voice navigation and grounded Q&A action
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file: { type: string, format: binary }
+                transcript: { type: string }
+                language_code: { type: string, default: hi-IN }
+                listing_id: { type: string }
+      responses:
+        "200":
+          description: Navigation routing or assistant response with Bulbul audio
+  /v1/assistant/query:
+    post:
+      summary: Grounded KalaSetu Sahayak assistant query
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [query]
+              properties:
+                query: { type: string }
+                language_code: { type: string, default: hi-IN }
+                listing_id: { type: string }
+      responses:
+        "200":
+          description: Spoken response with Sarvam Bulbul audio
   /v1/speech/stt:
     post:
       summary: Sarvam Saaras v3 STT (audio ≤30s)

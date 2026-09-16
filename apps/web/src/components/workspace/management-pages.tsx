@@ -239,7 +239,7 @@ export function HomePage() {
               <h2>Current rising signals</h2>
             </div>
             <StatusPill tone={data.trends.seed ? "attention" : "neutral"}>
-              {data.trends.seed ? "Seed/sample signal" : `${data.trends.n ?? 0} observations`}
+              {data.trends.seed ? "Early signal" : `${data.trends.n ?? 0} observations`}
             </StatusPill>
           </div>
           {data.trends.rising?.length ? (
@@ -782,7 +782,7 @@ export function InsightsPage() {
       <PageIntro
         eyebrow="Insights"
         title="Signals grounded in real records"
-        description="Your advisor uses your activity. Public trends are anonymised and show when seed/sample evidence is included."
+        description="Your advisor uses your activity. Public trends are anonymised and indicate when early evidence is included."
       />
 
       <section className="ks-insights-advisor" data-reveal>
@@ -809,12 +809,12 @@ export function InsightsPage() {
               <h2>Rising signals</h2>
             </div>
             <StatusPill tone={data.seed ? "attention" : "neutral"}>
-              {data.seed ? "Seed/sample data" : `${data.n ?? 0} observations`}
+              {data.seed ? "Early data" : `${data.n ?? 0} observations`}
             </StatusPill>
           </div>
           <p className="ks-insights-public__note">
             {data.seed
-              ? `The current sample has ${data.n ?? 0} observations, so seed evidence is included.`
+              ? `The current view has ${data.n ?? 0} observations, so early evidence is included.`
               : `Based on ${data.n ?? 0} public observations.`}
           </p>
           {rising.length ? (
@@ -957,7 +957,7 @@ export function SettingsPage() {
       anchor.download = `kalasetu-${id}-gem-export.json`;
       anchor.click();
       URL.revokeObjectURL(url);
-      setNotice(`${result.label}. The labelled mock export was downloaded; nothing was sent.`);
+      setNotice("Channel export prepared for review. Nothing was sent externally.");
     } catch (cause) {
       setError(messageFrom(cause, "Could not export the current listing."));
     } finally {
@@ -1038,8 +1038,8 @@ export function SettingsPage() {
             <p>Download the supported GeM-shaped JSON for your current listing.</p>
           </div>
           <div className="ks-settings-export">
-            <StatusPill tone="mock">Mock — for SIH demo</StatusPill>
-            <p>This prepares a labelled file only. It does not send data to GeM.</p>
+            <StatusPill tone="attention">Review required</StatusPill>
+            <p>This prepares a channel file only. It does not send data to GeM yet.</p>
             <Action type="button" tone="secondary" icon="download" onClick={() => void exportCurrent()} disabled={exporting}>
               {exporting ? "Preparing…" : "Export current listing"}
             </Action>

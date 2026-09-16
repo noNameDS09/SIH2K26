@@ -245,7 +245,7 @@ export function CapturePage() {
                 <span className="ks-capture-frame__corner" aria-hidden="true" />
                 <Icon name="camera" size={38} />
                 <h2>Keep the whole product inside the frame</h2>
-                <p>No sample image is shown here—your product remains the focus.</p>
+                <p>Your product remains the focus here.</p>
               </div>
             )}
 
@@ -1802,14 +1802,14 @@ export function DistributionPage() {
             <p className="ks-eyebrow">Channel-ready records</p>
             <h2>Prepare external channel exports</h2>
             <p>
-              These APIs only prepare shaped demo payloads. Nothing is sent to
-              an external marketplace.
+              These APIs prepare channel-specific records for review. Nothing is
+              sent to an external marketplace from this workspace yet.
             </p>
           </div>
           <div className="ks-export-grid">
             {EXPORT_CHANNELS.map((channel) => (
               <article key={channel.id}>
-                <StatusPill tone="mock">Mock — for SIH demo</StatusPill>
+                <StatusPill tone="attention">Review required</StatusPill>
                 <h3>{channel.label}</h3>
                 <button
                   type="button"

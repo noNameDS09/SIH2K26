@@ -7,6 +7,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 import gsap from "gsap";
 import { api, clearSession, type Provenance as ProvenanceData } from "@/lib/api-client";
 import { useTranslation } from "@/lib/language-context";
+import { VoiceAssistantDrawer } from "./voice-assistant";
 
 export type WorkspaceView =
   | "home"
@@ -133,7 +134,7 @@ export function StatusPill({
   tone = "neutral",
 }: {
   children: ReactNode;
-  tone?: "neutral" | "success" | "attention" | "mock";
+  tone?: "neutral" | "success" | "attention";
 }) {
   return <span className={`ks-status ks-status--${tone}`}>{tone === "success" ? <Icon name="check" size={13} /> : null}{children}</span>;
 }
@@ -284,6 +285,7 @@ export function WorkspaceShell({
   const [profile, setProfile] = useState<{ name?: string; cluster?: string; lang?: string }>({});
   const [speakBusy, setSpeakBusy] = useState(false);
   const [speakEnabled, setSpeakEnabled] = useState(true);
+  const [voiceAssistantOpen, setVoiceAssistantOpen] = useState(false);
 
   useEffect(() => {
     document.documentElement.classList.toggle(
@@ -390,6 +392,16 @@ export function WorkspaceShell({
               <Icon name="globe" size={17} />
               <span>{currentLanguage.code.split("-")[0].toUpperCase()}</span>
             </button>
+            <button
+              type="button"
+              onClick={() => setVoiceAssistantOpen(true)}
+              className="ks-voice-nav-trigger"
+              title="KalaSetu Sahayak — Voice Navigation & Assistant"
+              aria-label="Open voice navigation and assistant"
+            >
+              <Icon name="voice" size={16} />
+              <span>{t("shell.voice_nav", "बोलकर चलाओ")}</span>
+            </button>
             {speakEnabled ? <button type="button" onClick={speakPage} disabled={speakBusy}><Icon name="voice" size={17} />{speakBusy ? t("shell.speaking", "Speaking…") : t("shell.speak_screen", "Speak")}</button> : null}
             <span className="ks-profile">
               <b>{initials}</b>
@@ -405,6 +417,11 @@ export function WorkspaceShell({
         ) : null}
         <CreationRail current={view} />
         <main className="ks-content">{children}</main>
+        <VoiceAssistantDrawer
+          isOpen={voiceAssistantOpen}
+          onClose={() => setVoiceAssistantOpen(false)}
+          onReadScreen={speakPage}
+        />
       </div>
     </div>
   );

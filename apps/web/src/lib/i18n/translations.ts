@@ -31,6 +31,7 @@ export const TRANSLATIONS: Record<string, TranslationDictionary> = {
     "shell.verified_artisan": "Verified Artisan",
     "shell.speak_screen": "Read aloud",
     "shell.speaking": "Speaking…",
+    "shell.voice_nav": "Voice Assistant",
 
     // Common
     "common.back": "Back",
@@ -56,7 +57,7 @@ export const TRANSLATIONS: Record<string, TranslationDictionary> = {
     "access.phone_placeholder": "10-digit mobile number",
     "access.send_otp": "Send code",
     "access.verify_title": "Enter verification code",
-    "access.verify_subtitle": "Enter the 6-digit code sent to your phone (Demo code: 123456).",
+    "access.verify_subtitle": "Enter the 6-digit code sent to your phone.",
     "access.code_label": "6-digit code",
     "access.verify_button": "Verify & Enter",
     "access.onboarding_title": "Namaste & Welcome",
@@ -218,6 +219,7 @@ export const TRANSLATIONS: Record<string, TranslationDictionary> = {
     "shell.verified_artisan": "सत्यापित कारीगर",
     "shell.speak_screen": "स्क्रीन सुनें",
     "shell.speaking": "बोल रहे हैं…",
+    "shell.voice_nav": "बोलकर चलाओ",
 
     // Common
     "common.back": "पीछे जाएं",
@@ -405,6 +407,7 @@ export const TRANSLATIONS: Record<string, TranslationDictionary> = {
     "shell.verified_artisan": "प्रमाणित कारागीर",
     "shell.speak_screen": "स्क्रीन ऐका",
     "shell.speaking": "वाचत आहे…",
+    "shell.voice_nav": "बोलून चालवा",
 
     // Common
     "common.back": "मागे जा",
