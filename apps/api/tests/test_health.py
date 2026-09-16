@@ -28,6 +28,19 @@ def test_otp_mock_roundtrip():
     assert ok.json()["token"].startswith("dev.")
 
 
+def test_local_flutter_web_preflight_allows_dynamic_port():
+    response = client.options(
+        "/v1/auth/otp",
+        headers={
+            "Origin": "http://localhost:5000",
+            "Access-Control-Request-Method": "POST",
+            "Access-Control-Request-Headers": "content-type",
+        },
+    )
+    assert response.status_code == 200
+    assert response.headers["access-control-allow-origin"] == "http://localhost:5000"
+
+
 def test_enhance_requires_auth():
     response = client.post("/v1/images/enhance")
     assert response.status_code == 401

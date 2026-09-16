@@ -30,6 +30,7 @@ class Settings(BaseSettings):
         "http://localhost:3000,http://127.0.0.1:3000,"
         "http://localhost:8501,http://127.0.0.1:8501"
     )
+    cors_origin_regex: str = r"https?://(localhost|127\.0\.0\.1)(:\d+)?$"
     public_base_url: str = "http://localhost:8000"
 
     otp_provider: str = "mock"
