@@ -179,6 +179,17 @@ class ApiService {
 
   // ── Auth: profile update ─────────────────────────────────────────────────
 
+  static Future<Map<String, dynamic>> getPrice(String id) async {
+    try {
+      final res = await http.post(
+        Uri.parse('$_base/v1/listings/$id/price'),
+        headers: _authHeaders,
+      );
+      if (res.statusCode == 200) return jsonDecode(res.body) as Map<String, dynamic>;
+    } catch (_) {}
+    return {'prices': {}, 'breakdown': null};
+  }
+
   static Future<Map<String, dynamic>> getListing(String id) async {
     try {
       final res = await http.get(
