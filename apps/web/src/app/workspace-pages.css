@@ -607,6 +607,46 @@
   line-height: 1.4;
 }
 
+.ks-document-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px;
+  margin-block: 22px;
+}
+
+.ks-document-options button {
+  display: grid;
+  gap: 4px;
+  min-height: 64px;
+  padding: 12px 13px;
+  border: 1px solid rgba(130, 113, 72, 0.24);
+  border-radius: 11px;
+  background: var(--ks-paper);
+  color: var(--ks-ink);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.ks-document-options button.is-selected {
+  border-color: var(--ks-ink);
+  background: rgba(165, 175, 121, 0.22);
+  box-shadow: 0 5px 18px rgba(81, 70, 47, 0.08);
+}
+
+.ks-document-options small { color: var(--ks-ink-soft); font-size: 0.68rem; }
+
+.ks-document-form { display: grid; gap: 18px; }
+.ks-document-fields { padding: 18px; border: 1px solid rgba(130, 113, 72, 0.22); border-radius: 13px; background: rgba(255, 250, 241, 0.55); }
+.ks-document-fields__heading { display: flex; justify-content: space-between; align-items: start; gap: 14px; margin-block-end: 18px; }
+.ks-document-fields__heading h2 { margin: 0; font: 500 1.35rem/1.1 var(--ks-serif); }
+.ks-document-field-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 13px; }
+.ks-document-field-grid label, .ks-document-upload { display: grid; gap: 7px; color: var(--ks-ink); font-size: 0.73rem; font-weight: 750; }
+.ks-document-field-grid input, .ks-document-field-grid select { width: 100%; min-height: 43px; padding: 0 11px; border: 1px solid rgba(130, 113, 72, 0.24); border-radius: 8px; background: var(--ks-paper); color: var(--ks-ink); font: inherit; }
+.ks-document-upload { margin-block-start: 16px; padding-block-start: 16px; border-block-start: 1px solid rgba(130, 113, 72, 0.18); }
+.ks-document-upload input { padding: 10px; border: 1px dashed rgba(130, 113, 72, 0.45); border-radius: 9px; background: var(--ks-paper); color: var(--ks-ink-soft); font: inherit; }
+.ks-document-upload small { color: var(--ks-ink-soft); font-size: 0.68rem; font-weight: 400; }
+
 /* Capture and studio */
 .ks-capture-grid,
 .ks-studio-grid,
@@ -3007,6 +3047,15 @@
 }
 
 @media (max-width: 700px) {
+  .ks-document-options,
+  .ks-document-field-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .ks-document-fields__heading {
+    display: grid;
+  }
+
   .ks-page-actions {
     justify-content: stretch;
   }

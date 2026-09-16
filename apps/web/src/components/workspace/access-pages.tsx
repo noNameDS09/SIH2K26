@@ -39,7 +39,33 @@ const LANGUAGES = [
   ["brx-IN", "बर'", "Bodo"],
 ] as const;
 
-type AccessView = "language" | "otp" | "onboarding";
+type AccessView = "language" | "otp" | "documents" | "onboarding";
+
+const DOCUMENT_OPTIONS = [
+  { id: "pm_vishwakarma", title: "PM Vishwakarma ID Card", fields: ["idNumber", "traditionalTrade", "state", "district"] },
+  { id: "pahchan", title: "PAHCHAN Artisan Card", fields: ["cardNumber", "craft", "specialization", "state", "district"] },
+  { id: "weaver_id", title: "Weaver ID Card", fields: ["idNumber", "weavingType", "craft", "clusterName", "state", "district"] },
+  { id: "e_shram", title: "e-Shram Card", fields: ["uan", "occupation", "subOccupation", "state", "district"] },
+  { id: "nfsa_ration", title: "NFSA / Ration Card", fields: ["cardNumber", "cardCategory", "nameOnCard", "familyMembers", "state", "district"] },
+] as const;
+
+const DOCUMENT_LABELS: Record<string, string> = {
+  idNumber: "ID / Certificate number",
+  traditionalTrade: "Traditional trade",
+  state: "State",
+  district: "District",
+  cardNumber: "Card number",
+  craft: "Craft / art form",
+  specialization: "Sub-craft / specialization",
+  weavingType: "Type of weaving",
+  clusterName: "Cluster name",
+  uan: "e-Shram UAN",
+  occupation: "Occupation",
+  subOccupation: "Sub-occupation",
+  cardCategory: "Card category",
+  nameOnCard: "Name on ration card",
+  familyMembers: "Number of family members",
+};
 
 function errorMessage(cause: unknown, fallback: string) {
   return cause instanceof Error ? cause.message : fallback;
@@ -399,7 +425,7 @@ function OtpAccess() {
       rememberSession(result.token, result.uid);
       await rememberFirebaseSession(result.firebase_custom_token);
       window.sessionStorage.removeItem("kalasetu_otp_phone");
-      router.push("/onboarding");
+      router.push("/documents");
       router.refresh();
     } catch (cause) {
       setError(errorMessage(cause, "The code could not be verified."));
@@ -506,6 +532,126 @@ function OtpAccess() {
         </form>
       )}
       {notice ? <p className="ks-access-notice" role="status">{notice}</p> : null}
+      {error ? <p className="ks-access-error" role="alert">{error}</p> : null}
+    </AccessFrame>
+  );
+}
+
+function DocumentVerificationAccess() {
+  const router = useRouter();
+  const [selected, setSelected] = useState<(typeof DOCUMENT_OPTIONS)[number]["id"]>("pm_vishwakarma");
+  const [details, setDetails] = useState<Record<string, string>>({});
+  const [file, setFile] = useState<File | null>(null);
+  const [consent, setConsent] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (!window.localStorage.getItem("kalasetu_token")) router.replace("/language");
+  }, [router]);
+
+  const selectedOption = DOCUMENT_OPTIONS.find((option) => option.id === selected) || DOCUMENT_OPTIONS[0];
+  const setDocument = (id: (typeof DOCUMENT_OPTIONS)[number]["id"]) => {
+    setSelected(id);
+    setDetails({});
+    setFile(null);
+    setError("");
+  };
+
+  const submit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!file) {
+      setError("Upload a clear photo or PDF of the selected document.");
+      return;
+    }
+    if (!consent) {
+      setError("Please consent to saving this document in your KalaSetu profile.");
+      return;
+    }
+    setBusy(true);
+    setError("");
+    try {
+      await api.uploadDocument(selected, details, file);
+      router.push("/onboarding");
+      router.refresh();
+    } catch (cause) {
+      setError(errorMessage(cause, "The document could not be saved."));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <AccessFrame
+      eyebrow="Step 1 of 2 · Verify your craft identity"
+      title="Show us the work you already do"
+      description="Choose any one document. We use it to understand your artisan identity and connect your profile with the right support."
+    >
+      <div className="ks-document-options" role="radiogroup" aria-label="Document type">
+        {DOCUMENT_OPTIONS.map((option) => (
+          <button
+            key={option.id}
+            type="button"
+            className={selected === option.id ? "is-selected" : ""}
+            onClick={() => setDocument(option.id)}
+            role="radio"
+            aria-checked={selected === option.id}
+          >
+            <span>{option.title}</span>
+            <small>{selected === option.id ? "Selected" : "Choose"}</small>
+          </button>
+        ))}
+      </div>
+      <form className="ks-document-form" onSubmit={submit}>
+        <section className="ks-document-fields" aria-labelledby="document-details-title">
+          <div className="ks-document-fields__heading">
+            <div>
+              <p className="ks-eyebrow">Document details</p>
+              <h2 id="document-details-title">{selectedOption.title}</h2>
+            </div>
+            <StatusPill tone="neutral">Private profile record</StatusPill>
+          </div>
+          <div className="ks-document-field-grid">
+            {selectedOption.fields.map((field) => (
+              <label key={field}>
+                <span>{DOCUMENT_LABELS[field]}</span>
+                {field === "cardCategory" ? (
+                  <select value={details[field] || ""} onChange={(event) => setDetails((current) => ({ ...current, [field]: event.target.value }))} required>
+                    <option value="">Choose category</option>
+                    <option value="AAY">AAY</option>
+                    <option value="PHH">PHH</option>
+                    <option value="Other">Other</option>
+                  </select>
+                ) : (
+                  <input
+                    type={field === "familyMembers" ? "number" : "text"}
+                    min={field === "familyMembers" ? "1" : undefined}
+                    value={details[field] || ""}
+                    onChange={(event) => setDetails((current) => ({ ...current, [field]: event.target.value }))}
+                    required
+                  />
+                )}
+              </label>
+            ))}
+          </div>
+          <label className="ks-document-upload">
+            <span>Upload document</span>
+            <input type="file" accept="application/pdf,image/jpeg,image/png,image/webp" onChange={(event) => setFile(event.target.files?.[0] || null)} required />
+            <small>{file ? file.name : "PDF, JPG, PNG, or WebP · max 10 MB"}</small>
+          </label>
+        </section>
+        <label className="ks-onboarding-consent">
+          <input type="checkbox" checked={consent} onChange={(event) => setConsent(event.target.checked)} />
+          <span>
+            <strong>I consent to save this document and its details in my KalaSetu profile.</strong>
+            <small>Your document is used for profile verification and support eligibility. It is not shown publicly on listings.</small>
+          </span>
+        </label>
+        <div className="ks-access-actions">
+          <Action type="button" tone="quiet" onClick={() => router.push("/onboarding")}>I’ll add this later</Action>
+          <Action type="submit" disabled={busy || !consent}>{busy ? "Saving document…" : "Save and continue"}</Action>
+        </div>
+      </form>
       {error ? <p className="ks-access-error" role="alert">{error}</p> : null}
     </AccessFrame>
   );
@@ -654,5 +800,6 @@ function OnboardingAccess() {
 export function AccessFlow({ view }: { view: AccessView }) {
   if (view === "language") return <LanguageAccess />;
   if (view === "otp") return <OtpAccess />;
+  if (view === "documents") return <DocumentVerificationAccess />;
   return <OnboardingAccess />;
 }

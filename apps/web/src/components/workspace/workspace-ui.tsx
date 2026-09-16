@@ -319,8 +319,16 @@ export function WorkspaceShell({
   const [speakBusy, setSpeakBusy] = useState(false);
   const [speakEnabled, setSpeakEnabled] = useState(true);
   const [voiceAssistantOpen, setVoiceAssistantOpen] = useState(false);
+  const [authChecked, setAuthChecked] = useState(false);
 
   useEffect(() => {
+    const token = window.localStorage.getItem("kalasetu_token");
+    if (!token) {
+      router.replace("/language");
+      return;
+    }
+
+    const authTimer = window.setTimeout(() => setAuthChecked(true), 0);
     document.documentElement.classList.toggle(
       "ks-large-text",
       window.localStorage.getItem("kalasetu_large_text") === "true",
@@ -329,8 +337,11 @@ export function WorkspaceShell({
       setSpeakEnabled(window.localStorage.getItem("kalasetu_speak_screens") !== "false");
     }, 0);
     api.me().then((result) => setProfile(result.artisan as typeof profile)).catch(() => undefined);
-    return () => window.clearTimeout(timer);
-  }, []);
+    return () => {
+      window.clearTimeout(authTimer);
+      window.clearTimeout(timer);
+    };
+  }, [router]);
 
   useEffect(() => {
     document.body.classList.add("ks-workspace-active");
@@ -340,8 +351,10 @@ export function WorkspaceShell({
   useEffect(() => {
     const scope = root.current;
     if (!scope || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const revealTargets = Array.from(scope.querySelectorAll("[data-reveal]"));
+    if (!revealTargets.length) return;
     const context = gsap.context(() => {
-      gsap.fromTo("[data-reveal]", { autoAlpha: 0, y: 18 }, {
+      gsap.fromTo(revealTargets, { autoAlpha: 0, y: 18 }, {
         autoAlpha: 1,
         y: 0,
         duration: 0.55,
@@ -374,6 +387,18 @@ export function WorkspaceShell({
   const displayName = profile.name || t("shell.verified_artisan", "Artisan");
   const initials = displayName.split(/\s+/).map((part) => part[0]).join("").slice(0, 2).toUpperCase();
   const artwork = workspaceArtwork[view];
+
+  if (!authChecked) {
+    return (
+      <main className="ks-access" aria-busy="true">
+        <section className="ks-access-card">
+          <p className="ks-eyebrow">KalaSetu workspace</p>
+          <h1>Checking your session</h1>
+          <p>Opening the workspace securely…</p>
+        </section>
+      </main>
+    );
+  }
 
   return (
     <div className="ks-workspace" ref={root}>
@@ -445,7 +470,7 @@ export function WorkspaceShell({
         </header>
         {artwork ? (
           <div className={`ks-ambient-art ${artwork.className}`} aria-hidden="true">
-            <Image src={artwork.src} alt={artwork.alt} width={760} height={900} />
+            <Image src={artwork.src} alt={artwork.alt} width={760} height={900} loading="lazy" />
           </div>
         ) : null}
         <CreationRail current={view} />

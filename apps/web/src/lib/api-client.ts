@@ -140,6 +140,13 @@ export const api = {
   verifyOtp: (phone: string, code: string) => request<{ token: string; firebase_custom_token?: string | null; uid: string; artisan: Record<string, unknown> }>("/v1/auth/verify", { method: "POST", body: JSON.stringify({ phone, code }) }, false),
   me: () => request<{ artisan: Record<string, unknown> }>("/v1/auth/me"),
   updateProfile: (body: Record<string, unknown>) => request<{ artisan: Record<string, unknown> }>("/v1/auth/profile", { method: "PATCH", body: JSON.stringify(body) }),
+  uploadDocument: async (documentType: string, details: Record<string, string>, file: File) => {
+    const form = new FormData();
+    form.set("document_type", documentType);
+    form.set("details", JSON.stringify(details));
+    form.set("file", file);
+    return request<{ ok: boolean; document: Record<string, unknown>; artisan: Record<string, unknown> }>("/v1/auth/documents", { method: "POST", body: form });
+  },
   createListing: (body: Record<string, unknown>) => request<Listing>("/v1/listings", { method: "POST", body: JSON.stringify(body) }),
   listListings: () => request<{ items: Listing[] }>("/v1/listings"),
   getListing: (id: string) => request<Listing>(`/v1/listings/${encodeURIComponent(id)}`),

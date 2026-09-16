@@ -56,6 +56,34 @@ def blob_path(uid: str, listing_id: str, filename: str) -> str:
     return f"artisans/{uid}/listings/{listing_id}/{canonical_filename(filename)}"
 
 
+def profile_document_path(uid: str, document_id: str, filename: str) -> str:
+    safe_name = (filename or "document").strip().lower().split("/")[-1]
+    extension = safe_name.rsplit(".", 1)[-1] if "." in safe_name else "bin"
+    return f"artisans/{uid}/documents/{document_id}.{extension}"
+
+
+def upload_profile_document(
+    uid: str,
+    document_id: str,
+    filename: str,
+    data: bytes,
+    content_type: str,
+    settings: Settings | None = None,
+) -> str | None:
+    if not data or not uid or not document_id:
+        return None
+    bucket = get_storage_bucket(settings)
+    if bucket is None:
+        return None
+    path = profile_document_path(uid, document_id, filename)
+    try:
+        bucket.blob(path).upload_from_string(data, content_type=content_type)
+        return path
+    except Exception as exc:
+        log.warning("Firebase profile document upload failed for %s: %s", path, exc)
+        return None
+
+
 def _skip_network() -> bool:
     return bool(os.environ.get("PYTEST_CURRENT_TEST")) and not os.environ.get("FORCE_FIRESTORE")
 
