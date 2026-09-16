@@ -324,7 +324,6 @@
 }
 .ks-status--success { border-color: rgba(24, 61, 49, 0.2); background: rgba(165, 175, 121, 0.24); color: var(--ks-ink); }
 .ks-status--attention { border-color: rgba(232, 160, 124, 0.5); background: rgba(232, 160, 124, 0.17); color: #67442f; }
-.ks-status--mock { border-color: rgba(232, 160, 124, 0.52); background: rgba(232, 160, 124, 0.2); color: #704a34; }
 
 .ks-source-wrap { position: relative; display: inline-block; }
 .ks-source {

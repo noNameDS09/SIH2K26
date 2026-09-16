@@ -5,7 +5,18 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from kalasetu_api.config import get_settings
-from kalasetu_api.routers import advisor, auth, export, images, listings, sales, speech, speech_live, trends
+from kalasetu_api.routers import (
+    advisor,
+    assistant,
+    auth,
+    export,
+    images,
+    listings,
+    sales,
+    speech,
+    speech_live,
+    trends,
+)
 
 log = logging.getLogger("kalasetu")
 
@@ -42,6 +53,7 @@ def create_app() -> FastAPI:
     app.include_router(listings.router)
     app.include_router(sales.router)
     app.include_router(advisor.router)
+    app.include_router(assistant.router)
     app.include_router(trends.router)
     app.include_router(export.router)
 

@@ -4,15 +4,18 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import gsap from "gsap";
 import { Icon, ProductMedia, StatusPill } from "@/components/workspace/workspace-ui";
+import { useTranslation } from "@/lib/language-context";
 
 type PublicListing = {
   id: string;
   title?: string;
   title_en?: string;
   title_hi?: string;
+  title_mr?: string;
   description?: string;
   desc_en?: string;
   desc_hi?: string;
+  desc_mr?: string;
   image_url?: string;
   photo_url?: string;
   cluster_name?: string;
@@ -27,6 +30,7 @@ type PublicListing = {
   signed_at?: string | null;
   source_label?: string;
   qr_url?: string | null;
+  translations?: Record<string, { title?: string; description?: string }>;
 };
 
 const tabs = ["Details", "Story", "Care", "Verification"] as const;
@@ -41,9 +45,12 @@ function field(listing: PublicListing, ...keys: string[]) {
 
 export function PublicListingView({ listing }: { listing: PublicListing }) {
   const root = useRef<HTMLElement>(null);
+  const { t, language } = useTranslation();
   const [tab, setTab] = useState<(typeof tabs)[number]>("Details");
-  const title = listing.title || listing.title_en || listing.title_hi || "Untitled craft";
-  const description = listing.description || listing.desc_en || listing.desc_hi || "";
+
+  const tr = (listing as { translations?: Record<string, { title?: string; description?: string }> }).translations?.[language];
+  const title = tr?.title || (language.startsWith("hi") ? listing.title_hi : undefined) || (language.startsWith("mr") ? (listing.title_mr || listing.title_hi) : undefined) || listing.title || listing.title_en || listing.title_hi || "Untitled craft";
+  const description = tr?.description || (language.startsWith("hi") ? listing.desc_hi : undefined) || (language.startsWith("mr") ? (listing.desc_mr || listing.desc_hi) : undefined) || listing.description || listing.desc_en || listing.desc_hi || "";
   const artisanName = listing.artisan?.name || "The artisan";
   const region = listing.cluster_name || listing.artisan?.cluster || listing.cluster || "";
   const material = field(listing, "material", "materials");
@@ -109,18 +116,26 @@ export function PublicListingView({ listing }: { listing: PublicListing }) {
           </div>
 
           <div className="pub-tabs" role="tablist" aria-label="Product information">
-            {tabs.map((item) => (
-              <button
-                key={item}
-                role="tab"
-                type="button"
-                aria-selected={tab === item}
-                className={tab === item ? "is-active" : undefined}
-                onClick={() => setTab(item)}
-              >
-                {item}
-              </button>
-            ))}
+            {tabs.map((item) => {
+              const labelMap: Record<string, string> = {
+                Details: t("card.details_tab", "Details"),
+                Story: t("card.story_tab", "Story"),
+                Care: t("card.care_tab", "Care"),
+                Verification: t("card.verification_tab", "Verification"),
+              };
+              return (
+                <button
+                  key={item}
+                  role="tab"
+                  type="button"
+                  aria-selected={tab === item}
+                  className={tab === item ? "is-active" : undefined}
+                  onClick={() => setTab(item)}
+                >
+                  {labelMap[item] || item}
+                </button>
+              );
+            })}
           </div>
 
           <section className="pub-detail__panel" role="tabpanel">

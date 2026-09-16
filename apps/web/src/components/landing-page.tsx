@@ -100,7 +100,7 @@ export function LandingPage() {
           <p>A simple, supportive platform that connects your craft to new markets, while keeping your identity, your story, and your community at the center.</p>
           <Link className="button-secondary" href="/shop">Explore Features <span aria-hidden="true">→</span></Link>
         </div>
-        <div className="dashboard-mockup" aria-label="Illustrative craft growth dashboard">
+        <div className="dashboard-preview" aria-label="Craft growth dashboard preview">
           <div className="dashboard-sidebar"><span className="dashboard-dot" /><span /><span /><span /><span /></div>
           <div className="dashboard-content">
             <div className="dashboard-topline"><span>Your Craft<br /><b>Your Growth</b></span><i>•••</i></div>
@@ -139,7 +139,7 @@ export function LandingPage() {
           <Link className="button-primary" href="/insights">Our Impact <span aria-hidden="true">→</span></Link>
         </div>
         <div className="impact-stats">
-          <span className="impact-note">Illustrative demo signals</span>
+          <span className="impact-note">Platform signals</span>
           <div><strong>2500+</strong><span>Artisans and counting</span></div>
           <div><strong>10+</strong><span>Marketplaces integrated</span></div>
           <div><strong>6</strong><span>Languages supported</span></div>

@@ -144,13 +144,13 @@ def _template_sentence(rule: dict[str, Any], lang: str) -> str:
         return template
 
 
-def advise_artisan(uid: str, *, phrase: bool = True, persist: bool = True) -> dict[str, Any]:
+def advise_artisan(uid: str, *, lang: str | None = None, phrase: bool = True, persist: bool = True) -> dict[str, Any]:
     artisan = get_artisan(uid) or {"uid": uid, "lang": "hi-IN", "cluster": "varanasi"}
     listings = list_artisan_listings(uid)
     sales = list_artisan_sales(uid)
     trends = get_public_trends("current")
     events = list_events(uid, kind="insight.generated")
-    lang = artisan.get("lang") or "hi-IN"
+    lang = lang or artisan.get("lang") or "hi-IN"
     rule = pick_rule(
         artisan=artisan,
         listings=listings,

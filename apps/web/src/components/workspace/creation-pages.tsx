@@ -12,7 +12,10 @@ import {
   api,
   currentListingId,
   rememberListing,
+  sarvamAudioMimeType,
+  supportedVoiceRecordingOptions,
   type Listing,
+  type PriceBreakdown,
   type Provenance as ProvenanceData,
 } from "@/lib/api-client";
 import {
@@ -111,7 +114,20 @@ function originalImage(listing: Listing | null) {
 }
 
 function listingTitle(listing: Listing | null) {
-  return listing?.title_en || listing?.title || listing?.title_hi || "Untitled product";
+  return listing?.title_en || listing?.title || listing?.title_hi || String(listing?.fields?.craft || "Untitled product");
+}
+
+function listingDescription(listing: Listing | null) {
+  if (!listing) return "";
+  return listing.desc_en || listing.description || listing.desc_hi ||
+    `A handcrafted ${String(listing.fields?.craft || "product")} made with ${String(listing.fields?.material || "care")} using ${String(listing.fields?.technique || "traditional techniques")}.`;
+}
+
+function persistedValue(value: unknown): unknown {
+  if (value && typeof value === "object" && "value" in value) {
+    return (value as { value?: unknown }).value;
+  }
+  return value;
 }
 
 function listedPrice(listing: Listing | null) {
@@ -245,7 +261,7 @@ export function CapturePage() {
                 <span className="ks-capture-frame__corner" aria-hidden="true" />
                 <Icon name="camera" size={38} />
                 <h2>Keep the whole product inside the frame</h2>
-                <p>No sample image is shown here—your product remains the focus.</p>
+                <p>Your product remains the focus here.</p>
               </div>
             )}
 
@@ -545,9 +561,11 @@ export function LiveCatalogPage() {
   const [error, setError] = useState("");
   const [sttProvenance, setSttProvenance] = useState<ProvenanceData | null>(null);
   const [turnProvenance, setTurnProvenance] = useState<ProvenanceData | null>(null);
+  const [speakingQuestion, setSpeakingQuestion] = useState(false);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
+  const questionAudioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
     const languageTimer = window.setTimeout(() => setLanguage(storedLanguage()), 0);
@@ -574,8 +592,42 @@ export function LiveCatalogPage() {
         recorderRef.current.stop();
       }
       streamRef.current?.getTracks().forEach((track) => track.stop());
+      questionAudioRef.current?.pause();
     };
   }, []);
+
+  const hearQuestion = async () => {
+    if (!question || speakingQuestion) return;
+    setSpeakingQuestion(true);
+    try {
+      const result = await api.tts(question, language);
+      questionAudioRef.current?.pause();
+      const audio = new Audio(`data:${result.content_type || "audio/wav"};base64,${result.audio_b64}`);
+      questionAudioRef.current = audio;
+      audio.onended = () => setSpeakingQuestion(false);
+      await audio.play();
+    } catch (cause) {
+      setError(errorMessage(cause, "The question could not be spoken. You can read it on screen."));
+      setSpeakingQuestion(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!listing || Object.keys(session).length > 0) return;
+    api
+      .liveTurn({
+        transcript: "",
+        language_code: language,
+        cluster: String(listing.cluster || listing.artisan?.cluster || ""),
+      })
+      .then((result) => {
+        setSession(result.session || {});
+        setQuestion(result.question || "What is this product called?");
+      })
+      .catch(() => {
+        // The typed/voice controls remain usable with the local fallback prompt.
+      });
+  }, [language, listing, session]);
 
   const runTurn = async (transcript: string) => {
     const cleanTranscript = transcript.trim();
@@ -592,27 +644,33 @@ export function LiveCatalogPage() {
         session,
       });
       const generated = result.listing || {};
+      const generatedFields = Object.fromEntries(
+        Object.entries((generated.fields as Record<string, unknown> | undefined) || {}).map(
+          ([key, value]) => [key, persistedValue(value)],
+        ),
+      );
       const mergedFields = {
         ...(listing.fields || {}),
-        ...generated,
+        ...(result.fields || {}),
+        ...generatedFields,
       };
       const updated = await api.patchListing(listing.id, {
         fields: mergedFields,
         title_en:
-          typeof generated.title_en === "string"
-            ? generated.title_en
+          typeof persistedValue(generated.title_en) === "string"
+            ? persistedValue(generated.title_en)
             : listing.title_en,
         title_hi:
-          typeof generated.title_hi === "string"
-            ? generated.title_hi
+          typeof persistedValue(generated.title_hi) === "string"
+            ? persistedValue(generated.title_hi)
             : listing.title_hi,
         desc_en:
-          typeof generated.desc_en === "string"
-            ? generated.desc_en
+          typeof persistedValue(generated.desc_en) === "string"
+            ? persistedValue(generated.desc_en)
             : listing.desc_en,
         desc_hi:
-          typeof generated.desc_hi === "string"
-            ? generated.desc_hi
+          typeof persistedValue(generated.desc_hi) === "string"
+            ? persistedValue(generated.desc_hi)
             : listing.desc_hi,
       });
 
@@ -655,7 +713,13 @@ export function LiveCatalogPage() {
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const recorder = new MediaRecorder(stream);
+      const recorderOptions = supportedVoiceRecordingOptions();
+      if (!recorderOptions) {
+        stream.getTracks().forEach((track) => track.stop());
+        setError("This browser cannot create a compatible voice recording. You can use the typed answer below.");
+        return;
+      }
+      const recorder = new MediaRecorder(stream, recorderOptions);
       streamRef.current = stream;
       recorderRef.current = recorder;
       chunksRef.current = [];
@@ -681,11 +745,12 @@ export function LiveCatalogPage() {
 
         setBusy(true);
         try {
-          const audio = new Blob(chunksRef.current, {
-            type: recorder.mimeType || "audio/webm",
-          });
+          const audio = new Blob(chunksRef.current, { type: sarvamAudioMimeType(recorder.mimeType) });
           const result = await api.stt(audio, language);
           setSttProvenance(result.provenance);
+          if (!result.transcript.trim()) {
+            throw new Error("We could not hear an answer. Please speak a little longer and try again.");
+          }
           await runTurn(result.transcript);
         } catch (cause) {
           setError(errorMessage(cause, "Your speech could not be transcribed."));
@@ -754,6 +819,10 @@ export function LiveCatalogPage() {
           <section className="ks-live-question" aria-busy={busy}>
             <p className="ks-eyebrow">KalaSetu asks</p>
             <h2>{question}</h2>
+            <button className="ks-text-action" type="button" onClick={() => void hearQuestion()} disabled={speakingQuestion}>
+              <Icon name="voice" size={16} />
+              {speakingQuestion ? "Speaking question…" : "Hear question aloud"}
+            </button>
 
             <button
               className={`ks-record-button${recording ? " is-recording" : ""}`}
@@ -767,12 +836,16 @@ export function LiveCatalogPage() {
               </span>
               <strong>
                 {recording
-                  ? "Stop and use answer"
+                  ? "Finish answer & continue"
                   : busy
                     ? "Preparing the next question…"
                     : "Speak answer"}
               </strong>
-              <small>Microphone audio is sent to KalaSetu speech services.</small>
+              <small>
+                {recording
+                  ? "Tap once when you have finished. KalaSetu will save this answer and ask the next field."
+                  : "Answer this question, then finish to save it and continue."}
+              </small>
             </button>
 
             <div className="ks-live-divider">
@@ -794,7 +867,7 @@ export function LiveCatalogPage() {
                 type="submit"
                 disabled={!typedAnswer.trim() || busy || recording || done}
               >
-                Send answer
+                Save answer & next question
                 <Icon name="arrow" size={16} />
               </button>
             </form>
@@ -1098,6 +1171,7 @@ export function IntelligencePage() {
 export function PricingPage() {
   const [listing, setListing] = useState<Listing | null>(null);
   const [prices, setPrices] = useState<Listing["prices"]>({});
+  const [breakdown, setBreakdown] = useState<PriceBreakdown | null>(null);
   const [selected, setSelected] = useState<PriceBandKey>("recommended");
   const [customPrice, setCustomPrice] = useState("");
   const [useCustomPrice, setUseCustomPrice] = useState(false);
@@ -1118,6 +1192,7 @@ export function PricingPage() {
       .then(([listingResult, priceResult]) => {
         setListing(listingResult);
         setPrices(priceResult.prices || {});
+        setBreakdown(priceResult.breakdown || null);
         const existing = listedPrice(listingResult);
         if (typeof existing === "number") setCustomPrice(String(existing));
       })
@@ -1155,6 +1230,7 @@ export function PricingPage() {
       const recalculated = await api.price(listing.id);
       setListing(updated);
       setPrices(recalculated.prices || {});
+      setBreakdown(recalculated.breakdown || null);
       setCustomPrice(String(value));
       setSaved(true);
       setMessage(`${formatMoney(value)} saved as your public listing price.`);
@@ -1227,7 +1303,11 @@ export function PricingPage() {
                 <h2>{band.title}</h2>
                 <strong>{formatMoney(price?.value)}</strong>
                 <p>{band.description}</p>
-                <Provenance value={price?.provenance} label="Price source" />
+                <Provenance
+  value={price?.provenance}
+  label="Price source"
+  interactive={false}
+/>
               </button>
             );
           })}
@@ -1276,6 +1356,24 @@ export function PricingPage() {
           </ul>
         </section>
 
+        {breakdown ? (
+          <section className="ks-price-breakdown" data-reveal>
+            <div>
+              <span>Cost breakdown</span>
+              <strong>How this suggestion was calculated</strong>
+            </div>
+            <dl>
+              <div><dt>Materials</dt><dd>{formatMoney(breakdown.material_cost_inr)}</dd></div>
+              <div><dt>Work time</dt><dd>{breakdown.hours} hours</dd></div>
+              <div><dt>Wage rate</dt><dd>{formatMoney(breakdown.wage_inr_per_hour)} / hour</dd></div>
+              <div><dt>Labour</dt><dd>{formatMoney(breakdown.labour_cost_inr)}</dd></div>
+              <div><dt>Overhead</dt><dd>{formatMoney(breakdown.overhead_inr)}</dd></div>
+              <div className="is-total"><dt>Total cost</dt><dd>{formatMoney(breakdown.total_cost_inr)}</dd></div>
+            </dl>
+            <Provenance value={breakdown.provenance} label="Breakdown source" />
+          </section>
+        ) : null}
+
         {message ? <Notice>{message}</Notice> : null}
         {error ? <Notice tone="error">{error}</Notice> : null}
 
@@ -1305,6 +1403,7 @@ export function ApprovalPage() {
   const [speaking, setSpeaking] = useState(false);
   const [heardCard, setHeardCard] = useState(false);
   const [signing, setSigning] = useState(false);
+  const [signed, setSigned] = useState(false);
   const [error, setError] = useState("");
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
@@ -1336,8 +1435,8 @@ export function ApprovalPage() {
     setHeardCard(false);
 
     const text = [
-      listing.title_hi || listing.title_en || listing.title,
-      listing.desc_hi || listing.desc_en || listing.description,
+      listing.title_hi || listing.title_en || listing.title || listing.fields?.craft,
+      listingDescription(listing),
       typeof listedPrice(listing) === "number"
         ? `Listed price ${listedPrice(listing)} rupees.`
         : "",
@@ -1386,7 +1485,8 @@ export function ApprovalPage() {
 
     try {
       await api.sign(listing.id);
-      router.push("/distribute");
+      setSigned(true);
+      window.setTimeout(() => router.push("/shop"), 1800);
     } catch (cause) {
       setError(errorMessage(cause, "The listing could not be signed."));
     } finally {
@@ -1422,6 +1522,19 @@ export function ApprovalPage() {
     );
   }
 
+  if (signed) {
+    return (
+      <WorkspaceShell view="approval">
+        <section className="ks-sign-success" role="status" aria-live="polite">
+          <div className="ks-sign-success__mark"><Icon name="check" size={34} /></div>
+          <p className="ks-eyebrow">KalaSetu verified</p>
+          <h1>Signed successfully</h1>
+          <p>Your product is now ready in My Catalog. Taking you there…</p>
+        </section>
+      </WorkspaceShell>
+    );
+  }
+
   return (
     <WorkspaceShell view="approval">
       <section className="ks-creation-page ks-approval-page">
@@ -1448,10 +1561,7 @@ export function ApprovalPage() {
               <h2>{listingTitle(listing)}</h2>
               <strong>{formatMoney(listedPrice(listing))}</strong>
               <p>
-                {listing.desc_en ||
-                  listing.description ||
-                  listing.desc_hi ||
-                  "No product description has been saved."}
+                {listingDescription(listing)}
               </p>
               <Provenance
                 value={listing.prices?.listed?.provenance}
@@ -1802,14 +1912,14 @@ export function DistributionPage() {
             <p className="ks-eyebrow">Channel-ready records</p>
             <h2>Prepare external channel exports</h2>
             <p>
-              These APIs only prepare shaped demo payloads. Nothing is sent to
-              an external marketplace.
+              These APIs prepare channel-specific records for review. Nothing is
+              sent to an external marketplace from this workspace yet.
             </p>
           </div>
           <div className="ks-export-grid">
             {EXPORT_CHANNELS.map((channel) => (
               <article key={channel.id}>
-                <StatusPill tone="mock">Mock — for SIH demo</StatusPill>
+                <StatusPill tone="attention">Review required</StatusPill>
                 <h3>{channel.label}</h3>
                 <button
                   type="button"

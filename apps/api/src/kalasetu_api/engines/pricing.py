@@ -148,9 +148,22 @@ def compute_prices(
         aspirational = max(recommended * 1.25, 2800.0)
     listed_value = listed if listed is not None else recommended
     prov = price_provenance()
+    labour = hours * wage * effort_factor
+    total_cost = material_cost + labour + OVERHEAD_INR
     return {
         "floor": {"value": round(floor), "provenance": prov},
         "recommended": {"value": round(recommended), "provenance": prov},
         "aspirational": {"value": round(aspirational), "provenance": prov},
         "listed": {"value": round(listed_value), "provenance": prov},
+        "breakdown": {
+            "material_cost_inr": round(material_cost),
+            "hours": hours,
+            "wage_inr_per_hour": round(wage),
+            "effort_factor": effort_factor,
+            "labour_cost_inr": round(labour),
+            "overhead_inr": round(OVERHEAD_INR),
+            "total_cost_inr": round(total_cost),
+            "recommended_margin_inr": round(recommended - total_cost),
+            "provenance": prov,
+        },
     }

@@ -3,11 +3,13 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import {
   api,
   rememberFirebaseSession,
   rememberSession,
+  sarvamAudioMimeType,
+  supportedVoiceRecordingOptions,
 } from "@/lib/api-client";
 import { Action, Icon, StatusPill } from "./workspace-ui";
 
@@ -86,6 +88,188 @@ function AccessFrame({
   );
 }
 
+function VoiceLanguageDetector({
+  onDetected,
+}: {
+  onDetected: (code: string) => void;
+}) {
+  const router = useRouter();
+  const [status, setStatus] = useState<"idle" | "recording" | "detecting" | "detected" | "error">("idle");
+  const [detectedData, setDetectedData] = useState<{
+    code: string;
+    name: string;
+    transcript: string;
+    greeting: string;
+  } | null>(null);
+  const [errorMessage, setErrorMessage] = useState("");
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+  const timeoutRef = useRef<number | null>(null);
+
+  const startListening = async () => {
+    try {
+      setStatus("recording");
+      setErrorMessage("");
+      chunksRef.current = [];
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorderOptions = supportedVoiceRecordingOptions();
+      if (!recorderOptions) {
+        stream.getTracks().forEach((track) => track.stop());
+        setStatus("error");
+        setErrorMessage("This browser cannot create a compatible voice recording. Please choose a language below.");
+        return;
+      }
+      const recorder = new MediaRecorder(stream, recorderOptions);
+      mediaRecorderRef.current = recorder;
+
+      recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) chunksRef.current.push(event.data);
+      };
+
+      recorder.onstop = async () => {
+        stream.getTracks().forEach((track) => track.stop());
+        const audioBlob = new Blob(chunksRef.current, { type: sarvamAudioMimeType(recorder.mimeType) });
+        if (audioBlob.size === 0) {
+          setStatus("error");
+          setErrorMessage("कोई आवाज़ नहीं मिली। कृपया दोबारा बोलें। / No voice recorded.");
+          return;
+        }
+
+        setStatus("detecting");
+        try {
+          const res = await api.detectLanguage(audioBlob);
+          if (res.language_code) {
+            setDetectedData({
+              code: res.language_code,
+              name: res.language_name,
+              transcript: res.transcript,
+              greeting: res.greeting,
+            });
+            setStatus("detected");
+            onDetected(res.language_code);
+
+            // Play Sarvam Bulbul welcome greeting
+            if (res.audio_b64) {
+              const audio = new Audio(`data:${res.content_type || "audio/wav"};base64,${res.audio_b64}`);
+              void audio.play().catch(() => {});
+            }
+
+            // Auto-advance to /otp after brief confirmation
+            window.setTimeout(() => {
+              window.localStorage.setItem("kalasetu_language", res.language_code);
+              window.dispatchEvent(new CustomEvent("kalasetu_lang_change", { detail: res.language_code }));
+              router.push("/otp");
+            }, 2500);
+          } else {
+            setStatus("error");
+            setErrorMessage("भाषा पहचानी नहीं जा सकी। नीचे से चुनें। / Could not detect language.");
+          }
+        } catch (err) {
+          setStatus("error");
+          setErrorMessage(err instanceof Error ? err.message : "पहचान विफल। नीचे से चुनें।");
+        }
+      };
+
+      recorder.start();
+      // Auto-stop after 4 seconds
+      timeoutRef.current = window.setTimeout(() => {
+        if (recorder.state === "recording") {
+          recorder.stop();
+        }
+      }, 4000);
+    } catch {
+      setStatus("error");
+      setErrorMessage("माइक्रोफ़ोन की अनुमति नहीं मिली। कृपया नीचे सूची से चुनें।");
+    }
+  };
+
+  const stopListening = () => {
+    if (timeoutRef.current) window.clearTimeout(timeoutRef.current);
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
+      mediaRecorderRef.current.stop();
+    }
+  };
+
+  return (
+    <div className="ks-voice-lid-card">
+      <div className="ks-voice-lid-header">
+        <div className="ks-voice-lid-title">
+          <Icon name="voice" size={22} />
+          <span>बोलकर भाषा चुनें / Speak to Choose</span>
+        </div>
+        <span className="ks-voice-lid-badge">Sarvam AI Saaras LID</span>
+      </div>
+
+      <div className="ks-voice-lid-body">
+        {status === "recording" ? (
+          <button
+            type="button"
+            className="ks-voice-lid-btn ks-voice-lid-btn--recording"
+            onClick={stopListening}
+            aria-label="Stop recording"
+          >
+            <div className="ks-voice-wave-bars">
+              <span className="ks-voice-wave-bar" />
+              <span className="ks-voice-wave-bar" />
+              <span className="ks-voice-wave-bar" />
+              <span className="ks-voice-wave-bar" />
+              <span className="ks-voice-wave-bar" />
+            </div>
+          </button>
+        ) : (
+          <button
+            type="button"
+            className="ks-voice-lid-btn"
+            onClick={startListening}
+            disabled={status === "detecting"}
+            aria-label="Start recording to detect language"
+          >
+            <Icon name={status === "detecting" ? "rotate" : "voice"} size={26} />
+          </button>
+        )}
+
+        <div className="ks-voice-lid-text">
+          {status === "idle" && (
+            <>
+              <p className="ks-voice-lid-prompt">माइक दबाएं और अपनी भाषा में एक वाक्य बोलें</p>
+              <p className="ks-voice-lid-subtext">{'उदा. "नमस्ते, मैं बुनकर हूँ" / "வணக்கம்" / "নমস্কার"'}</p>
+            </>
+          )}
+          {status === "recording" && (
+            <>
+              <p className="ks-voice-lid-prompt" style={{ color: "#c2410c" }}>सुन रहे हैं... बोलिए (रोकने के लिए दोबारा दबाएं)</p>
+              <p className="ks-voice-lid-subtext">Listening to your voice...</p>
+            </>
+          )}
+          {status === "detecting" && (
+            <>
+              <p className="ks-voice-lid-prompt">सर्वम एआई द्वारा भाषा पहचानी जा रही है...</p>
+              <p className="ks-voice-lid-subtext">Analyzing language with Sarvam Saaras LID...</p>
+            </>
+          )}
+          {status === "detected" && detectedData && (
+            <div className="ks-voice-lid-detected">
+              <Icon name="check" size={20} />
+              <div>
+                <p className="ks-voice-lid-prompt">
+                  <strong>{detectedData.name}</strong> पहचानी गई!
+                </p>
+                <p className="ks-voice-lid-subtext">{detectedData.greeting}</p>
+              </div>
+            </div>
+          )}
+          {status === "error" && (
+            <>
+              <p className="ks-voice-lid-prompt" style={{ color: "#b91c1c" }}>{errorMessage}</p>
+              <p className="ks-voice-lid-subtext">आप नीचे दी गई सूची से भी चुन सकते हैं।</p>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function LanguageAccess() {
   const router = useRouter();
   const [language, setLanguage] = useState("en-IN");
@@ -98,8 +282,18 @@ function LanguageAccess() {
     return () => window.clearTimeout(timer);
   }, []);
 
-  const selectLanguage = (code: string, spokenName: string) => {
+  const selectLanguage = async (code: string, spokenName: string) => {
     setLanguage(code);
+    try {
+      const res = await api.tts(spokenName, code);
+      if (res.audio_b64) {
+        const audio = new Audio(`data:${res.content_type || "audio/wav"};base64,${res.audio_b64}`);
+        await audio.play();
+        return;
+      }
+    } catch {
+      // Fallback to browser SpeechSynthesis
+    }
     if ("speechSynthesis" in window && "SpeechSynthesisUtterance" in window) {
       window.speechSynthesis.cancel();
       const utterance = new SpeechSynthesisUtterance(spokenName);
@@ -110,6 +304,7 @@ function LanguageAccess() {
 
   const continueToOtp = () => {
     window.localStorage.setItem("kalasetu_language", language);
+    window.dispatchEvent(new CustomEvent("kalasetu_lang_change", { detail: language }));
     router.push("/otp");
   };
 
@@ -117,8 +312,10 @@ function LanguageAccess() {
     <AccessFrame
       eyebrow="Choose language"
       title="Which language feels like home?"
-      description="Choose one now. You can change it later in Settings."
+      description="Speak to automatically detect your language, or pick from the list below."
     >
+      <VoiceLanguageDetector onDetected={(code) => setLanguage(code)} />
+
       <div className="ks-language-grid" role="radiogroup" aria-label="Preferred language">
         {LANGUAGES.map(([code, nativeName, englishName]) => (
           <button
@@ -211,13 +408,47 @@ function OtpAccess() {
     }
   };
 
+  useEffect(() => {
+    if (!requested) return;
+
+    const handleKeyboardInput = (event: KeyboardEvent) => {
+      if (/^\d$/.test(event.key)) {
+        event.preventDefault();
+        setError("");
+        setCode((current) => current.length < 6 ? `${current}${event.key}` : current);
+        return;
+      }
+
+      if (event.key === "Backspace") {
+        event.preventDefault();
+        setError("");
+        setCode((current) => current.slice(0, -1));
+        return;
+      }
+
+      if (event.key === "Delete") {
+        event.preventDefault();
+        setError("");
+        setCode("");
+        return;
+      }
+
+      if (event.key === "Enter" && code.length === 6 && !busy) {
+        event.preventDefault();
+        document.querySelector<HTMLFormElement>(".ks-otp-verify")?.requestSubmit();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyboardInput);
+    return () => window.removeEventListener("keydown", handleKeyboardInput);
+  }, [busy, code.length, requested]);
+
   return (
     <AccessFrame
       eyebrow="Secure access"
       title={requested ? "Enter your six-digit code" : "Start with your phone number"}
       description="KalaSetu uses the API to request and verify your one-time code."
     >
-      <StatusPill tone="mock">Mock — for SIH demo · code 123456</StatusPill>
       {!requested ? (
         <form className="ks-otp-phone" onSubmit={requestCode}>
           <label>
@@ -255,6 +486,7 @@ function OtpAccess() {
               <Icon name="arrow" />
             </button>
           </div>
+          <p className="ks-otp-keyboard-hint">You can also type the code using your keyboard.</p>
           <div className="ks-access-actions">
             <Action
               type="button"
@@ -291,6 +523,13 @@ function OnboardingAccess() {
 
   useEffect(() => {
     let active = true;
+    if (!window.localStorage.getItem("kalasetu_token")) {
+      router.replace("/language");
+      return () => {
+        active = false;
+      };
+    }
+
     api.me()
       .then((result) => {
         if (!active) return;
@@ -310,7 +549,7 @@ function OnboardingAccess() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [router]);
 
   const finish = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -330,7 +569,7 @@ function OnboardingAccess() {
         pehchan: {
           id: pehchanId.trim() || undefined,
           source: "self-reported",
-          label: "Mock — for SIH demo",
+          label: "Self-reported profile",
         },
       });
       router.push("/");
@@ -373,9 +612,9 @@ function OnboardingAccess() {
           <section className="ks-onboarding-identity" aria-labelledby="ks-pehchan-title">
             <div>
               <h2 id="ks-pehchan-title">Pehchan-shaped identity</h2>
-              <StatusPill tone="mock">Mock — for SIH demo</StatusPill>
+              <StatusPill tone="attention">Self-reported</StatusPill>
             </div>
-            <p>This is self-reported for the demonstration and is not connected to a government registry.</p>
+            <p>This information is self-reported and is not connected to a government registry.</p>
             <label>
               <span>Pehchan reference (optional)</span>
               <input value={pehchanId} onChange={(event) => setPehchanId(event.target.value)} />
@@ -387,7 +626,7 @@ function OnboardingAccess() {
               <h2 id="ks-aadhaar-title">Aadhaar face verification</h2>
               <p>Not captured or verified in this build.</p>
             </div>
-            <StatusPill tone="mock">Mock — for SIH demo</StatusPill>
+            <StatusPill tone="attention">Not connected</StatusPill>
           </section>
           <label className="ks-onboarding-consent">
             <input

@@ -6,6 +6,8 @@ import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import gsap from "gsap";
 import { api, clearSession, type Provenance as ProvenanceData } from "@/lib/api-client";
+import { useTranslation } from "@/lib/language-context";
+import { VoiceAssistantDrawer } from "./voice-assistant";
 
 export type WorkspaceView =
   | "home"
@@ -132,7 +134,7 @@ export function StatusPill({
   tone = "neutral",
 }: {
   children: ReactNode;
-  tone?: "neutral" | "success" | "attention" | "mock";
+  tone?: "neutral" | "success" | "attention";
 }) {
   return <span className={`ks-status ks-status--${tone}`}>{tone === "success" ? <Icon name="check" size={13} /> : null}{children}</span>;
 }
@@ -150,22 +152,55 @@ function humanSource(source: string) {
 export function Provenance({
   value,
   label = "Source details",
+  interactive = true,
 }: {
   value?: ProvenanceData | null;
   label?: string;
+  interactive?: boolean;
 }) {
   const [open, setOpen] = useState(false);
-  if (!value?.source) return <span className="ks-source ks-source--missing"><Icon name="info" size={14} />Source unavailable</span>;
+
+  if (!value?.source) {
+    return (
+      <span className="ks-source ks-source--missing">
+        <Icon name="info" size={14} />
+        Source unavailable
+      </span>
+    );
+  }
+
+  if (!interactive) {
+    return (
+      <span className="ks-source">
+        <Icon name="info" size={14} />
+        {label}
+      </span>
+    );
+  }
+
   return (
     <span className="ks-source-wrap">
-      <button className="ks-source" type="button" onClick={() => setOpen((current) => !current)} aria-expanded={open}>
-        <Icon name="info" size={14} />{label}
+      <button
+        className="ks-source"
+        type="button"
+        onClick={() => setOpen((current) => !current)}
+        aria-expanded={open}
+      >
+        <Icon name="info" size={14} />
+        {label}
       </button>
+
       {open ? (
         <span className="ks-source-popover" role="status">
           <strong>{humanSource(value.source)}</strong>
-          {typeof value.confidence === "number" ? <span>{Math.round(value.confidence * 100)}% confidence</span> : null}
-          {value.ts ? <span>Updated {new Date(value.ts).toLocaleDateString("en-IN")}</span> : null}
+          {typeof value.confidence === "number" ? (
+            <span>{Math.round(value.confidence * 100)}% confidence</span>
+          ) : null}
+          {value.ts ? (
+            <span>
+              Updated {new Date(value.ts).toLocaleDateString("en-IN")}
+            </span>
+          ) : null}
         </span>
       ) : null}
     </span>
@@ -248,6 +283,7 @@ export function ProductMedia({
 }
 
 export function CreationRail({ current }: { current: WorkspaceView }) {
+  const { t } = useTranslation();
   const active = creationSteps.findIndex(([id]) => id === current);
   if (active < 0) return null;
   return (
@@ -260,7 +296,7 @@ export function CreationRail({ current }: { current: WorkspaceView }) {
           aria-current={index === active ? "step" : undefined}
         >
           <span>{index < active ? <Icon name="check" size={14} /> : index + 1}</span>
-          <small>{label}</small>
+          <small>{t(`shell.${id}`, label)}</small>
         </Link>
       ))}
     </nav>
@@ -277,10 +313,12 @@ export function WorkspaceShell({
   const pathname = usePathname();
   const router = useRouter();
   const root = useRef<HTMLDivElement>(null);
+  const { t, currentLanguage, openModal } = useTranslation();
   const [menuOpen, setMenuOpen] = useState(false);
   const [profile, setProfile] = useState<{ name?: string; cluster?: string; lang?: string }>({});
   const [speakBusy, setSpeakBusy] = useState(false);
   const [speakEnabled, setSpeakEnabled] = useState(true);
+  const [voiceAssistantOpen, setVoiceAssistantOpen] = useState(false);
 
   useEffect(() => {
     document.documentElement.classList.toggle(
@@ -320,7 +358,7 @@ export function WorkspaceShell({
     if (!text || speakBusy) return;
     setSpeakBusy(true);
     try {
-      const result = await api.tts(text, profile.lang || "en-IN");
+      const result = await api.tts(text, profile.lang || currentLanguage.code || "en-IN");
       await new Audio(`data:${result.content_type};base64,${result.audio_b64}`).play();
     } finally {
       setSpeakBusy(false);
@@ -333,7 +371,7 @@ export function WorkspaceShell({
     router.refresh();
   };
 
-  const displayName = profile.name || "Artisan";
+  const displayName = profile.name || t("shell.verified_artisan", "Artisan");
   const initials = displayName.split(/\s+/).map((part) => part[0]).join("").slice(0, 2).toUpperCase();
   const artwork = workspaceArtwork[view];
 
@@ -349,7 +387,7 @@ export function WorkspaceShell({
         <div className="ks-sidebar__scroll">
           {navGroups.map((group) => (
             <nav key={group.label} aria-label={group.label}>
-              <p>{group.label}</p>
+              <p>{group.label === "Workspace" ? t("shell.workspace", "Workspace") : t("shell.insights", "Grow")}</p>
               {group.items.map(([id, label, href, icon]) => (
                 <Link
                   href={href}
@@ -358,14 +396,14 @@ export function WorkspaceShell({
                   aria-current={view === id ? "page" : undefined}
                   onClick={() => setMenuOpen(false)}
                 >
-                  <Icon name={icon} /><span>{label}</span>
+                  <Icon name={icon} /><span>{t(`shell.${id}`, label)}</span>
                 </Link>
               ))}
             </nav>
           ))}
         </div>
         <div className="ks-sidebar__footer">
-          <Link href="/settings" className={view === "settings" ? "is-active" : undefined}><Icon name="settings" /><span>Settings</span></Link>
+          <Link href="/settings" className={view === "settings" ? "is-active" : undefined}><Icon name="settings" /><span>{t("shell.settings", "Settings")}</span></Link>
           <p>Your craft.<br /><em>Your story.</em></p>
         </div>
       </aside>
@@ -377,13 +415,32 @@ export function WorkspaceShell({
             <Image src="/assets/brand/logo-transparent.png" alt="KalaSetu" width={1141} height={535} />
           </Link>
           <div className="ks-topbar__actions">
-            <Link href="/settings" className="ks-language"><Icon name="globe" size={17} />{profile.lang?.split("-")[0]?.toUpperCase() || "EN"}</Link>
-            {speakEnabled ? <button type="button" onClick={speakPage} disabled={speakBusy}><Icon name="voice" size={17} />{speakBusy ? "Speaking…" : "Speak"}</button> : null}
+            <button
+              type="button"
+              onClick={openModal}
+              className="ks-language"
+              title={t("nav.switch_language", "Switch language")}
+              style={{ background: "none", border: "none", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: "6px" }}
+            >
+              <Icon name="globe" size={17} />
+              <span>{currentLanguage.code.split("-")[0].toUpperCase()}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setVoiceAssistantOpen(true)}
+              className="ks-voice-nav-trigger"
+              title="KalaSetu Sahayak — Voice Navigation & Assistant"
+              aria-label="Open voice navigation and assistant"
+            >
+              <Icon name="voice" size={16} />
+              <span>{t("shell.voice_nav", "बोलकर चलाओ")}</span>
+            </button>
+            {speakEnabled ? <button type="button" onClick={speakPage} disabled={speakBusy}><Icon name="voice" size={17} />{speakBusy ? t("shell.speaking", "Speaking…") : t("shell.speak_screen", "Speak")}</button> : null}
             <span className="ks-profile">
               <b>{initials}</b>
               <span><strong>{displayName}</strong><small>{profile.cluster || "Your craft workspace"}</small></span>
             </span>
-            <button className="ks-signout" type="button" onClick={signOut}>Sign out</button>
+            <button className="ks-signout" type="button" onClick={signOut}>{t("shell.sign_out", "Sign out")}</button>
           </div>
         </header>
         {artwork ? (
@@ -393,6 +450,11 @@ export function WorkspaceShell({
         ) : null}
         <CreationRail current={view} />
         <main className="ks-content">{children}</main>
+        <VoiceAssistantDrawer
+          isOpen={voiceAssistantOpen}
+          onClose={() => setVoiceAssistantOpen(false)}
+          onReadScreen={speakPage}
+        />
       </div>
     </div>
   );

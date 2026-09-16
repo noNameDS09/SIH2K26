@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import uuid
+from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, UploadFile, status
@@ -271,6 +272,7 @@ async def price_listing(
     return {
         "listing_id": listing_id,
         "prices": prices,
+        "breakdown": prices.get("breakdown"),
         "source_label": listing.get("source_label", "KalaSetu Verified"),
     }
 
@@ -416,3 +418,53 @@ async def upload_listing_media(
         record_event(uid=uid, listing_id=listing_id, kind="media.captured", payload={"kind": "audio"})
         return {"ok": True, "kind": "audio", "url": url, "filename": "audio.opus"}
     raise HTTPException(status_code=400, detail="Only kind=audio is accepted here; photos go through /v1/images/enhance")
+
+
+@router.post("/v1/listings/{listing_id}/translate")
+async def translate_listing(
+    listing_id: str,
+    target_lang: str = "hi-IN",
+) -> dict:
+    """Translate listing title and description on-demand and cache in listing document."""
+    listing = get_listing(listing_id)
+    if listing is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Listing not found")
+
+    target_code = target_lang.strip()
+    translations = listing.get("translations") or {}
+    if not isinstance(translations, dict):
+        translations = {}
+
+    if target_code in translations:
+        return {
+            "listing_id": listing_id,
+            "target_lang": target_code,
+            "title": translations[target_code].get("title", ""),
+            "description": translations[target_code].get("description", ""),
+            "cached": True,
+        }
+
+    from kalasetu_api.adapters.llm.gemini import translate_text
+
+    base_title = listing.get("title_en") or listing.get("title") or listing.get("title_hi") or ""
+    base_desc = listing.get("desc_en") or listing.get("description") or listing.get("desc_hi") or ""
+
+    translated_title = translate_text(text=base_title, target_language=target_code, source_language="en")
+    translated_desc = translate_text(text=base_desc, target_language=target_code, source_language="en")
+
+    translations[target_code] = {
+        "title": translated_title,
+        "description": translated_desc,
+        "translated_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+    # Persist translation cache in Firestore & in-memory
+    save_listing(uid=listing.get("artisanId") or "demo", listing_id=listing_id, data={"translations": translations})
+
+    return {
+        "listing_id": listing_id,
+        "target_lang": target_code,
+        "title": translated_title,
+        "description": translated_desc,
+        "cached": False,
+    }

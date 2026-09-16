@@ -5,9 +5,11 @@ export type Listing = {
   title?: string;
   title_en?: string;
   title_hi?: string;
+  title_mr?: string;
   description?: string;
   desc_en?: string;
   desc_hi?: string;
+  desc_mr?: string;
   fields?: Record<string, unknown>;
   prices?: Record<string, { value?: number; provenance?: Provenance }>;
   originalUrl?: string;
@@ -18,16 +20,89 @@ export type Listing = {
   craft?: string;
   image_url?: string;
   cluster?: string;
+  cluster_name?: string;
   artisan?: { name?: string; cluster?: string };
   provenance?: Provenance[];
   signature?: string;
   qr_url?: string;
   public_url?: string;
+  updatedAt?: string;
+  signedAt?: string;
+  createdAt?: string;
+  translations?: Record<string, { title?: string; description?: string }>;
   [key: string]: unknown;
 };
 export type AdvisorResult = { sentence: string; empty: boolean; rule_id?: string | null; listing_id?: string; provenance?: Provenance; trade_record?: Record<string, unknown> };
 export type MoneyResult = { sales: Array<Record<string, unknown>>; total_inr: number; count: number; empty: boolean; spoken: string; trade_record: Record<string, unknown> };
 export type InsightsResult = { advisor: AdvisorResult; history: Array<Record<string, unknown>>; trends: { rising?: string[]; provenance?: Provenance; [key: string]: unknown }; n?: number; seed?: boolean };
+export type PriceBreakdown = {
+  material_cost_inr: number;
+  hours: number;
+  wage_inr_per_hour: number;
+  effort_factor: number;
+  labour_cost_inr: number;
+  overhead_inr: number;
+  total_cost_inr: number;
+  recommended_margin_inr: number;
+  provenance?: Provenance;
+};
+
+/** Sarvam rejects the WebM/Opus container emitted by MediaRecorder defaults. */
+export function supportedVoiceRecordingOptions(): MediaRecorderOptions | null {
+  if (typeof MediaRecorder === "undefined") return null;
+  const candidates = ["audio/ogg;codecs=opus", "audio/mp4", "audio/aac"];
+  const mimeType = candidates.find((candidate) => MediaRecorder.isTypeSupported(candidate));
+  return mimeType ? { mimeType } : null;
+}
+
+export function audioUploadName(blob: Blob, baseName: string): string {
+  const type = blob.type.toLowerCase();
+  const extension = type.includes("ogg") || type.includes("opus")
+    ? "ogg"
+    : type.includes("mp4") || type.includes("m4a") || type.includes("aac")
+      ? "m4a"
+      : "wav";
+  return `${baseName}.${extension}`;
+}
+
+export function sarvamAudioMimeType(mimeType: string): string {
+  const normalized = mimeType.toLowerCase().split(";", 1)[0];
+  if (["audio/ogg", "audio/opus", "audio/mp4", "audio/aac"].includes(normalized)) {
+    return normalized;
+  }
+  return "audio/wav";
+}
+
+export type DetectLanguageResult = {
+  language_code: string;
+  language_name: string;
+  transcript: string;
+  greeting: string;
+  audio_b64: string;
+  content_type: string;
+  provenance: Provenance;
+};
+
+export type VoiceActionResult = {
+  intent: "navigation" | "action" | "question" | "empty";
+  action: "navigate" | "back" | "read_screen" | "assistant" | "none";
+  target?: string | null;
+  transcript: string;
+  spoken: string;
+  answer?: string;
+  audio_b64?: string;
+  content_type?: string;
+  provenance?: Provenance;
+};
+
+export type AssistantQueryResult = {
+  query: string;
+  answer: string;
+  audio_b64: string;
+  content_type: string;
+  language_code: string;
+  provenance: Provenance;
+};
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000").replace(/\/$/, "");
 
@@ -77,9 +152,27 @@ export const api = {
     form.set("craft", options.craft || "");
     return request<{ accepted: boolean; deltaE: number; original_url: string; studio_url: string; used_studio: boolean; reused_original?: boolean; bg_preset: string; provenance: Provenance }>("/v1/images/enhance", { method: "POST", body: form });
   },
-  liveTurn: (body: { transcript: string; language_code: string; cluster: string; session?: Record<string, unknown> }) => request<{ session: Record<string, unknown>; question: string; speak: string; done: boolean; listing: Record<string, unknown>; provenance?: Provenance }>("/v1/speech/live/turn", { method: "POST", body: JSON.stringify(body) }),
-  stt: async (audio: Blob, languageCode = "en-IN") => { const form = new FormData(); form.set("file", audio, "catalog-answer.webm"); form.set("language_code", languageCode); return request<{ transcript: string; language_code: string; provenance: Provenance }>("/v1/speech/stt", { method: "POST", body: form }); },
+  liveTurn: (body: { transcript: string; language_code: string; cluster: string; session?: Record<string, unknown> }) => request<{ session: Record<string, unknown>; question: string; speak: string; done: boolean; listing: Record<string, unknown> | null; fields?: Record<string, unknown>; provenance?: Provenance }>("/v1/speech/live/turn", { method: "POST", body: JSON.stringify(body) }),
+  stt: async (audio: Blob, languageCode = "en-IN") => { const form = new FormData(); form.set("file", audio, audioUploadName(audio, "catalog-answer")); form.set("language_code", languageCode); return request<{ transcript: string; language_code: string; provenance: Provenance }>("/v1/speech/stt", { method: "POST", body: form }); },
   tts: (text: string, languageCode = "en-IN") => request<{ audio_b64: string; content_type: string; provenance: Provenance }>("/v1/speech/tts", { method: "POST", body: JSON.stringify({ text, language_code: languageCode }) }),
+  detectLanguage: async (audio: Blob) => {
+    const form = new FormData();
+    form.set("file", audio, audioUploadName(audio, "language-sample"));
+    return request<DetectLanguageResult>("/v1/speech/detect-language", { method: "POST", body: form }, false);
+  },
+  voiceAction: async (options: { file?: Blob; transcript?: string; language_code?: string; listing_id?: string }) => {
+    const form = new FormData();
+    if (options.file) form.set("file", options.file, audioUploadName(options.file, "voice-cmd"));
+    if (options.transcript) form.set("transcript", options.transcript);
+    form.set("language_code", options.language_code || "hi-IN");
+    if (options.listing_id) form.set("listing_id", options.listing_id);
+    return request<VoiceActionResult>("/v1/speech/voice-action", { method: "POST", body: form });
+  },
+  queryAssistant: (query: string, languageCode = "hi-IN", listingId?: string) =>
+    request<AssistantQueryResult>("/v1/assistant/query", {
+      method: "POST",
+      body: JSON.stringify({ query, language_code: languageCode, listing_id: listingId }),
+    }),
   money: () => request<MoneyResult>("/v1/money"),
   createSale: (listingId: string, amount: number) => request<{ ok: boolean; sale: Record<string, unknown>; trade_record: Record<string, unknown> }>("/v1/sales", { method: "POST", body: JSON.stringify({ listing_id: listingId, amount }) }),
   advisor: () => request<AdvisorResult>("/v1/advisor"),
@@ -98,8 +191,9 @@ export const api = {
     public: Record<string, unknown>;
     provenance?: Provenance;
   }>(`/v1/listings/${encodeURIComponent(id)}/export`, { method: "POST", body: JSON.stringify({ channel }) }),
-  price: (id: string) => request<{ prices: Listing["prices"] }>(`/v1/listings/${encodeURIComponent(id)}/price`, { method: "POST" }),
+  price: (id: string) => request<{ prices: Listing["prices"]; breakdown?: PriceBreakdown }>(`/v1/listings/${encodeURIComponent(id)}/price`, { method: "POST" }),
   sign: (id: string) => request<{ listing_id: string; status: string; qr_url: string; public_url: string; signature: string }>(`/v1/listings/${encodeURIComponent(id)}/sign`, { method: "POST" }),
+  translateListing: (id: string, targetLang = "hi-IN") => request<{ listing_id: string; target_lang: string; title: string; description: string; cached: boolean }>(`/v1/listings/${encodeURIComponent(id)}/translate?target_lang=${encodeURIComponent(targetLang)}`, { method: "POST" }, false),
   market: () => request<{ items: Listing[] }>("/v1/market", {}, false),
 };
 
