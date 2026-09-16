@@ -23,6 +23,10 @@ class Screen4Approval extends StatefulWidget {
 class _Screen4ApprovalState extends State<Screen4Approval> {
   bool verified = true;
   bool _isPublishing = false;
+  bool _heardCard = false;
+  bool _speaking = false;
+  bool _signed = false;
+  final List<bool> _confirmations = [false, false, false, false];
 
   void _message(String text) {
     ScaffoldMessenger.of(context)
@@ -32,6 +36,14 @@ class _Screen4ApprovalState extends State<Screen4Approval> {
 
   Future<void> _publish(SessionProvider sp) async {
     if (_isPublishing) return;
+    if (!_allConfirmed) {
+      _message('Confirm all four statements before publishing.');
+      return;
+    }
+    if (!_heardCard) {
+      _message('Listen to the full card before publishing.');
+      return;
+    }
     setState(() => _isPublishing = true);
     final id = sp.listingId ?? 'demo-${DateTime.now().millisecondsSinceEpoch}';
     await ApiService.signListing(id);
@@ -46,6 +58,9 @@ class _Screen4ApprovalState extends State<Screen4Approval> {
         ? 'Product details verified.'
         : 'Edit mode enabled — details can be reviewed.');
   }
+
+  bool get _allConfirmed => _confirmations.every((c) => c);
+  bool get _readyToSign => _allConfirmed && _heardCard;
 
   void _showListenSheet(String title, String message, {VoidCallback? onPlay}) {
     showModalBottomSheet<void>(

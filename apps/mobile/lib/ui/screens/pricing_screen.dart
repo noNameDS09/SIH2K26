@@ -43,7 +43,7 @@ class _PricingScreenState extends State<PricingScreen> {
         _prices = priceRes['prices'] as Map<String, dynamic>? ?? {};
         _loading = false;
         final existing = (listingRes['price_hint'] as num?)?.toInt();
-        if (existing != null) _customPrice = String(existing);
+        if (existing != null) _customPrice = existing.toString();
       });
     } catch (_) {
       setState(() => _loading = false);
