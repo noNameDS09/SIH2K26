@@ -9,9 +9,8 @@ import '../../services/session_provider.dart';
 import '../theme/ks_colors.dart';
 import '../theme/ks_text_styles.dart';
 import '../widgets/ks_app_header.dart';
-import '../widgets/ks_progress_bar.dart';
+import '../widgets/ks_stage_progress.dart';
 import '../l10n/ks_strings.dart';
-import '../l10n/locale_provider.dart';
 
 class Screen2Capture extends StatefulWidget {
   const Screen2Capture({super.key});
@@ -29,19 +28,15 @@ class _Screen2CaptureState extends State<Screen2Capture> {
   @override
   void initState() {
     super.initState();
+    // Auth already happened at /otp — this just opportunistically learns
+    // the artisan's cluster for cataloger/pricing context.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<SessionProvider>().init();
+      context.read<SessionProvider>().loadArtisan();
     });
   }
 
   String get _sarvamLangCode {
-    final langCode = context.read<LocaleProvider>().locale.languageCode;
-    const map = {
-      'en': 'en-IN', 'hi': 'hi-IN', 'mr': 'mr-IN', 'ta': 'ta-IN',
-      'te': 'te-IN', 'kn': 'kn-IN', 'bn': 'bn-IN', 'gu': 'gu-IN',
-      'pa': 'pa-IN', 'ml': 'ml-IN', 'as': 'as-IN', 'or': 'od-IN', 'ur': 'ur-IN',
-    };
-    return map[langCode] ?? 'hi-IN';
+    return KsStrings.sarvamLangCode(context);
   }
 
   Future<void> _setImage(Uint8List bytes) async {
@@ -150,7 +145,7 @@ class _Screen2CaptureState extends State<Screen2Capture> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const SizedBox(height: 16),
-              const KsProgressBar(totalSteps: 7, currentStep: 2, label: 'STAGE 2 — PRODUCT CAPTURE'),
+              const KsStageProgress(stage: 2, label: 'PRODUCT CAPTURE'),
               const SizedBox(height: 12),
               _StageBadge(label: ks.stage2Badge),
               const SizedBox(height: 20),

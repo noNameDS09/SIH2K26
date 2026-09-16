@@ -1,13 +1,63 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
-import '../routes/app_routes.dart';
+import 'package:provider/provider.dart';
+import '../../models/artisan.dart';
+import '../../services/api_service.dart';
+import '../../services/session_provider.dart';
 import '../theme/ks_colors.dart';
 import '../theme/ks_text_styles.dart';
 import '../widgets/ks_app_header.dart';
 import '../widgets/ks_bottom_nav.dart';
+import '../widgets/ks_trade_record_bars.dart';
+import '../widgets/ks_spoken_empty_state.dart';
 
-class MoneyScreen extends StatelessWidget {
+/// Stage 6 — sales for this artisan, spoken first, plus the Trade Record.
+/// Real `GET /v1/money` (`apps/api/.../routers/sales.py`) returns
+/// `{sales, total_inr, count, empty, spoken, trade_record}` — one running
+/// total, no pending/this-month breakdown exists server-side, so this
+/// screen no longer shows those (previously fabricated) figures. `spoken`
+/// is a server-composed, already-localised line — used directly instead
+/// of building an English-only sentence client-side.
+class MoneyScreen extends StatefulWidget {
   const MoneyScreen({super.key});
+
+  @override
+  State<MoneyScreen> createState() => _MoneyScreenState();
+}
+
+class _MoneyScreenState extends State<MoneyScreen> {
+  bool _loading = true;
+  int _total = 0;
+  List<Map<String, dynamic>> _sales = [];
+  String _spokenLine = 'No sales yet.';
+  TradeRecord _tradeRecord = const TradeRecord();
+  bool _spoken = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() => _loading = true);
+    final data = await ApiService.money();
+    if (!mounted) return;
+    setState(() {
+      _sales = ((data?['sales'] as List?) ?? const [])
+          .whereType<Map>()
+          .map((e) => e.cast<String, dynamic>())
+          .toList();
+      _total = (data?['total_inr'] as num?)?.toInt() ?? 0;
+      _spokenLine = data?['spoken'] as String? ?? 'No sales yet.';
+      _tradeRecord = TradeRecord.fromJson(data?['trade_record'] as Map<String, dynamic>?);
+      _loading = false;
+    });
+    final provider = context.read<SessionProvider>();
+    if (!_spoken && provider.speakScreensEnabled) {
+      _spoken = true;
+      provider.speakText(_spokenLine);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -17,149 +67,74 @@ class MoneyScreen extends StatelessWidget {
         children: [
           const KsAppHeader(title: 'Earnings'),
           Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: 20),
+            child: _loading
+                ? const Center(child: CircularProgressIndicator(color: KsColors.terracotta))
+                : RefreshIndicator(
+                    onRefresh: _load,
+                    child: SingleChildScrollView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const SizedBox(height: 20),
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(24),
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                colors: [Color(0xFF1B4D3E), Color(0xFF2D7A5A)],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('Total Sales',
+                                    style: KsTextStyles.label(color: KsColors.white.withAlpha(180), size: 11)),
+                                const SizedBox(height: 8),
+                                Text('₹$_total',
+                                    style: KsTextStyles.price(color: KsColors.white, size: 36)),
+                                const SizedBox(height: 8),
+                                Text('${_sales.length} sale${_sales.length == 1 ? '' : 's'}',
+                                    style: KsTextStyles.body(color: KsColors.white.withAlpha(180), size: 12)),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 24),
 
-                  // Balance card
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(24),
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFF1B4D3E), Color(0xFF2D7A5A)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
+                          if (_sales.isEmpty) ...[
+                            KsSpokenEmptyState(
+                              icon: Icons.receipt_long_outlined,
+                              text: _spokenLine,
+                            ),
+                          ] else ...[
+                            Text('Recent Transactions',
+                                style: KsTextStyles.label(color: KsColors.brown3, size: 10)),
+                            const SizedBox(height: 12),
+                            ..._sales.map((s) => _TransactionTile(
+                                  title: (s['craft'] as String?)?.trim().isNotEmpty == true
+                                      ? s['craft'] as String
+                                      : 'Sale',
+                                  amount: '₹${(s['amount'] as num?)?.toInt() ?? 0}',
+                                )),
+                          ],
+                          const SizedBox(height: 24),
+
+                          KsTradeRecordBars(record: _tradeRecord),
+                          const SizedBox(height: 40),
+                        ],
                       ),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Total Balance',
-                            style: KsTextStyles.label(color: KsColors.white.withAlpha(180), size: 11)),
-                        const SizedBox(height: 8),
-                        Text('₹24,680',
-                            style: KsTextStyles.price(color: KsColors.white, size: 36)),
-                        const SizedBox(height: 16),
-                        Row(children: [
-                          _BalanceChip(label: 'Pending', value: '₹3,200'),
-                          const SizedBox(width: 16),
-                          _BalanceChip(label: 'This Month', value: '₹8,400'),
-                        ]),
-                      ],
                     ),
                   ),
-                  const SizedBox(height: 24),
-
-                  // Monthly breakdown
-                  Text('Monthly Earnings',
-                      style: KsTextStyles.label(color: KsColors.brown3, size: 10)),
-                  const SizedBox(height: 12),
-                  _EarningsChart(),
-                  const SizedBox(height: 24),
-
-                  // Transactions
-                  Text('Recent Transactions',
-                      style: KsTextStyles.label(color: KsColors.brown3, size: 10)),
-                  const SizedBox(height: 12),
-                  ...const [
-                    ('Paithani Saree — ONDC', '₹5,200', '+'),
-                    ('Embroidery Bag — GeM', '₹1,800', '+'),
-                    ('Platform Fee', '₹104', '-'),
-                    ('Warli Art — WhatsApp', '₹3,400', '+'),
-                  ].map((t) => _TransactionTile(title: t.$1, amount: t.$2, sign: t.$3)),
-                  const SizedBox(height: 40),
-                ],
-              ),
-            ),
           ),
           KsBottomNav(
             currentIndex: 3,
-            onTap: (i) => _navTap(context, i),
+            onTap: (i) => KsBottomNav.navigate(context, i),
           ),
         ],
-      ),
-    );
-  }
-
-  void _navTap(BuildContext context, int i) {
-    switch (i) {
-      case 0: context.go(AppRoutes.home); break;
-      case 1: context.go(AppRoutes.capture); break;
-      case 2: context.go(AppRoutes.shop); break;
-      case 3: break;
-      case 4: context.go(AppRoutes.insights); break;
-    }
-  }
-}
-
-class _BalanceChip extends StatelessWidget {
-  final String label;
-  final String value;
-  const _BalanceChip({required this.label, required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: KsTextStyles.label(color: KsColors.white.withAlpha(160), size: 9)),
-        const SizedBox(height: 2),
-        Text(value, style: KsTextStyles.price(color: KsColors.white, size: 16)),
-      ],
-    );
-  }
-}
-
-class _EarningsChart extends StatelessWidget {
-  const _EarningsChart();
-
-  static const _months = ['Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep'];
-  static const _values = [0.4, 0.6, 0.5, 0.75, 0.65, 0.9];
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 120,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: KsColors.surface1,
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: List.generate(_months.length, (i) {
-          return Expanded(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  Expanded(
-                    child: Align(
-                      alignment: Alignment.bottomCenter,
-                      child: Container(
-                        height: _values[i] * 70,
-                        decoration: BoxDecoration(
-                          color: i == _months.length - 1
-                              ? KsColors.terracotta
-                              : KsColors.peach3,
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(_months[i], style: KsTextStyles.label(color: KsColors.textSecondary, size: 9)),
-                ],
-              ),
-            ),
-          );
-        }),
       ),
     );
   }
@@ -168,12 +143,10 @@ class _EarningsChart extends StatelessWidget {
 class _TransactionTile extends StatelessWidget {
   final String title;
   final String amount;
-  final String sign;
-  const _TransactionTile({required this.title, required this.amount, required this.sign});
+  const _TransactionTile({required this.title, required this.amount});
 
   @override
   Widget build(BuildContext context) {
-    final isIncome = sign == '+';
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(14),
@@ -186,24 +159,14 @@ class _TransactionTile extends StatelessWidget {
           width: 36,
           height: 36,
           decoration: BoxDecoration(
-            color: isIncome ? KsColors.paleGreen : KsColors.peach3,
+            color: KsColors.paleGreen,
             borderRadius: BorderRadius.circular(10),
           ),
-          child: Icon(
-            isIncome ? Icons.arrow_downward : Icons.arrow_upward,
-            color: isIncome ? KsColors.deepGreen : KsColors.terracotta,
-            size: 16,
-          ),
+          child: const Icon(Icons.arrow_downward, color: KsColors.deepGreen, size: 16),
         ),
         const SizedBox(width: 12),
         Expanded(child: Text(title, style: KsTextStyles.body(size: 13))),
-        Text(
-          '$sign$amount',
-          style: KsTextStyles.price(
-            color: isIncome ? KsColors.deepGreen : KsColors.terracotta,
-            size: 14,
-          ),
-        ),
+        Text('+$amount', style: KsTextStyles.price(color: KsColors.deepGreen, size: 14)),
       ]),
     );
   }

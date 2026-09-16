@@ -3,7 +3,7 @@ import 'package:go_router/go_router.dart';
 import '../theme/ks_colors.dart';
 import '../theme/ks_text_styles.dart';
 import '../routes/app_routes.dart';
-import 'ks_sahayak_widget.dart';
+import 'ks_voice_command_sheet.dart';
 
 class KsAppHeader extends StatelessWidget implements PreferredSizeWidget {
   const KsAppHeader({
@@ -72,8 +72,8 @@ class KsAppHeader extends StatelessWidget implements PreferredSizeWidget {
                 // Sahayak mic button
                 if (showSahayak) ...[
                   IconButton(
-                    tooltip: 'Sahayak AI Assistant',
-                    onPressed: () => KsSahayakWidget.show(context),
+                    tooltip: 'Voice commands',
+                    onPressed: () => KsVoiceCommandSheet.show(context),
                     icon: const Icon(Icons.auto_awesome, size: 18),
                     style: IconButton.styleFrom(
                       minimumSize: const Size(36, 36),

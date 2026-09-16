@@ -2,14 +2,22 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import '../../models/prices.dart';
+import '../../services/api_service.dart';
 import '../../services/session_provider.dart';
-import '../l10n/ks_strings.dart';
 import '../routes/app_routes.dart';
 import '../theme/ks_colors.dart';
 import '../theme/ks_text_styles.dart';
 import '../widgets/ks_app_header.dart';
-import '../widgets/ks_progress_bar.dart';
+import '../widgets/ks_stage_progress.dart';
+import '../widgets/ks_price_band_card.dart';
 
+/// Stage 3 — dynamic pricing assistant, one of the three mandatory AI
+/// capabilities (`01_CONTEXT.md`). Bands come from `POST
+/// /v1/listings/{id}/price`, never fabricated client-side — a failed fetch
+/// shows a real error with retry, not a fallback number pretending to be
+/// a calculation. `13_API.md`: "do not replace with a black box" applies
+/// to the client too: no invented margins, no invented breakdown.
 class PricingScreen extends StatefulWidget {
   const PricingScreen({super.key});
 
@@ -18,11 +26,20 @@ class PricingScreen extends StatefulWidget {
 }
 
 class _PricingScreenState extends State<PricingScreen> {
-  int _selectedBand = 1;
+  bool _loading = true;
+  bool _failed = false;
+  Prices _prices = const Prices();
+  String? _selectedKey = 'recommended';
   bool _useCustomPrice = false;
   String? _customPriceError;
   final _customPriceController = TextEditingController();
   bool _breakdownExpanded = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _fetchPrice());
+  }
 
   @override
   void dispose() {
@@ -30,42 +47,37 @@ class _PricingScreenState extends State<PricingScreen> {
     super.dispose();
   }
 
-  Map<String, int> _prices(SessionProvider provider) {
-    final raw = provider.listing?['prices'];
-    if (raw is Map) {
-      return {
-        'floor': (raw['floor'] as num?)?.toInt() ?? 3800,
-        'recommended': (raw['recommended'] as num?)?.toInt() ?? 5200,
-        'ceiling': (raw['ceiling'] as num?)?.toInt() ?? 7500,
-      };
+  Future<void> _fetchPrice() async {
+    final provider = context.read<SessionProvider>();
+    final id = provider.listingId ?? (provider.listing?['id'] as String?);
+    if (id == null) {
+      setState(() { _loading = false; _failed = true; });
+      return;
     }
-    return {'floor': 3800, 'recommended': 5200, 'ceiling': 7500};
+    setState(() { _loading = true; _failed = false; });
+    final prices = await ApiService.priceListing(id);
+    if (!mounted) return;
+    setState(() {
+      _loading = false;
+      _prices = prices;
+      _failed = !prices.hasBands;
+    });
+    if (prices.hasBands) {
+      final currentListing = provider.listing ?? <String, dynamic>{'id': id};
+      provider.updateListing({
+        ...currentListing,
+        'prices': {
+          'floor': prices.floor!.value,
+          'recommended': prices.recommended!.value,
+          'aspirational': prices.aspirational!.value,
+        },
+      });
+    }
   }
 
-  Map<String, dynamic>? _priceBreakdown(SessionProvider provider) {
-    final raw = provider.listing?['price_breakdown'];
-    if (raw is Map) return Map<String, dynamic>.from(raw);
-    // Mock breakdown
-    return {
-      'raw_material': 820,
-      'labour_cost': 1960,
-      'finishing': 320,
-      'overhead': 240,
-      'platform_fee': 104,
-      'total_cost': 3444,
-      'recommended_margin': 0.38,
-    };
-  }
+  void _selectBand(String key) => setState(() { _selectedKey = key; _useCustomPrice = false; });
 
-  void _selectBand(int index, String label) {
-    setState(() { _selectedBand = index; _useCustomPrice = false; });
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('$label ${KsStrings.of(context).priceBandSelected}'),
-          behavior: SnackBarBehavior.floating),
-    );
-  }
-
-  void _activateCustomPrice() => setState(() { _useCustomPrice = true; _selectedBand = -1; });
+  void _activateCustomPrice() => setState(() { _useCustomPrice = true; _selectedKey = null; });
 
   void _useEnteredPrice() {
     final price = int.tryParse(_customPriceController.text.trim());
@@ -75,21 +87,30 @@ class _PricingScreenState extends State<PricingScreen> {
     }
     context.read<SessionProvider>().setListedPrice(price);
     FocusScope.of(context).unfocus();
-    setState(() { _customPriceError = null; _useCustomPrice = true; _selectedBand = -1; });
+    setState(() { _customPriceError = null; _useCustomPrice = true; _selectedKey = null; });
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('₹$price will be used on your product card.'),
           behavior: SnackBarBehavior.floating),
     );
   }
 
+  void _continue(SessionProvider provider) {
+    if (!_useCustomPrice && _selectedKey != null) {
+      final value = switch (_selectedKey) {
+        'floor' => _prices.floor?.value,
+        'recommended' => _prices.recommended?.value,
+        'aspirational' => _prices.aspirational?.value,
+        _ => null,
+      };
+      if (value != null) provider.setListedPrice(value);
+    }
+    context.go(AppRoutes.approval);
+  }
+
   @override
   Widget build(BuildContext context) {
-    final ks = KsStrings.of(context);
     return Consumer<SessionProvider>(
       builder: (context, provider, _) {
-        final prices = _prices(provider);
-        final breakdown = _priceBreakdown(provider);
-
         return Scaffold(
           backgroundColor: KsColors.background,
           body: Column(
@@ -105,158 +126,111 @@ class _PricingScreenState extends State<PricingScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const SizedBox(height: 16),
-                      const KsProgressBar(
-                        totalSteps: 7,
-                        currentStep: 5,
-                        label: 'STAGE 5 — PRICING',
-                      ),
+                      const KsStageProgress(stage: 3, label: 'PRICING'),
                       const SizedBox(height: 20),
 
-                      // Fair Price Agent header
                       Row(children: [
                         Container(width: 7, height: 7,
                             decoration: const BoxDecoration(color: KsColors.terracotta, shape: BoxShape.circle)),
                         const SizedBox(width: 6),
-                        Text('FAIR PRICE AGENT — GeM/ONDC',
+                        Text('DYNAMIC PRICING ASSISTANT',
                             style: KsTextStyles.label(color: KsColors.terracotta, size: 10)),
-                        const Spacer(),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                          decoration: BoxDecoration(color: KsColors.paleGreen, borderRadius: BorderRadius.circular(10)),
-                          child: Text(ks.fairWageCertified,
-                              style: KsTextStyles.label(color: KsColors.deepGreen, size: 9)),
-                        ),
                       ]),
                       const SizedBox(height: 20),
 
-                      // Recommended price box
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(18),
-                        decoration: BoxDecoration(
-                          color: KsColors.surface1,
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: KsColors.peach3),
+                      if (_loading) ...[
+                        const Center(
+                          child: Padding(
+                            padding: EdgeInsets.symmetric(vertical: 32),
+                            child: CircularProgressIndicator(color: KsColors.terracotta),
+                          ),
                         ),
-                        child: Row(
-                          children: [
-                            Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                              Text(ks.recommendedTarget,
-                                  style: KsTextStyles.label(color: KsColors.brown3, size: 9)),
-                              const SizedBox(height: 4),
-                              Text('₹${prices['recommended']!}',
-                                  style: KsTextStyles.price(color: KsColors.terracotta, size: 28)),
-                            ]),
-                            const Spacer(),
-                            Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                              Text(ks.netMargin,
-                                  style: KsTextStyles.label(color: KsColors.brown3, size: 9)),
-                              const SizedBox(height: 4),
-                              Row(children: [
-                                Text('38%', style: KsTextStyles.price(color: KsColors.green, size: 22)),
-                                const SizedBox(width: 6),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                  decoration: BoxDecoration(
-                                      color: KsColors.paleGreen, borderRadius: BorderRadius.circular(8)),
-                                  child: Text(ks.guaranteed,
-                                      style: KsTextStyles.label(color: KsColors.green, size: 9)),
-                                ),
-                              ]),
-                            ]),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Cost breakdown collapsible
-                      GestureDetector(
-                        onTap: () => setState(() => _breakdownExpanded = !_breakdownExpanded),
-                        child: Container(
-                          padding: const EdgeInsets.all(14),
+                      ] else if (_failed) ...[
+                        Container(
+                          padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
-                            color: KsColors.surface1,
+                            color: const Color(0xFFFBE4E1),
                             borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: const Color(0xFFD9463A)),
                           ),
                           child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Row(
-                                children: [
-                                  Text('Cost Breakdown',
-                                      style: KsTextStyles.bodyMedium(size: 13)),
-                                  const Spacer(),
-                                  Icon(
-                                    _breakdownExpanded
-                                        ? Icons.keyboard_arrow_up
-                                        : Icons.keyboard_arrow_down,
-                                    color: KsColors.textSecondary,
-                                  ),
-                                ],
+                              const Row(children: [
+                                Icon(Icons.error_outline, color: Color(0xFFD9463A), size: 18),
+                                SizedBox(width: 8),
+                                Text('Could not calculate a price',
+                                    style: TextStyle(color: Color(0xFFD9463A), fontWeight: FontWeight.w700)),
+                              ]),
+                              const SizedBox(height: 6),
+                              Text(
+                                'The pricing server did not respond. Check your connection and try again — we will not show a made-up number.',
+                                style: KsTextStyles.body(size: 12),
                               ),
-                              if (_breakdownExpanded && breakdown != null) ...[
-                                const SizedBox(height: 12),
-                                _BreakdownRow(label: ks.rawMaterial,
-                                    value: '₹${breakdown['raw_material']}'),
-                                _BreakdownRow(label: ks.labourCost,
-                                    value: '₹${breakdown['labour_cost']}'),
-                                _BreakdownRow(label: ks.finishing,
-                                    value: '₹${breakdown['finishing']}'),
-                                _BreakdownRow(label: 'Overhead',
-                                    value: '₹${breakdown['overhead']}'),
-                                _BreakdownRow(label: 'Platform Fee',
-                                    value: '₹${breakdown['platform_fee']}'),
-                                const Divider(height: 16),
-                                _BreakdownRow(
-                                  label: 'Total Cost',
-                                  value: '₹${breakdown['total_cost']}',
-                                  bold: true,
-                                ),
-                              ],
+                              const SizedBox(height: 10),
+                              OutlinedButton(onPressed: _fetchPrice, child: const Text('Retry')),
                             ],
                           ),
                         ),
-                      ),
-                      const SizedBox(height: 16),
+                        const SizedBox(height: 20),
+                      ] else ...[
+                        // Selected price hero
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(18),
+                          decoration: BoxDecoration(
+                            color: KsColors.surface1,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: KsColors.peach3),
+                          ),
+                          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                            Text('Recommended', style: KsTextStyles.label(color: KsColors.brown3, size: 9)),
+                            const SizedBox(height: 4),
+                            Text('₹${_prices.recommended?.value ?? '—'}',
+                                style: KsTextStyles.price(color: KsColors.terracotta, size: 28)),
+                          ]),
+                        ),
+                        const SizedBox(height: 16),
 
-                      // Price band selector
-                      Text('Select Your Price',
-                          style: KsTextStyles.label(color: KsColors.brown3, size: 10)),
-                      const SizedBox(height: 10),
-                      Row(
-                        children: List.generate(3, (i) {
-                          final labels = [ks.lowestPrice, ks.recommendedPrice, ks.highestPrice];
-                          final keys = ['floor', 'recommended', 'ceiling'];
-                          final active = i == _selectedBand;
-                          return Expanded(
-                            child: Padding(
-                              padding: EdgeInsets.only(right: i < 2 ? 8 : 0),
-                              child: GestureDetector(
-                                onTap: () => _selectBand(i, '₹${prices[keys[i]]!}'),
-                                child: AnimatedContainer(
-                                  duration: const Duration(milliseconds: 200),
-                                  padding: const EdgeInsets.symmetric(vertical: 12),
-                                  decoration: BoxDecoration(
-                                    color: active ? KsColors.terracotta : KsColors.white,
-                                    borderRadius: BorderRadius.circular(10),
-                                    border: Border.all(
-                                        color: active ? KsColors.terracotta : KsColors.peach3),
-                                  ),
-                                  child: Column(children: [
-                                    Text(labels[i], style: KsTextStyles.label(
-                                        color: active ? KsColors.white.withAlpha(180) : KsColors.brown3,
-                                        size: 8)),
-                                    const SizedBox(height: 4),
-                                    Text('₹${prices[keys[i]]!}', style: KsTextStyles.price(
-                                        color: active ? KsColors.white : KsColors.mainText,
-                                        size: 16)),
+                        Text('Select Your Price',
+                            style: KsTextStyles.label(color: KsColors.brown3, size: 10)),
+                        const SizedBox(height: 10),
+                        KsPriceBandCard(
+                          prices: _prices,
+                          selectedKey: _useCustomPrice ? null : _selectedKey,
+                          onSelect: _selectBand,
+                        ),
+                        const SizedBox(height: 12),
+
+                        if (_prices.breakdown.isNotEmpty) ...[
+                          GestureDetector(
+                            onTap: () => setState(() => _breakdownExpanded = !_breakdownExpanded),
+                            child: Container(
+                              padding: const EdgeInsets.all(14),
+                              decoration: BoxDecoration(
+                                color: KsColors.surface1,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Column(
+                                children: [
+                                  Row(children: [
+                                    Text('Cost Breakdown', style: KsTextStyles.bodyMedium(size: 13)),
+                                    const Spacer(),
+                                    Icon(_breakdownExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                                        color: KsColors.textSecondary),
                                   ]),
-                                ),
+                                  if (_breakdownExpanded) ...[
+                                    const SizedBox(height: 12),
+                                    for (final entry in _prices.breakdown.entries)
+                                      _BreakdownRow(label: entry.key, value: '₹${entry.value}'),
+                                  ],
+                                ],
                               ),
                             ),
-                          );
-                        }),
-                      ),
-                      const SizedBox(height: 12),
+                          ),
+                          const SizedBox(height: 16),
+                        ],
+                      ],
 
                       // Custom price input
                       GestureDetector(
@@ -310,21 +284,41 @@ class _PricingScreenState extends State<PricingScreen> {
                           ),
                         ),
                       ),
+                      const SizedBox(height: 16),
+
+                      Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: KsColors.surface1,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: KsColors.peach3),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(children: [
+                              const Icon(Icons.info_outline_rounded, size: 14, color: KsColors.brown3),
+                              const SizedBox(width: 6),
+                              Text('Why this range?',
+                                  style: KsTextStyles.label(color: KsColors.brown3, size: 10)),
+                            ]),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Floor covers your material and labour cost. Recommended and '
+                              'aspirational are calculated from your costing answers and the '
+                              'current cluster trend. Tap the ⓘ on any number to see exactly '
+                              'where it came from.',
+                              style: KsTextStyles.body(size: 12),
+                            ),
+                          ],
+                        ),
+                      ),
                       const SizedBox(height: 24),
 
-                      // CTA
                       SizedBox(
                         width: double.infinity,
                         child: ElevatedButton.icon(
-                          onPressed: () {
-                            // Save selected band price if no custom price
-                            if (!_useCustomPrice && _selectedBand >= 0) {
-                              final keys = ['floor', 'recommended', 'ceiling'];
-                              final price = prices[keys[_selectedBand]]!;
-                              provider.setListedPrice(price);
-                            }
-                            context.go(AppRoutes.approval);
-                          },
+                          onPressed: (_failed || _loading) ? null : () => _continue(provider),
                           icon: const Icon(Icons.arrow_forward, size: 18),
                           label: const Text('Review & Verify Listing'),
                           style: ElevatedButton.styleFrom(
@@ -351,19 +345,15 @@ class _PricingScreenState extends State<PricingScreen> {
 class _BreakdownRow extends StatelessWidget {
   final String label;
   final String value;
-  final bool bold;
-  const _BreakdownRow({required this.label, required this.value, this.bold = false});
+  const _BreakdownRow({required this.label, required this.value});
 
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(children: [
-        Expanded(child: Text(label,
-            style: bold ? KsTextStyles.bodyMedium(size: 12) : KsTextStyles.body(size: 12))),
-        Text(value,
-            style: bold ? KsTextStyles.price(color: KsColors.terracotta, size: 14)
-                : KsTextStyles.bodyMedium(size: 13)),
+        Expanded(child: Text(label, style: KsTextStyles.body(size: 12))),
+        Text(value, style: KsTextStyles.bodyMedium(size: 13)),
       ]),
     );
   }

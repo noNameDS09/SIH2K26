@@ -1,23 +1,69 @@
 import 'dart:async';
-// dart:typed_data re-exported via flutter/foundation
 import 'package:flutter/foundation.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:record/record.dart';
 import 'api_service.dart';
+import 'wav_utils.dart';
+import '../models/live_turn.dart';
+import '../models/provenance.dart';
 
+/// Cataloger + capture session state for the current listing.
+///
+/// NOTE: per the plan's A4 split this will eventually separate into
+/// `SessionProvider` (auth/artisan only) + `ListingDraftProvider` (one
+/// current `listingId`) + `VoiceService` (recorder/player). That split was
+/// deliberately deferred (touching every pipeline screen at once was judged
+/// higher-risk than the win); this class keeps one unified surface instead.
+/// Internals talk to the REAL `apps/api` contract (verified by reading the
+/// actual FastAPI routers/engines, not the aspirational spec) — the
+/// cataloger in particular is a stateless, transcript-based turn endpoint,
+/// not an audio-per-turn one. `listingId` is always server-issued, never
+/// client-generated (`00_AGENT_RULES.md`).
 class SessionProvider extends ChangeNotifier {
   // ── Auth ──────────────────────────────────────────────────────────────────
   bool isAuthenticated = false;
 
+  /// The artisan's cluster, used as the cataloger's pricing/trend context.
+  /// Populated opportunistically from `/v1/auth/me`; 'varanasi' is the
+  /// server's own default and a safe fallback.
+  String cluster = 'varanasi';
+
+  /// Gates auto-TTS on home/money (`/settings` toggle). Manual "listen"
+  /// buttons elsewhere are unaffected — this only controls speech the app
+  /// initiates on its own.
+  bool speakScreensEnabled = true;
+
+  void setSpeakScreensEnabled(bool value) {
+    speakScreensEnabled = value;
+    notifyListeners();
+  }
+
+  void signOut() {
+    isAuthenticated = false;
+    reset();
+  }
+
   // ── Catalog session ───────────────────────────────────────────────────────
-  Map<String, dynamic> _session = {};
+  /// Opaque blob round-tripped with the server on every turn
+  /// (`CatalogerSession.to_dict()` server-side) — contains per-slot
+  /// raw/value/confirmed/provenance, which is what the live-screen
+  /// checklist reads.
+  Map<String, dynamic> _catalogSession = {};
+  Map<String, dynamic> get catalogSlots =>
+      (_catalogSession['slots'] as Map?)?.cast<String, dynamic>() ?? const {};
+
+  /// interviewing | confirming | copy | complete — the server's
+  /// `CatalogerSession.phase`. `confirming` means the current question is
+  /// actually a reread asking "theek hai / galat", not a new question.
+  String get catalogPhase => _catalogSession['phase'] as String? ?? 'interviewing';
+  bool get isConfirmingSlot => catalogPhase == 'confirming';
+
   String? currentQuestion;
   String? lastTranscript;
+  String? lastSpokenText;
   bool isDone = false;
   Map<String, dynamic>? listing;
-  List<dynamic>? table;
-
-  Map<String, dynamic> get session => _session;
+  List<Map<String, dynamic>> table = const [];
 
   // ── Recording ─────────────────────────────────────────────────────────────
   bool isLoading = false;
@@ -38,6 +84,21 @@ class SessionProvider extends ChangeNotifier {
   Uint8List? enhancedImageBytes;
   bool isEnhancing = false;
   String? listingId;
+  /// True only when the server ran the quality gate and rejected the
+  /// studio image (ΔE > 2.0) — the original is kept, never a bad mask
+  /// (`09_IMAGE_PIPELINE.md`).
+  bool enhanceRejected = false;
+
+  /// True when the server was unreachable and this is a placeholder, not
+  /// a real gate result — distinct from [enhanceRejected] so the UI can
+  /// say "waiting for network" instead of implying a real ΔE failure.
+  bool enhanceOffline = false;
+  double? imageEnhanceDeltaE;
+  Provenance? enhanceProvenance;
+
+  /// One of the six spec-bundled presets (`09_IMAGE_PIPELINE.md`):
+  /// white, linen, beige, slate, jute, wood. Linen is the textile default.
+  String _currentBgPreset = 'linen';
 
   SessionProvider() {
     _player.onPlayerStateChanged.listen((state) {
@@ -46,15 +107,18 @@ class SessionProvider extends ChangeNotifier {
     });
   }
 
-  // ── Init: auth + first catalog question ──────────────────────────────────
+  /// Called once after a successful OTP verify (not an auth call itself —
+  /// that would silently clobber whichever phone the artisan actually
+  /// logged in with). Just tries to learn the artisan's cluster.
+  Future<void> loadArtisan() async {
+    final artisan = await ApiService.me();
+    if (artisan?.cluster != null) cluster = artisan!.cluster!;
+  }
 
-  Future<void> init() async {
-    if (isAuthenticated && currentQuestion != null) return;
-    _setLoading(true, 'कनेक्ट करत आहे…');
-    isAuthenticated = await ApiService.authenticate();
-    final result = await ApiService.catalogTurn(session: {});
-    _applyTurnResult(result);
-    _setLoading(false, null);
+  Future<void> _ensureListing() async {
+    if (listingId != null) return;
+    final created = await ApiService.createListing();
+    listingId = created.id;
   }
 
   // ── Recording lifecycle ───────────────────────────────────────────────────
@@ -87,6 +151,26 @@ class SessionProvider extends ChangeNotifier {
     }
   }
 
+  /// Stops recording and returns the raw WAV bytes without submitting to
+  /// the Live cataloger — used by [KsVoiceCommandSheet], which only needs
+  /// a transcript to match against the fixed command grammar.
+  Future<Uint8List?> stopRecordingRaw() async {
+    if (!isRecording) return null;
+    isRecording = false;
+    notifyListeners();
+    try {
+      await _recorder.stop();
+    } catch (_) {}
+    await _recordSub?.cancel();
+    _recordSub = null;
+    if (_pcmChunks.isEmpty) return null;
+    return buildWav(_pcmChunks);
+  }
+
+  /// Stops recording, transcribes it (`POST /v1/speech/stt`), then sends
+  /// that transcript to the turn-based cataloger (`POST
+  /// /v1/speech/live/turn`) — the real endpoint takes JSON transcript +
+  /// session, not raw audio (`apps/api/.../routers/speech.py`).
   Future<void> stopRecordingAndSubmit({String langCode = 'mr-IN'}) async {
     if (!isRecording) return;
     isRecording = false;
@@ -98,33 +182,104 @@ class SessionProvider extends ChangeNotifier {
     await _recordSub?.cancel();
     _recordSub = null;
 
-    String transcript = '';
-    if (_pcmChunks.isNotEmpty) {
-      final wav = _buildWav(_pcmChunks);
-      _setStatus('उलट अनुवाद करत आहे…');
-      transcript = await ApiService.transcribeAudio(wav, langCode);
+    if (_pcmChunks.isEmpty) {
+      _setLoading(false, null);
+      return;
     }
-
-    // If STT returned nothing, use a placeholder that advances the cataloger
-    if (transcript.isEmpty) transcript = 'हो';
-
-    lastTranscript = transcript;
+    final wav = buildWav(_pcmChunks);
+    _setStatus('उलट अनुवाद करत आहे…');
+    final (transcript, _) = await ApiService.transcribeAudio(wav, langCode);
+    lastTranscript = transcript.isEmpty ? null : transcript;
     _setStatus('माहिती नोंदवत आहे…');
-    final result =
-        await ApiService.catalogTurn(session: _session, transcript: transcript);
-    _applyTurnResult(result);
+    await _runTurn(transcript, langCode);
     _setLoading(false, null);
   }
 
-  // ── Typed text submit ─────────────────────────────────────────────────────
-
+  /// Typed fallback (spec: "text is fallback" after voice-first OTP).
   Future<void> submitTypedText(String text, {String langCode = 'mr-IN'}) async {
     if (isLoading) return;
     _setLoading(true, 'माहिती नोंदवत आहे…');
     lastTranscript = text;
-    final result = await ApiService.catalogTurn(session: _session, transcript: text);
-    _applyTurnResult(result);
+    await _runTurn(text, langCode);
     _setLoading(false, null);
+  }
+
+  /// Fetches just the first question without submitting anything — call
+  /// once when `/live` opens so `currentQuestion` isn't empty.
+  Future<void> startCatalogSession({String langCode = 'mr-IN'}) async {
+    if (currentQuestion != null || isLoading) return;
+    _setLoading(true, null);
+    await _runTurn('', langCode);
+    _setLoading(false, null);
+  }
+
+  Future<void> _runTurn(String transcript, String langCode) async {
+    // The server's confirm/reject classifier requires the WHOLE folded
+    // transcript to exactly equal a fixed phrase ("theek hai", "haan", …).
+    // Real STT output is noisier ("haan, sahi hai", "yes that's correct"),
+    // so it falls through to "answer" and re-captures the same slot —
+    // the reported "asks the same question again" loop. While confirming
+    // a slot, normalise a loosely-matching transcript to the exact phrase
+    // the classifier expects; only the raw transcript is shown to the user.
+    final toSend = isConfirmingSlot ? (_normalizeConfirmPhrase(transcript) ?? transcript) : transcript;
+    final turn = await ApiService.liveTurn(
+      session: _catalogSession,
+      transcript: toSend,
+      langCode: langCode,
+      cluster: cluster,
+    );
+    _catalogSession = turn.session;
+    currentQuestion = turn.reread ?? turn.question;
+    isDone = turn.done;
+    table = turn.table;
+    if (isDone && turn.listing != null) {
+      await _persistCatalogerListing(turn.listing!);
+    }
+    notifyListeners();
+  }
+
+  static const _confirmWords = ['theek', 'haan', 'ha', 'yes', 'ok', 'okay', 'correct', 'ठीक', 'हो', 'होय', 'हाँ', 'हां', 'बरोबर', 'सही'];
+  static const _rejectWords = ['galat', 'nahin', 'nahi', 'no', 'wrong', 'गलत', 'चुकीचे', 'नाही', 'नको'];
+  static const _repeatWords = ['phir se', 'peeche', 'repeat', 'again', 'परत', 'पुन्हा'];
+
+  /// Loose contains-match against the server's own confirm/reject/repeat
+  /// vocabulary (`engines/cataloger.py`); returns the exact canonical
+  /// phrase the server's classifier accepts, or null if nothing matched.
+  String? _normalizeConfirmPhrase(String transcript) {
+    final folded = transcript.trim().toLowerCase();
+    if (folded.isEmpty) return null;
+    if (_confirmWords.any(folded.contains)) return 'theek hai';
+    if (_rejectWords.any(folded.contains)) return 'galat';
+    if (_repeatWords.any(folded.contains)) return 'phir se';
+    return null;
+  }
+
+  /// Explicit "✓ Correct" action — bypasses STT ambiguity entirely by
+  /// sending the canonical confirm phrase directly.
+  Future<void> confirmSlot({String langCode = 'mr-IN'}) async {
+    if (isLoading) return;
+    _setLoading(true, null);
+    await _runTurn('theek hai', langCode);
+    _setLoading(false, null);
+  }
+
+  /// Explicit "✗ Redo" action — repairs the current slot.
+  Future<void> rejectSlot({String langCode = 'mr-IN'}) async {
+    if (isLoading) return;
+    _setLoading(true, null);
+    await _runTurn('galat', langCode);
+    _setLoading(false, null);
+  }
+
+  /// The finished cataloger `listing` is wrapped as `{value, provenance}`
+  /// per field — flatten it and PATCH it onto the SAME draft `listingId`
+  /// created back at capture (the cataloger session itself has no concept
+  /// of a listing id; persistence is the client's job).
+  Future<void> _persistCatalogerListing(Map<String, dynamic> wrapped) async {
+    await _ensureListing();
+    final flat = flattenCatalogerListing(wrapped);
+    final updated = await ApiService.patchListing(listingId!, flat);
+    listing = updated?.toJson() ?? {'id': listingId, ...flat};
   }
 
   // ── TTS + audio playback ──────────────────────────────────────────────────
@@ -134,6 +289,7 @@ class SessionProvider extends ChangeNotifier {
       await _player.stop();
       return;
     }
+    lastSpokenText = text;
     final bytes = await ApiService.synthesizeSpeech(text, langCode);
     if (bytes != null) {
       await _player.play(BytesSource(bytes));
@@ -146,12 +302,10 @@ class SessionProvider extends ChangeNotifier {
     capturedImageBytes = bytes;
     enhancedImageBytes = null;
     notifyListeners();
+    await _ensureListing();
+    unawaited(ApiService.uploadOriginal(listingId: listingId!, imageBytes: bytes));
     _enhanceInBackground(bytes);
   }
-
-  bool enhancedIsMock = false;
-  double? imageEnhanceDeltaE;
-  String _currentBgPreset = 'natural_light';
 
   /// Re-enhances the already-captured image with a different background preset.
   Future<void> reEnhanceWithPreset({required String preset}) async {
@@ -174,12 +328,18 @@ class SessionProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  void updateListing(Map<String, dynamic> data) {
+    listing = data;
+    notifyListeners();
+  }
+
   Future<void> _enhanceInBackground(Uint8List bytes, {String? bgPreset}) async {
     isEnhancing = true;
-    enhancedIsMock = false;
+    enhanceRejected = false;
+    enhanceOffline = false;
     notifyListeners();
-    final id = listingId ?? 'listing-${DateTime.now().millisecondsSinceEpoch}';
-    listingId = id;
+    await _ensureListing();
+    final id = listingId!;
     // Run API call and minimum animation time in parallel
     final results = await Future.wait([
       ApiService.enhanceImage(
@@ -192,19 +352,26 @@ class SessionProvider extends ChangeNotifier {
     final result = results[0] as Map<String, dynamic>?;
     isEnhancing = false;
     if (result != null) {
-      final studioUrl = result['studio_url'] as String?;
-      if (studioUrl != null) {
-        final fetched = await ApiService.fetchBytes(studioUrl);
-        enhancedImageBytes = fetched ?? bytes;
+      // 09_IMAGE_PIPELINE.md: deltaE > 2.0 -> reject studio, keep original.
+      final rejected = result['rejected'] == true || result['accepted'] == false;
+      enhanceRejected = rejected;
+      enhanceOffline = false;
+      enhanceProvenance = Provenance.tryParse(result['provenance']);
+      imageEnhanceDeltaE = (result['deltaE'] as num? ?? result['delta_e'] as num?)?.toDouble();
+      if (rejected) {
+        enhancedImageBytes = null; // never show a bad mask as the studio result
       } else {
-        enhancedImageBytes = bytes;
+        final studioUrl = result['studioUrl'] as String? ?? result['studio_url'] as String?;
+        enhancedImageBytes = studioUrl != null
+            ? (await ApiService.fetchBytes(studioUrl)) ?? bytes
+            : bytes;
       }
-      enhancedIsMock = result['accepted'] != true;
-      imageEnhanceDeltaE = (result['delta_e'] as num?)?.toDouble();
     } else {
-      // Backend offline — show original as placeholder, flag as mock
-      enhancedImageBytes = bytes;
-      enhancedIsMock = true;
+      // Backend offline — keep original, tell the user (05_MAIN_PIPELINE failure table)
+      enhancedImageBytes = null;
+      enhanceOffline = true;
+      enhanceRejected = false;
+      enhanceProvenance = null;
       imageEnhanceDeltaE = null;
     }
     notifyListeners();
@@ -213,31 +380,23 @@ class SessionProvider extends ChangeNotifier {
   // ── Reset ─────────────────────────────────────────────────────────────────
 
   void reset() {
-    _session = {};
+    _catalogSession = {};
     currentQuestion = null;
     lastTranscript = null;
     isDone = false;
     listing = null;
-    table = null;
+    table = const [];
     capturedImageBytes = null;
     enhancedImageBytes = null;
+    enhanceRejected = false;
+    enhanceOffline = false;
+    enhanceProvenance = null;
+    imageEnhanceDeltaE = null;
     listingId = null;
-    ApiService.resetMock();
     notifyListeners();
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────
-
-  void _applyTurnResult(Map<String, dynamic> result) {
-    _session =
-        (result['session'] as Map<String, dynamic>?) ?? _session;
-    currentQuestion = result['speak'] as String?;
-    isDone = result['done'] == true;
-    if (isDone) {
-      listing = result['listing'] as Map<String, dynamic>?;
-      table = result['table'] as List<dynamic>?;
-    }
-  }
 
   void _setLoading(bool loading, String? status) {
     isLoading = loading;
@@ -248,34 +407,6 @@ class SessionProvider extends ChangeNotifier {
   void _setStatus(String? status) {
     _statusMessage = status;
     notifyListeners();
-  }
-
-  static Uint8List _buildWav(List<Uint8List> chunks,
-      {int sampleRate = 16000}) {
-    final pcm = Uint8List.fromList(chunks.expand((c) => c).toList());
-    final header = ByteData(44);
-    void setStr(int offset, String s) {
-      for (var i = 0; i < s.length; i++) {
-        header.setUint8(offset + i, s.codeUnitAt(i));
-      }
-    }
-    setStr(0, 'RIFF');
-    header.setUint32(4, 36 + pcm.length, Endian.little);
-    setStr(8, 'WAVE');
-    setStr(12, 'fmt ');
-    header.setUint32(16, 16, Endian.little);
-    header.setUint16(20, 1, Endian.little); // PCM
-    header.setUint16(22, 1, Endian.little); // mono
-    header.setUint32(24, sampleRate, Endian.little);
-    header.setUint32(28, sampleRate * 2, Endian.little);
-    header.setUint16(32, 2, Endian.little);
-    header.setUint16(34, 16, Endian.little);
-    setStr(36, 'data');
-    header.setUint32(40, pcm.length, Endian.little);
-    final result = Uint8List(44 + pcm.length);
-    result.setRange(0, 44, header.buffer.asUint8List());
-    result.setRange(44, result.length, pcm);
-    return result;
   }
 
   @override

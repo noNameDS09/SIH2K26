@@ -1,118 +1,179 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
+import '../../models/advisor_line.dart';
+import '../../models/listing.dart';
+import '../../services/api_service.dart';
+import '../../services/session_provider.dart';
 import '../routes/app_routes.dart';
 import '../theme/ks_colors.dart';
 import '../theme/ks_text_styles.dart';
 import '../widgets/ks_app_header.dart';
 import '../widgets/ks_bottom_nav.dart';
+import '../widgets/ks_advisor_line.dart';
+import '../widgets/ks_listing_card.dart';
 
-class HomeScreen extends StatelessWidget {
+/// Stage 6 — home. "Home speaks one true line or silence" (`11_APP_PLAN.md`
+/// Step 7 working-if). Everything below the banner is real data from
+/// `GET /v1/advisor` and `GET /v1/listings`, not the fixed
+/// Products=12/Orders=3/Revenue=₹4.2k this screen used to show forever.
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
   @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  bool _loading = true;
+  AdvisorLine? _advisor;
+  List<Listing> _recent = [];
+  bool _spokenOnce = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() => _loading = true);
+    final results = await Future.wait([
+      ApiService.advisor(),
+      ApiService.listListings(limit: 3),
+    ]);
+    if (!mounted) return;
+    setState(() {
+      _advisor = results[0] as AdvisorLine?;
+      _recent = results[1] as List<Listing>;
+      _loading = false;
+    });
+    final provider = context.read<SessionProvider>();
+    if (!_spokenOnce && _advisor != null && provider.speakScreensEnabled) {
+      _spokenOnce = true;
+      provider.speakText(_advisor!.text);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final published = _recent.where((l) => l.status == ListingStatus.published).length;
+
     return Scaffold(
       backgroundColor: KsColors.background,
       body: Column(
         children: [
           const KsAppHeader(title: 'KalaSetu'),
           Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: 20),
+            child: RefreshIndicator(
+              onRefresh: _load,
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 20),
 
-                  // Welcome banner
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [KsColors.terracotta, Color(0xFFD4682A)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
+                    // Welcome banner — no longer claims listings are "live
+                    // across India" regardless of whether any exist.
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [KsColors.terracotta, Color(0xFFD4682A)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(16),
                       ),
-                      borderRadius: BorderRadius.circular(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Namaste!', style: KsTextStyles.h2.copyWith(color: KsColors.white)),
+                          const SizedBox(height: 4),
+                          Text(
+                            published > 0
+                                ? 'You have $published published listing${published == 1 ? '' : 's'}'
+                                : 'Ready to list your first product',
+                            style: KsTextStyles.body(color: KsColors.white.withAlpha(200), size: 13),
+                          ),
+                        ],
+                      ),
                     ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Namaste!', style: KsTextStyles.h2.copyWith(color: KsColors.white)),
-                        const SizedBox(height: 4),
-                        Text('Your crafts are live across India',
-                            style: KsTextStyles.body(color: KsColors.white.withAlpha(200), size: 13)),
-                      ],
+                    const SizedBox(height: 16),
+
+                    if (!_loading) KsAdvisorLine(
+                      line: _advisor,
+                      onSpeak: _advisor == null
+                          ? null
+                          : () => context.read<SessionProvider>().speakText(_advisor!.text),
                     ),
-                  ),
-                  const SizedBox(height: 20),
+                    if (!_loading && _advisor != null) const SizedBox(height: 16),
 
-                  // Quick actions
-                  Text('Quick Actions',
-                      style: KsTextStyles.label(color: KsColors.brown3, size: 10)),
-                  const SizedBox(height: 12),
-                  Row(children: [
-                    Expanded(child: _QuickAction(
-                      icon: Icons.add_a_photo_outlined,
-                      label: 'Add Product',
-                      onTap: () => context.go(AppRoutes.capture),
-                    )),
-                    const SizedBox(width: 12),
-                    Expanded(child: _QuickAction(
-                      icon: Icons.grid_view_rounded,
-                      label: 'My Catalog',
-                      onTap: () => context.go(AppRoutes.shop),
-                    )),
-                    const SizedBox(width: 12),
-                    Expanded(child: _QuickAction(
-                      icon: Icons.currency_rupee,
-                      label: 'Earnings',
-                      onTap: () => context.go(AppRoutes.money),
-                    )),
-                  ]),
-                  const SizedBox(height: 24),
+                    Text('Quick Actions',
+                        style: KsTextStyles.label(color: KsColors.brown3, size: 10)),
+                    const SizedBox(height: 12),
+                    Row(children: [
+                      Expanded(child: _QuickAction(
+                        icon: Icons.add_a_photo_outlined,
+                        label: 'Add Product',
+                        onTap: () {
+                          context.read<SessionProvider>().reset();
+                          context.go(AppRoutes.capture);
+                        },
+                      )),
+                      const SizedBox(width: 12),
+                      Expanded(child: _QuickAction(
+                        icon: Icons.grid_view_rounded,
+                        label: 'My Catalog',
+                        onTap: () => context.go(AppRoutes.shop),
+                      )),
+                      const SizedBox(width: 12),
+                      Expanded(child: _QuickAction(
+                        icon: Icons.currency_rupee,
+                        label: 'Earnings',
+                        onTap: () => context.go(AppRoutes.money),
+                      )),
+                    ]),
+                    const SizedBox(height: 24),
 
-                  // Stats row
-                  Text('Today\'s Overview',
-                      style: KsTextStyles.label(color: KsColors.brown3, size: 10)),
-                  const SizedBox(height: 12),
-                  Row(children: [
-                    Expanded(child: _StatTile(label: 'Products', value: '12')),
-                    const SizedBox(width: 12),
-                    Expanded(child: _StatTile(label: 'Orders', value: '3')),
-                    const SizedBox(width: 12),
-                    Expanded(child: _StatTile(label: 'Revenue', value: '₹4.2k')),
-                  ]),
-                  const SizedBox(height: 24),
-
-                  // Recent listings placeholder
-                  Text('Recent Listings',
-                      style: KsTextStyles.label(color: KsColors.brown3, size: 10)),
-                  const SizedBox(height: 12),
-                  ...List.generate(3, (i) => _RecentListingTile(index: i)),
-                  const SizedBox(height: 40),
-                ],
+                    Text('Recent Listings',
+                        style: KsTextStyles.label(color: KsColors.brown3, size: 10)),
+                    const SizedBox(height: 12),
+                    if (_loading)
+                      const Center(child: Padding(
+                        padding: EdgeInsets.symmetric(vertical: 24),
+                        child: CircularProgressIndicator(color: KsColors.terracotta),
+                      ))
+                    else if (_recent.isEmpty)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        child: Text('Nothing here yet.',
+                            style: KsTextStyles.body(color: KsColors.textSecondary, size: 13)),
+                      )
+                    else
+                      ..._recent.map((l) => Padding(
+                            padding: const EdgeInsets.only(bottom: 10),
+                            child: KsListingCard(
+                              listing: l,
+                              onTap: () => context.go(AppRoutes.shop),
+                            ),
+                          )),
+                    const SizedBox(height: 40),
+                  ],
+                ),
               ),
             ),
           ),
           KsBottomNav(
             currentIndex: 0,
-            onTap: (i) => _navTap(context, i),
+            onTap: (i) => KsBottomNav.navigate(context, i),
           ),
         ],
       ),
     );
-  }
-
-  void _navTap(BuildContext context, int i) {
-    switch (i) {
-      case 0: break; // already here
-      case 1: context.go(AppRoutes.capture); break;
-      case 2: context.go(AppRoutes.shop); break;
-      case 3: context.go(AppRoutes.money); break;
-      case 4: context.go(AppRoutes.insights); break;
-    }
   }
 }
 
@@ -140,87 +201,6 @@ class _QuickAction extends StatelessWidget {
                 textAlign: TextAlign.center),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _StatTile extends StatelessWidget {
-  final String label;
-  final String value;
-  const _StatTile({required this.label, required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: KsColors.surface1,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(value, style: KsTextStyles.price(color: KsColors.terracotta, size: 20)),
-          const SizedBox(height: 4),
-          Text(label, style: KsTextStyles.label(color: KsColors.textSecondary, size: 9)),
-        ],
-      ),
-    );
-  }
-}
-
-class _RecentListingTile extends StatelessWidget {
-  final int index;
-  const _RecentListingTile({required this.index});
-
-  static const _titles = ['Handloom Paithani Saree', 'Banjara Embroidery Bag', 'Warli Art Painting'];
-  static const _prices = ['₹5,200', '₹1,800', '₹3,400'];
-  static const _statuses = ['Live', 'Pending', 'Live'];
-
-  @override
-  Widget build(BuildContext context) {
-    final isLive = _statuses[index] == 'Live';
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: KsColors.surface1,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: KsColors.surfaceMuted,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: const Icon(Icons.image_outlined, color: KsColors.textSecondary, size: 20),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(_titles[index], style: KsTextStyles.bodyMedium(size: 13)),
-                const SizedBox(height: 2),
-                Text(_prices[index], style: KsTextStyles.price(color: KsColors.terracotta, size: 13)),
-              ],
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-            decoration: BoxDecoration(
-              color: isLive ? KsColors.paleGreen : KsColors.peach3,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Text(_statuses[index],
-                style: KsTextStyles.label(
-                    color: isLive ? KsColors.deepGreen : KsColors.terracotta, size: 9)),
-          ),
-        ],
       ),
     );
   }

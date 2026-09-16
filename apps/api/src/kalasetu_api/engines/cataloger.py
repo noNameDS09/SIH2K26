@@ -33,33 +33,240 @@ SLOT_ORDER = (
     "extras",
 )
 
-QUESTIONS_MR: dict[str, str] = {
-    "craft": "हे कोणते उत्पादन आहे? उदाहरणार्थ साडी, दिवा, दागिना.",
-    "material": "हे कशाचे बनवले आहे? साहित्य सांगा.",
-    "technique": "कशी बनवली? कोणती कला किंवा तंत्र वापरले?",
-    "hours": "किती तास किंवा दिवस लागले?",
-    "colour": "मुख्य रंग कोणते?",
-    "occasion": "हे कधी वापरतात? सण, लग्न, रोज?",
-    "gi": "याला जीआय टॅग आहे का? हो, नाही, किंवा माहित नाही.",
-    "material_cost_inr": "साहित्याला किती रुपये लागले?",
-    "material_source": "साहित्य स्वतःचे होते, दुकानातून, की व्यापाऱ्याकडून?",
-    "effort": "काम सोपे होते, सामान्य, की कुशल?",
-    "extras": "आणखी काही सांगायचे आहे का? नाही तर नाही म्हणा.",
+SLOT_KEYS = (
+    "craft", "material", "technique", "hours", "colour", "occasion", "gi",
+    "material_cost_inr", "material_source", "effort", "extras",
+)
+
+# Per-language question/label/status text. Every dict here must carry all
+# of SLOT_KEYS plus "confirm_prompt". Previously this whole cataloger only
+# ever asked in Marathi regardless of the artisan's chosen language — the
+# turn-based tester now looks the artisan's language up here and falls
+# back to Hindi only if the code truly isn't covered.
+QUESTIONS: dict[str, dict[str, str]] = {
+    "en": {
+        "craft": "What product is this? For example, a saree, a lamp, or jewellery.",
+        "material": "What is it made of? Tell me the material.",
+        "technique": "How was it made? Which art or technique did you use?",
+        "hours": "How many hours or days did it take?",
+        "colour": "What is the main colour?",
+        "occasion": "When is this used? Festival, wedding, everyday?",
+        "gi": "Does this have a GI tag? Yes, no, or not sure.",
+        "material_cost_inr": "How much did the material cost, in rupees?",
+        "material_source": "Was the material your own, from a shop, or from a trader?",
+        "effort": "Was the work simple, normal, or skilled?",
+        "extras": "Anything else to add? Say no if not.",
+    },
+    "hi": {
+        "craft": "यह कौन सा उत्पाद है? जैसे साड़ी, दीया, या गहना।",
+        "material": "यह किस चीज़ से बना है? सामग्री बताएं।",
+        "technique": "यह कैसे बनाया? कौन सी कला या तकनीक इस्तेमाल की?",
+        "hours": "कितने घंटे या दिन लगे?",
+        "colour": "मुख्य रंग कौन सा है?",
+        "occasion": "यह कब इस्तेमाल होता है? त्योहार, शादी, रोज़?",
+        "gi": "क्या इसे जीआई टैग मिला है? हाँ, नहीं, या पता नहीं।",
+        "material_cost_inr": "सामग्री में कितने रुपये लगे?",
+        "material_source": "सामग्री अपनी थी, दुकान से, या व्यापारी से?",
+        "effort": "काम आसान था, सामान्य था, या कुशल था?",
+        "extras": "कुछ और बताना है? नहीं तो नहीं कहें।",
+    },
+    "mr": {
+        "craft": "हे कोणते उत्पादन आहे? उदाहरणार्थ साडी, दिवा, दागिना.",
+        "material": "हे कशाचे बनवले आहे? साहित्य सांगा.",
+        "technique": "कशी बनवली? कोणती कला किंवा तंत्र वापरले?",
+        "hours": "किती तास किंवा दिवस लागले?",
+        "colour": "मुख्य रंग कोणते?",
+        "occasion": "हे कधी वापरतात? सण, लग्न, रोज?",
+        "gi": "याला जीआय टॅग आहे का? हो, नाही, किंवा माहित नाही.",
+        "material_cost_inr": "साहित्याला किती रुपये लागले?",
+        "material_source": "साहित्य स्वतःचे होते, दुकानातून, की व्यापाऱ्याकडून?",
+        "effort": "काम सोपे होते, सामान्य, की कुशल?",
+        "extras": "आणखी काही सांगायचे आहे का? नाही तर नाही म्हणा.",
+    },
+    "ta": {
+        "craft": "இது என்ன பொருள்? உதாரணமாக புடவை, விளக்கு, அல்லது நகை.",
+        "material": "இது எதனால் செய்யப்பட்டது? பொருளைச் சொல்லுங்கள்.",
+        "technique": "இது எப்படி செய்யப்பட்டது? எந்த கலை அல்லது நுட்பம் பயன்படுத்தினீர்கள்?",
+        "hours": "எத்தனை மணி நேரம் அல்லது நாட்கள் ஆனது?",
+        "colour": "முக்கிய நிறம் என்ன?",
+        "occasion": "இதை எப்போது பயன்படுத்துவீர்கள்? திருவிழா, திருமணம், தினசரி?",
+        "gi": "இதற்கு ஜிஐ டேக் உள்ளதா? ஆம், இல்லை, அல்லது தெரியவில்லை.",
+        "material_cost_inr": "பொருளுக்கு எவ்வளவு ரூபாய் ஆனது?",
+        "material_source": "பொருள் உங்களுடையதா, கடையிலிருந்தா, அல்லது வியாபாரியிடமிருந்தா?",
+        "effort": "வேலை எளிதானதா, சாதாரணமானதா, அல்லது திறமையானதா?",
+        "extras": "வேறு ஏதாவது சொல்ல வேண்டுமா? இல்லை என்றால் இல்லை என்று சொல்லுங்கள்.",
+    },
+    "te": {
+        "craft": "ఇది ఏ ఉత్పత్తి? ఉదాహరణకు చీర, దీపం, లేదా నగలు.",
+        "material": "ఇది దేనితో తయారైంది? పదార్థం చెప్పండి.",
+        "technique": "ఇది ఎలా తయారు చేశారు? ఏ కళ లేదా టెక్నిక్ ఉపయోగించారు?",
+        "hours": "ఎన్ని గంటలు లేదా రోజులు పట్టింది?",
+        "colour": "ప్రధాన రంగు ఏమిటి?",
+        "occasion": "దీన్ని ఎప్పుడు వాడతారు? పండుగ, పెళ్లి, రోజువారీ?",
+        "gi": "దీనికి జిఐ ట్యాగ్ ఉందా? అవును, లేదు, లేదా తెలియదు.",
+        "material_cost_inr": "పదార్థానికి ఎంత రూపాయలు అయింది?",
+        "material_source": "పదార్థం మీదేనా, దుకాణం నుండా, లేదా వ్యాపారి నుండా?",
+        "effort": "పని సులభమా, సాధారణమా, లేదా నైపుణ్యమా?",
+        "extras": "ఇంకా ఏమైనా చెప్పాలా? లేకపోతే లేదు అనండి.",
+    },
+    "kn": {
+        "craft": "ಇದು ಯಾವ ಉತ್ಪನ್ನ? ಉದಾಹರಣೆಗೆ ಸೀರೆ, ದೀಪ, ಅಥವಾ ಆಭರಣ.",
+        "material": "ಇದು ಯಾವುದರಿಂದ ಮಾಡಲ್ಪಟ್ಟಿದೆ? ವಸ್ತುವನ್ನು ಹೇಳಿ.",
+        "technique": "ಇದನ್ನು ಹೇಗೆ ಮಾಡಿದ್ದೀರಿ? ಯಾವ ಕಲೆ ಅಥವಾ ತಂತ್ರ ಬಳಸಿದ್ದೀರಿ?",
+        "hours": "ಎಷ್ಟು ಗಂಟೆ ಅಥವಾ ದಿನ ತಗುಲಿತು?",
+        "colour": "ಮುಖ್ಯ ಬಣ್ಣ ಯಾವುದು?",
+        "occasion": "ಇದನ್ನು ಯಾವಾಗ ಬಳಸುತ್ತೀರಿ? ಹಬ್ಬ, ಮದುವೆ, ದಿನನಿತ್ಯ?",
+        "gi": "ಇದಕ್ಕೆ ಜಿಐ ಟ್ಯಾಗ್ ಇದೆಯೇ? ಹೌದು, ಇಲ್ಲ, ಅಥವಾ ಗೊತ್ತಿಲ್ಲ.",
+        "material_cost_inr": "ವಸ್ತುವಿಗೆ ಎಷ್ಟು ರೂಪಾಯಿ ಆಯಿತು?",
+        "material_source": "ವಸ್ತು ನಿಮ್ಮದೇ, ಅಂಗಡಿಯಿಂದ, ಅಥವಾ ವ್ಯಾಪಾರಿಯಿಂದ?",
+        "effort": "ಕೆಲಸ ಸುಲಭವಾಗಿತ್ತೇ, ಸಾಮಾನ್ಯವೇ, ಅಥವಾ ಕುಶಲವೇ?",
+        "extras": "ಇನ್ನೇನಾದರೂ ಹೇಳಬೇಕೇ? ಇಲ್ಲದಿದ್ದರೆ ಇಲ್ಲ ಎನ್ನಿ.",
+    },
+    "bn": {
+        "craft": "এটা কী পণ্য? যেমন শাড়ি, প্রদীপ, বা গয়না।",
+        "material": "এটা কী দিয়ে তৈরি? উপাদান বলুন।",
+        "technique": "এটা কীভাবে তৈরি করলেন? কোন শিল্প বা কৌশল ব্যবহার করলেন?",
+        "hours": "কত ঘণ্টা বা দিন লেগেছে?",
+        "colour": "প্রধান রং কী?",
+        "occasion": "এটা কখন ব্যবহার হয়? উৎসব, বিয়ে, রোজকার?",
+        "gi": "এর জিআই ট্যাগ আছে কি? হ্যাঁ, না, বা জানি না।",
+        "material_cost_inr": "উপাদানে কত টাকা লেগেছে?",
+        "material_source": "উপাদান নিজের ছিল, দোকান থেকে, নাকি ব্যবসায়ীর থেকে?",
+        "effort": "কাজটা সহজ ছিল, সাধারণ, নাকি দক্ষতার?",
+        "extras": "আর কিছু বলার আছে? না থাকলে না বলুন।",
+    },
+    "gu": {
+        "craft": "આ કઈ પ્રોડક્ટ છે? જેમ કે સાડી, દીવો, અથવા ઘરેણાં.",
+        "material": "આ શેમાંથી બનાવ્યું છે? સામગ્રી જણાવો.",
+        "technique": "આ કેવી રીતે બનાવ્યું? કઈ કલા અથવા ટેકનિક વાપરી?",
+        "hours": "કેટલા કલાક કે દિવસ લાગ્યા?",
+        "colour": "મુખ્ય રંગ કયો છે?",
+        "occasion": "આ ક્યારે વપરાય છે? તહેવાર, લગ્ન, રોજિંદું?",
+        "gi": "આને જીઆઈ ટેગ છે? હા, ના, કે ખબર નથી.",
+        "material_cost_inr": "સામગ્રીમાં કેટલા રૂપિયા થયા?",
+        "material_source": "સામગ્રી તમારી પોતાની હતી, દુકાનમાંથી, કે વેપારી પાસેથી?",
+        "effort": "કામ સહેલું હતું, સામાન્ય, કે કુશળ?",
+        "extras": "બીજું કંઈ કહેવું છે? ના હોય તો ના કહો.",
+    },
+    "pa": {
+        "craft": "ਇਹ ਕਿਹੜਾ ਉਤਪਾਦ ਹੈ? ਜਿਵੇਂ ਸਾੜੀ, ਦੀਵਾ, ਜਾਂ ਗਹਿਣਾ।",
+        "material": "ਇਹ ਕਿਸ ਚੀਜ਼ ਤੋਂ ਬਣਿਆ ਹੈ? ਸਮੱਗਰੀ ਦੱਸੋ।",
+        "technique": "ਇਹ ਕਿਵੇਂ ਬਣਾਇਆ? ਕਿਹੜੀ ਕਲਾ ਜਾਂ ਤਕਨੀਕ ਵਰਤੀ?",
+        "hours": "ਕਿੰਨੇ ਘੰਟੇ ਜਾਂ ਦਿਨ ਲੱਗੇ?",
+        "colour": "ਮੁੱਖ ਰੰਗ ਕਿਹੜਾ ਹੈ?",
+        "occasion": "ਇਹ ਕਦੋਂ ਵਰਤਿਆ ਜਾਂਦਾ ਹੈ? ਤਿਉਹਾਰ, ਵਿਆਹ, ਰੋਜ਼ਾਨਾ?",
+        "gi": "ਕੀ ਇਸਨੂੰ ਜੀਆਈ ਟੈਗ ਮਿਲਿਆ ਹੈ? ਹਾਂ, ਨਹੀਂ, ਜਾਂ ਪਤਾ ਨਹੀਂ।",
+        "material_cost_inr": "ਸਮੱਗਰੀ ਵਿੱਚ ਕਿੰਨੇ ਰੁਪਏ ਲੱਗੇ?",
+        "material_source": "ਸਮੱਗਰੀ ਆਪਣੀ ਸੀ, ਦੁਕਾਨ ਤੋਂ, ਜਾਂ ਵਪਾਰੀ ਤੋਂ?",
+        "effort": "ਕੰਮ ਸੌਖਾ ਸੀ, ਆਮ, ਜਾਂ ਮਾਹਰ ਵਾਲਾ?",
+        "extras": "ਹੋਰ ਕੁਝ ਦੱਸਣਾ ਹੈ? ਨਹੀਂ ਤਾਂ ਨਹੀਂ ਕਹੋ।",
+    },
+    "ml": {
+        "craft": "ഇത് ഏത് ഉൽപ്പന്നമാണ്? ഉദാഹരണത്തിന് സാരി, വിളക്ക്, അല്ലെങ്കിൽ ആഭരണം.",
+        "material": "ഇത് എന്തിൽ നിന്നാണ് ഉണ്ടാക്കിയത്? വസ്തു പറയൂ.",
+        "technique": "ഇത് എങ്ങനെ ഉണ്ടാക്കി? ഏത് കല അല്ലെങ്കിൽ സാങ്കേതികവിദ്യ ഉപയോഗിച്ചു?",
+        "hours": "എത്ര മണിക്കൂർ അല്ലെങ്കിൽ ദിവസം എടുത്തു?",
+        "colour": "പ്രധാന നിറം എന്താണ്?",
+        "occasion": "ഇത് എപ്പോൾ ഉപയോഗിക്കുന്നു? ഉത്സവം, കല്യാണം, ദിവസേന?",
+        "gi": "ഇതിന് ജിഐ ടാഗ് ഉണ്ടോ? ഉണ്ട്, ഇല്ല, അല്ലെങ്കിൽ അറിയില്ല.",
+        "material_cost_inr": "വസ്തുവിന് എത്ര രൂപ ചെലവായി?",
+        "material_source": "വസ്തു സ്വന്തമായിരുന്നോ, കടയിൽ നിന്നോ, അതോ വ്യാപാരിയിൽ നിന്നോ?",
+        "effort": "ജോലി എളുപ്പമായിരുന്നോ, സാധാരണമോ, അതോ വൈദഗ്ധ്യമുള്ളതോ?",
+        "extras": "വേറെ എന്തെങ്കിലും പറയാനുണ്ടോ? ഇല്ലെങ്കിൽ ഇല്ല എന്ന് പറയൂ.",
+    },
+    "as": {
+        "craft": "এইটো কি সামগ্ৰী? যেনে শাড়ী, চাকি, বা অলংকাৰ।",
+        "material": "এইটো কিহেৰে বনোৱা? সামগ্ৰীটো কওক।",
+        "technique": "এইটো কেনেকৈ বনালে? কি কলা বা কৌশল ব্যৱহাৰ কৰিলে?",
+        "hours": "কিমান ঘণ্টা বা দিন লাগিল?",
+        "colour": "মূল ৰং কি?",
+        "occasion": "এইটো কেতিয়া ব্যৱহাৰ কৰা হয়? উৎসৱ, বিয়া, দৈনন্দিন?",
+        "gi": "ইয়াৰ জিআই টেগ আছেনে? হয়, নাই, বা নাজানো।",
+        "material_cost_inr": "সামগ্ৰীত কিমান টকা লাগিল?",
+        "material_source": "সামগ্ৰী নিজৰ আছিল, দোকানৰ পৰা, নে ব্যৱসায়ীৰ পৰা?",
+        "effort": "কামটো সহজ আছিল, সাধাৰণ, নে দক্ষতাসম্পন্ন?",
+        "extras": "আৰু কিবা কব লাগেনে? নহলে নাই কওক।",
+    },
+    "or": {
+        "craft": "ଏହା କେଉଁ ଉତ୍ପାଦ? ଯେପରି ଶାଢ଼ୀ, ଦୀପ, କିମ୍ବା ଅଳଙ୍କାର।",
+        "material": "ଏହା କେଉଁଠାରୁ ତିଆରି? ସାମଗ୍ରୀ କୁହନ୍ତୁ।",
+        "technique": "ଏହା କିପରି ତିଆରି କଲେ? କେଉଁ କଳା କିମ୍ବା କୌଶଳ ବ୍ୟବହାର କଲେ?",
+        "hours": "କେତେ ଘଣ୍ଟା କିମ୍ବା ଦିନ ଲାଗିଲା?",
+        "colour": "ମୁଖ୍ୟ ରଙ୍ଗ କ'ଣ?",
+        "occasion": "ଏହା କେବେ ବ୍ୟବହାର ହୁଏ? ପର୍ବ, ବିବାହ, ଦୈନିକ?",
+        "gi": "ଏହାର ଜିଆଇ ଟ୍ୟାଗ୍ ଅଛି କି? ହଁ, ନାହିଁ, କିମ୍ବା ଜାଣି ନାହିଁ।",
+        "material_cost_inr": "ସାମଗ୍ରୀରେ କେତେ ଟଙ୍କା ଲାଗିଲା?",
+        "material_source": "ସାମଗ୍ରୀ ନିଜର ଥିଲା, ଦୋକାନରୁ, କିମ୍ବା ବ୍ୟବସାୟୀଙ୍କଠାରୁ?",
+        "effort": "କାମ ସହଜ ଥିଲା, ସାଧାରଣ, କିମ୍ବା ଦକ୍ଷତାସମ୍ପନ୍ନ?",
+        "extras": "ଆଉ କିଛି କହିବାକୁ ଅଛି କି? ନଥିଲେ ନାହିଁ କୁହନ୍ତୁ।",
+    },
+    "ur": {
+        "craft": "یہ کون سی پروڈکٹ ہے؟ جیسے ساڑی، دیا، یا زیور۔",
+        "material": "یہ کس چیز سے بنا ہے؟ مواد بتائیں۔",
+        "technique": "یہ کیسے بنایا؟ کون سا فن یا تکنیک استعمال کی؟",
+        "hours": "کتنے گھنٹے یا دن لگے؟",
+        "colour": "اصل رنگ کیا ہے؟",
+        "occasion": "یہ کب استعمال ہوتا ہے؟ تہوار، شادی، روزمرہ؟",
+        "gi": "کیا اسے جی آئی ٹیگ ملا ہے؟ ہاں، نہیں، یا پتا نہیں۔",
+        "material_cost_inr": "مواد میں کتنے روپے لگے؟",
+        "material_source": "مواد اپنا تھا، دکان سے، یا تاجر سے؟",
+        "effort": "کام آسان تھا، عام، یا ماہرانہ؟",
+        "extras": "کچھ اور بتانا ہے؟ نہیں تو نہیں کہیں۔",
+    },
 }
 
-LABELS_MR: dict[str, str] = {
-    "craft": "उत्पादन",
-    "material": "साहित्य",
-    "technique": "तंत्र",
-    "hours": "तास",
-    "colour": "रंग",
-    "occasion": "प्रसंग",
-    "gi": "जीआय",
-    "material_cost_inr": "साहित्य खर्च",
-    "material_source": "साहित्य स्रोत",
-    "effort": "कष्ट",
-    "extras": "अधिक",
+LABELS: dict[str, dict[str, str]] = {
+    "en": {"craft": "Product", "material": "Material", "technique": "Technique", "hours": "Hours", "colour": "Colour", "occasion": "Occasion", "gi": "GI Tag", "material_cost_inr": "Material Cost", "material_source": "Material Source", "effort": "Effort", "extras": "Extra"},
+    "hi": {"craft": "उत्पाद", "material": "सामग्री", "technique": "तकनीक", "hours": "घंटे", "colour": "रंग", "occasion": "अवसर", "gi": "जीआई", "material_cost_inr": "सामग्री खर्च", "material_source": "सामग्री स्रोत", "effort": "मेहनत", "extras": "अतिरिक्त"},
+    "mr": {
+        "craft": "उत्पादन", "material": "साहित्य", "technique": "तंत्र", "hours": "तास",
+        "colour": "रंग", "occasion": "प्रसंग", "gi": "जीआय", "material_cost_inr": "साहित्य खर्च",
+        "material_source": "साहित्य स्रोत", "effort": "कष्ट", "extras": "अधिक",
+    },
+    "ta": {"craft": "பொருள்", "material": "பொருள் வகை", "technique": "நுட்பம்", "hours": "மணி நேரம்", "colour": "நிறம்", "occasion": "சந்தர்ப்பம்", "gi": "ஜிஐ", "material_cost_inr": "பொருள் செலவு", "material_source": "பொருள் மூலம்", "effort": "முயற்சி", "extras": "கூடுதல்"},
+    "te": {"craft": "ఉత్పత్తి", "material": "పదార్థం", "technique": "టెక్నిక్", "hours": "గంటలు", "colour": "రంగు", "occasion": "సందర్భం", "gi": "జిఐ", "material_cost_inr": "పదార్థ ఖర్చు", "material_source": "పదార్థ మూలం", "effort": "శ్రమ", "extras": "అదనపు"},
+    "kn": {"craft": "ಉತ್ಪನ್ನ", "material": "ವಸ್ತು", "technique": "ತಂತ್ರ", "hours": "ಗಂಟೆಗಳು", "colour": "ಬಣ್ಣ", "occasion": "ಸಂದರ್ಭ", "gi": "ಜಿಐ", "material_cost_inr": "ವಸ್ತು ವೆಚ್ಚ", "material_source": "ವಸ್ತು ಮೂಲ", "effort": "ಶ್ರಮ", "extras": "ಹೆಚ್ಚುವರಿ"},
+    "bn": {"craft": "পণ্য", "material": "উপাদান", "technique": "কৌশল", "hours": "ঘণ্টা", "colour": "রং", "occasion": "উপলক্ষ", "gi": "জিআই", "material_cost_inr": "উপাদান খরচ", "material_source": "উপাদান উৎস", "effort": "শ্রম", "extras": "অতিরিক্ত"},
+    "gu": {"craft": "પ્રોડક્ટ", "material": "સામગ્રી", "technique": "ટેકનિક", "hours": "કલાક", "colour": "રંગ", "occasion": "પ્રસંગ", "gi": "જીઆઈ", "material_cost_inr": "સામગ્રી ખર્ચ", "material_source": "સામગ્રી સ્ત્રોત", "effort": "મહેનત", "extras": "વધારાનું"},
+    "pa": {"craft": "ਉਤਪਾਦ", "material": "ਸਮੱਗਰੀ", "technique": "ਤਕਨੀਕ", "hours": "ਘੰਟੇ", "colour": "ਰੰਗ", "occasion": "ਮੌਕਾ", "gi": "ਜੀਆਈ", "material_cost_inr": "ਸਮੱਗਰੀ ਖਰਚ", "material_source": "ਸਮੱਗਰੀ ਸਰੋਤ", "effort": "ਮਿਹਨਤ", "extras": "ਵਾਧੂ"},
+    "ml": {"craft": "ഉൽപ്പന്നം", "material": "വസ്തു", "technique": "സാങ്കേതികവിദ്യ", "hours": "മണിക്കൂർ", "colour": "നിറം", "occasion": "അവസരം", "gi": "ജിഐ", "material_cost_inr": "വസ്തു ചെലവ്", "material_source": "വസ്തു ഉറവിടം", "effort": "അധ്വാനം", "extras": "അധികം"},
+    "as": {"craft": "সামগ্ৰী", "material": "উপাদান", "technique": "কৌশল", "hours": "ঘণ্টা", "colour": "ৰং", "occasion": "উপলক্ষ", "gi": "জিআই", "material_cost_inr": "উপাদান খৰচ", "material_source": "উপাদান উৎস", "effort": "পৰিশ্ৰম", "extras": "অতিৰিক্ত"},
+    "or": {"craft": "ଉତ୍ପାଦ", "material": "ସାମଗ୍ରୀ", "technique": "କୌଶଳ", "hours": "ଘଣ୍ଟା", "colour": "ରଙ୍ଗ", "occasion": "ଅବସର", "gi": "ଜିଆଇ", "material_cost_inr": "ସାମଗ୍ରୀ ଖର୍ଚ୍ଚ", "material_source": "ସାମଗ୍ରୀ ଉତ୍ସ", "effort": "ପରିଶ୍ରମ", "extras": "ଅତିରିକ୍ତ"},
+    "ur": {"craft": "پروڈکٹ", "material": "مواد", "technique": "تکنیک", "hours": "گھنٹے", "colour": "رنگ", "occasion": "موقع", "gi": "جی آئی", "material_cost_inr": "مواد کا خرچ", "material_source": "مواد کا ذریعہ", "effort": "محنت", "extras": "اضافی"},
 }
+
+CONFIRM_PROMPT: dict[str, str] = {
+    "en": "Is this correct?", "hi": "क्या यह सही है?", "mr": "बरोबर आहे का?",
+    "ta": "இது சரியா?", "te": "ఇది సరైనదేనా?", "kn": "ಇದು ಸರಿಯೇ?",
+    "bn": "এটা কি ঠিক?", "gu": "શું આ સાચું છે?", "pa": "ਕੀ ਇਹ ਸਹੀ ਹੈ?",
+    "ml": "ഇത് ശരിയാണോ?", "as": "এইটো শুদ্ধনে?", "or": "ଏହା ଠିକ୍ କି?",
+    "ur": "کیا یہ درست ہے؟",
+}
+
+STATUS: dict[str, dict[str, str]] = {
+    "en": {"all_done": "All information received. Preparing the listing.", "ready": "The listing is ready."},
+    "hi": {"all_done": "सारी जानकारी मिल गई। लिस्टिंग तैयार कर रहे हैं।", "ready": "लिस्टिंग तैयार है।"},
+    "mr": {"all_done": "सगळी माहिती मिळाली. लिस्टिंग तयार करतो.", "ready": "लिस्टिंग तयार आहे."},
+    "ta": {"all_done": "எல்லா தகவலும் கிடைத்தது. பட்டியலைத் தயார் செய்கிறோம்.", "ready": "பட்டியல் தயார்."},
+    "te": {"all_done": "మొత్తం సమాచారం అందింది. లిస్టింగ్ సిద్ధం చేస్తున్నాం.", "ready": "లిస్టింగ్ సిద్ధంగా ఉంది."},
+    "kn": {"all_done": "ಎಲ್ಲಾ ಮಾಹಿತಿ ಸಿಕ್ಕಿದೆ. ಪಟ್ಟಿಯನ್ನು ಸಿದ್ಧಪಡಿಸುತ್ತಿದ್ದೇವೆ.", "ready": "ಪಟ್ಟಿ ಸಿದ್ಧವಾಗಿದೆ."},
+    "bn": {"all_done": "সব তথ্য পাওয়া গেছে। তালিকা তৈরি করছি।", "ready": "তালিকা প্রস্তুত।"},
+    "gu": {"all_done": "બધી માહિતી મળી ગઈ. લિસ્ટિંગ તૈયાર કરીએ છીએ.", "ready": "લિસ્ટિંગ તૈયાર છે."},
+    "pa": {"all_done": "ਸਾਰੀ ਜਾਣਕਾਰੀ ਮਿਲ ਗਈ। ਲਿਸਟਿੰਗ ਤਿਆਰ ਕਰ ਰਹੇ ਹਾਂ।", "ready": "ਲਿਸਟਿੰਗ ਤਿਆਰ ਹੈ।"},
+    "ml": {"all_done": "എല്ലാ വിവരങ്ങളും ലഭിച്ചു. ലിസ്റ്റിംഗ് തയ്യാറാക്കുന്നു.", "ready": "ലിസ്റ്റിംഗ് തയ്യാറാണ്."},
+    "as": {"all_done": "সকলো তথ্য পোৱা গ'ল। তালিকা প্ৰস্তুত কৰি আছোঁ।", "ready": "তালিকা সাজু।"},
+    "or": {"all_done": "ସମସ୍ତ ସୂଚନା ମିଳିଲା। ତାଲିକା ପ୍ରସ୍ତୁତ କରୁଛୁ।", "ready": "ତାଲିକା ପ୍ରସ୍ତୁତ।"},
+    "ur": {"all_done": "تمام معلومات مل گئیں۔ فہرست تیار کر رہے ہیں۔", "ready": "فہرست تیار ہے۔"},
+}
+
+
+def _lang_key(language_code: str | None) -> str:
+    """BCP-47 (e.g. 'hi-IN', 'od-IN') -> our dict key, defaulting to Hindi."""
+    code = (language_code or LANG_MR).strip()
+    prefix = code.split("-", 1)[0].lower()
+    if prefix == "od":
+        prefix = "or"
+    return prefix if prefix in QUESTIONS else "hi"
 
 _DEV_DIGITS = str.maketrans("०१२३४५६७८९", "0123456789")
 _WORD_NUMBERS = {
@@ -242,18 +449,34 @@ def parse_slot(slot: str, transcript: str) -> tuple[Any, float]:
     return transcript.strip(), 0.7
 
 
-def display_value(value: Any) -> str:
+_UNKNOWN_WORD: dict[str, str] = {
+    "en": "not known", "hi": "पता नहीं", "mr": "माहित नाही", "ta": "தெரியவில்லை",
+    "te": "తెలియదు", "kn": "ಗೊತ್ತಿಲ್ಲ", "bn": "জানি না", "gu": "ખબર નથી",
+    "pa": "ਪਤਾ ਨਹੀਂ", "ml": "അറിയില്ല", "as": "নাজানো", "or": "ଜାଣି ନାହିଁ",
+    "ur": "پتا نہیں",
+}
+_NONE_WORD: dict[str, str] = {
+    "en": "none", "hi": "नहीं", "mr": "नाही", "ta": "இல்லை", "te": "లేదు",
+    "kn": "ಇಲ್ಲ", "bn": "না", "gu": "નથી", "pa": "ਨਹੀਂ", "ml": "ഇല്ല",
+    "as": "নাই", "or": "ନାହିଁ", "ur": "نہیں",
+}
+
+
+def display_value(value: Any, lang: str = "hi") -> str:
     if value is None or value == "":
-        return "माहित नाही"
+        return _UNKNOWN_WORD.get(lang, _UNKNOWN_WORD["hi"])
     if value == {}:
-        return "नाही"
+        return _NONE_WORD.get(lang, _NONE_WORD["hi"])
     if isinstance(value, list):
         return ", ".join(str(item) for item in value)
     return str(value)
 
 
-def reread_line(slot: str, value: Any) -> str:
-    return f"{LABELS_MR[slot]}: {display_value(value)}. बरोबर आहे का?"
+def reread_line(slot: str, value: Any, language_code: str = LANG_MR) -> str:
+    lang = _lang_key(language_code)
+    labels = LABELS.get(lang, LABELS["hi"])
+    prompt = CONFIRM_PROMPT.get(lang, CONFIRM_PROMPT["hi"])
+    return f"{labels[slot]}: {display_value(value, lang)}. {prompt}"
 
 
 @dataclass
@@ -289,9 +512,9 @@ class CatalogerSession:
     phase: str = "interviewing"
     current_slot: str = "craft"
     slots: dict[str, SlotState] = field(default_factory=dict)
-    question: str = QUESTIONS_MR["craft"]
+    question: str = QUESTIONS["mr"]["craft"]
     reread: str | None = None
-    speak: str = QUESTIONS_MR["craft"]
+    speak: str = QUESTIONS["mr"]["craft"]
     listing: dict[str, Any] | None = None
     error: str | None = None
     artisan_name: str = ""
@@ -325,9 +548,9 @@ class CatalogerSession:
             cluster=data.get("cluster") or "varanasi",
             phase=data.get("phase") or "interviewing",
             current_slot=data.get("current_slot") or "craft",
-            question=data.get("question") or QUESTIONS_MR["craft"],
+            question=data.get("question") or QUESTIONS[_lang_key(data.get("language_code"))]["craft"],
             reread=data.get("reread"),
-            speak=data.get("speak") or QUESTIONS_MR["craft"],
+            speak=data.get("speak") or QUESTIONS[_lang_key(data.get("language_code"))]["craft"],
             listing=data.get("listing"),
             error=data.get("error"),
             artisan_name=data.get("artisan_name") or "",
@@ -346,7 +569,7 @@ def start_session(
     artisan_name: str = "",
     photo_attached: bool = False,
 ) -> CatalogerSession:
-    question = QUESTIONS_MR["craft"]
+    question = QUESTIONS[_lang_key(language_code)]["craft"]
     return CatalogerSession(
         language_code=language_code,
         cluster=cluster,
@@ -383,15 +606,15 @@ def _capture(session: CatalogerSession, slot: str, transcript: str, *, unknown: 
     state.confirmed = False
     session.current_slot = slot
     session.phase = "confirming"
-    session.reread = reread_line(slot, state.value)
+    session.reread = reread_line(slot, state.value, session.language_code)
     session.speak = session.reread
-    session.question = QUESTIONS_MR[slot]
+    session.question = QUESTIONS[_lang_key(session.language_code)][slot]
 
 
 def _ask(session: CatalogerSession, slot: str) -> None:
     session.current_slot = slot
     session.phase = "interviewing"
-    session.question = QUESTIONS_MR[slot]
+    session.question = QUESTIONS[_lang_key(session.language_code)][slot]
     session.reread = None
     session.speak = session.question
 
@@ -400,7 +623,8 @@ def _advance(session: CatalogerSession) -> None:
     nxt = _next_unconfirmed(session)
     if nxt is None:
         session.phase = "copy"
-        session.speak = "सगळी माहिती मिळाली. लिस्टिंग तयार करतो."
+        lang = _lang_key(session.language_code)
+        session.speak = STATUS.get(lang, STATUS["hi"])["all_done"]
         session.question = session.speak
         return
     _ask(session, nxt)
@@ -466,7 +690,8 @@ def _finalize(session: CatalogerSession) -> CatalogerSession:
     read_title = copy["title_mr"] or copy["title_hi"] or display_value(fields.get("craft"))
     read_desc = copy["desc_mr"] or copy["desc_hi"]
     session.speak = f"{read_title}. {read_desc}".strip()
-    session.question = "लिस्टिंग तयार आहे."
+    lang = _lang_key(session.language_code)
+    session.question = STATUS.get(lang, STATUS["hi"])["ready"]
     session.reread = session.speak
     return session
 
@@ -683,9 +908,9 @@ def apply_live_tool(session: CatalogerSession, name: str, args: dict[str, Any] |
         state.provenance = _provenance("gemini-live-catalog.v1", confidence)
         session.current_slot = slot
         session.phase = "confirming"
-        session.reread = reread_line(slot, state.value)
+        session.reread = reread_line(slot, state.value, session.language_code)
         session.speak = session.reread
-        session.question = QUESTIONS_MR.get(slot, session.reread)
+        session.question = QUESTIONS.get(_lang_key(session.language_code), {}).get(slot, session.reread)
         return {
             "ok": True,
             "slot": slot,

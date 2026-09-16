@@ -4,6 +4,7 @@ import '../onboarding_screen.dart';
 import '../screens/otp_screen.dart';
 import '../screens/studio_screen.dart';
 import '../screens/live_screen.dart';
+import '../screens/costing_screen.dart';
 import '../screens/pricing_screen.dart';
 import '../screens/home_screen.dart';
 import '../screens/catalog_screen.dart';
@@ -23,6 +24,7 @@ abstract final class AppRoutes {
   static const studio       = '/studio';
   static const live         = '/live';
   static const intelligence = '/intelligence';
+  static const costing      = '/costing';
   static const pricing      = '/pricing';
   static const approval     = '/approval';
   static const distribute   = '/distribute';
@@ -31,30 +33,35 @@ abstract final class AppRoutes {
   static const money        = '/money';
   static const insights     = '/insights';
   static const settings     = '/settings';
+
+  /// Routes reachable without a signed-in artisan.
+  static const publicPaths = {language, otp};
 }
 
-final appRouter = GoRouter(
-  initialLocation: AppRoutes.language,
-  routes: [
-    // ── Auth & onboarding ─────────────────────────────────────────────────
-    GoRoute(path: AppRoutes.language,     builder: (ctx, _) => const LanguageScreen()),
-    GoRoute(path: AppRoutes.otp,          builder: (ctx, _) => const OtpScreen()),
-    GoRoute(path: AppRoutes.onboarding,   builder: (ctx, _) => const OnboardingScreen()),
+/// Route table only — the [GoRouter] itself is built in `app.dart` so its
+/// `redirect`/`refreshListenable` can share the same [SessionProvider]
+/// instance the widget tree uses (see `00_AGENT_RULES.md`: OTP gates
+/// everything past language/otp).
+final appRoutes = <RouteBase>[
+  // ── Auth & onboarding ─────────────────────────────────────────────────
+  GoRoute(path: AppRoutes.language,     builder: (ctx, _) => const LanguageScreen()),
+  GoRoute(path: AppRoutes.otp,          builder: (ctx, _) => const OtpScreen()),
+  GoRoute(path: AppRoutes.onboarding,   builder: (ctx, _) => const OnboardingScreen()),
 
-    // ── Creation flow (7-step) ────────────────────────────────────────────
-    GoRoute(path: AppRoutes.capture,      builder: (ctx, _) => const Screen2Capture()),
-    GoRoute(path: AppRoutes.studio,       builder: (ctx, _) => const StudioScreen()),
-    GoRoute(path: AppRoutes.live,         builder: (ctx, _) => const LiveScreen()),
-    GoRoute(path: AppRoutes.intelligence, builder: (ctx, _) => const Screen3Intelligence()),
-    GoRoute(path: AppRoutes.pricing,      builder: (ctx, _) => const PricingScreen()),
-    GoRoute(path: AppRoutes.approval,     builder: (ctx, _) => const Screen4Approval()),
-    GoRoute(path: AppRoutes.distribute,   builder: (ctx, _) => const Screen5Outward()),
+  // ── Creation flow ──────────────────────────────────────────────────────
+  GoRoute(path: AppRoutes.capture,      builder: (ctx, _) => const Screen2Capture()),
+  GoRoute(path: AppRoutes.studio,       builder: (ctx, _) => const StudioScreen()),
+  GoRoute(path: AppRoutes.live,         builder: (ctx, _) => const LiveScreen()),
+  GoRoute(path: AppRoutes.intelligence, builder: (ctx, _) => const Screen3Intelligence()),
+  GoRoute(path: AppRoutes.costing,      builder: (ctx, _) => const CostingScreen()),
+  GoRoute(path: AppRoutes.pricing,      builder: (ctx, _) => const PricingScreen()),
+  GoRoute(path: AppRoutes.approval,     builder: (ctx, _) => const Screen4Approval()),
+  GoRoute(path: AppRoutes.distribute,   builder: (ctx, _) => const Screen5Outward()),
 
-    // ── Management ────────────────────────────────────────────────────────
-    GoRoute(path: AppRoutes.home,         builder: (ctx, _) => const HomeScreen()),
-    GoRoute(path: AppRoutes.shop,         builder: (ctx, _) => const CatalogScreen()),
-    GoRoute(path: AppRoutes.money,        builder: (ctx, _) => const MoneyScreen()),
-    GoRoute(path: AppRoutes.insights,     builder: (ctx, _) => const InsightsScreen()),
-    GoRoute(path: AppRoutes.settings,     builder: (ctx, _) => const SettingsScreen()),
-  ],
-);
+  // ── Management ────────────────────────────────────────────────────────
+  GoRoute(path: AppRoutes.home,         builder: (ctx, _) => const HomeScreen()),
+  GoRoute(path: AppRoutes.shop,         builder: (ctx, _) => const CatalogScreen()),
+  GoRoute(path: AppRoutes.money,        builder: (ctx, _) => const MoneyScreen()),
+  GoRoute(path: AppRoutes.insights,     builder: (ctx, _) => const InsightsScreen()),
+  GoRoute(path: AppRoutes.settings,     builder: (ctx, _) => const SettingsScreen()),
+];

@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../services/session_provider.dart';
-import '../l10n/locale_provider.dart';
+import '../l10n/ks_strings.dart';
 import '../routes/app_routes.dart';
 import '../theme/ks_colors.dart';
 import '../theme/ks_text_styles.dart';
 import '../widgets/ks_app_header.dart';
-import '../widgets/ks_progress_bar.dart';
+import '../widgets/ks_stage_progress.dart';
 
 class LiveScreen extends StatefulWidget {
   const LiveScreen({super.key});
@@ -20,14 +20,14 @@ class _LiveScreenState extends State<LiveScreen> {
   final _typedCtrl = TextEditingController();
   bool _showTyped = false;
 
-  String _sarvamCode(BuildContext context) {
-    final lang = context.read<LocaleProvider>().locale.languageCode;
-    const map = {
-      'en': 'en-IN', 'hi': 'hi-IN', 'mr': 'mr-IN', 'ta': 'ta-IN',
-      'te': 'te-IN', 'kn': 'kn-IN', 'bn': 'bn-IN', 'gu': 'gu-IN',
-      'pa': 'pa-IN', 'ml': 'ml-IN', 'as': 'as-IN', 'or': 'od-IN',
-    };
-    return map[lang] ?? 'hi-IN';
+  @override
+  void initState() {
+    super.initState();
+    // Fetch the first question so the screen doesn't open with a blank
+    // "Tell me about your craft…" placeholder.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<SessionProvider>().startCatalogSession(langCode: KsStrings.sarvamLangCode(context));
+    });
   }
 
   Future<void> _startRecording() async {
@@ -37,7 +37,7 @@ class _LiveScreenState extends State<LiveScreen> {
 
   Future<void> _stopAndSubmit() async {
     final provider = context.read<SessionProvider>();
-    await provider.stopRecordingAndSubmit(langCode: _sarvamCode(context));
+    await provider.stopRecordingAndSubmit(langCode: KsStrings.sarvamLangCode(context));
     if (!mounted) return;
     if (provider.isDone) {
       context.go(AppRoutes.intelligence);
@@ -52,10 +52,37 @@ class _LiveScreenState extends State<LiveScreen> {
     final provider = context.read<SessionProvider>();
     provider.lastTranscript = text;
     // We manually call the catalog turn with typed text
-    await provider.submitTypedText(text, langCode: _sarvamCode(context));
+    await provider.submitTypedText(text, langCode: KsStrings.sarvamLangCode(context));
     if (!mounted) return;
     if (provider.isDone) {
       context.go(AppRoutes.intelligence);
+    }
+  }
+
+  /// Bypasses voice entirely for the confirm/reject step — the server
+  /// only advances on an exact phrase match, and noisy STT transcripts
+  /// ("haan, sahi hai") were falling through and re-asking the same slot.
+  Future<void> _tapConfirm() async {
+    final provider = context.read<SessionProvider>();
+    await provider.confirmSlot(langCode: KsStrings.sarvamLangCode(context));
+    if (!mounted) return;
+    if (provider.isDone) context.go(AppRoutes.intelligence);
+  }
+
+  Future<void> _tapRedo() async {
+    await context.read<SessionProvider>().rejectSlot(langCode: KsStrings.sarvamLangCode(context));
+  }
+
+  /// Manual escape hatch: force past a stuck question without relying on
+  /// voice at all.
+  Future<void> _skip() async {
+    final provider = context.read<SessionProvider>();
+    if (provider.isConfirmingSlot) {
+      await _tapConfirm();
+    } else {
+      await provider.submitTypedText("don't know", langCode: KsStrings.sarvamLangCode(context));
+      if (!mounted) return;
+      if (provider.isDone) context.go(AppRoutes.intelligence);
     }
   }
 
@@ -86,11 +113,7 @@ class _LiveScreenState extends State<LiveScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const SizedBox(height: 16),
-                      const KsProgressBar(
-                        totalSteps: 7,
-                        currentStep: 4,
-                        label: 'STAGE 4 — VOICE CATALOG',
-                      ),
+                      const KsStageProgress(stage: 3, label: 'VOICE CATALOG'),
                       const SizedBox(height: 20),
 
                       // Status / question display
@@ -111,12 +134,59 @@ class _LiveScreenState extends State<LiveScreen> {
 
                       // Voice record button
                       if (!isDone && !provider.isLoading) ...[
+                        if (provider.isConfirmingSlot) ...[
+                          // The server only advances on an exact phrase
+                          // match ("theek hai"/"galat") — these buttons
+                          // are the reliable path; voice still works too.
+                          Row(
+                            children: [
+                              Expanded(
+                                child: ElevatedButton.icon(
+                                  onPressed: _tapConfirm,
+                                  icon: const Icon(Icons.check_rounded, size: 18),
+                                  label: const Text('Correct'),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: KsColors.deepGreen,
+                                    foregroundColor: KsColors.white,
+                                    padding: const EdgeInsets.symmetric(vertical: 14),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: OutlinedButton.icon(
+                                  onPressed: _tapRedo,
+                                  icon: const Icon(Icons.close_rounded, size: 18),
+                                  label: const Text('Redo'),
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: KsColors.terracotta,
+                                    padding: const EdgeInsets.symmetric(vertical: 14),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                        ],
                         _MicButton(
                           isRecording: provider.isRecording,
                           onStart: _startRecording,
                           onStop: _stopAndSubmit,
                         ),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 12),
+
+                        // Manual escape hatch — force past a stuck
+                        // question without relying on voice at all.
+                        TextButton.icon(
+                          onPressed: _skip,
+                          icon: const Icon(Icons.skip_next_rounded, size: 16, color: KsColors.textSecondary),
+                          label: Text(
+                            'Skip / Next',
+                            style: KsTextStyles.body(color: KsColors.textSecondary, size: 13),
+                          ),
+                        ),
 
                         // Typed fallback toggle
                         TextButton.icon(
@@ -167,13 +237,6 @@ class _LiveScreenState extends State<LiveScreen> {
                           ),
                         ],
 
-                        const SizedBox(height: 24),
-                        Center(
-                          child: Text(
-                            'Step 4 of 7 — KalaSetu Voice Catalog',
-                            style: KsTextStyles.caption,
-                          ),
-                        ),
                       ],
 
                       const SizedBox(height: 40),

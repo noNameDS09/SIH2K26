@@ -1,11 +1,20 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
+import '../../services/api_service.dart';
+import '../../services/session_provider.dart';
 import '../routes/app_routes.dart';
 import '../theme/ks_colors.dart';
 import '../theme/ks_text_styles.dart';
 import '../widgets/ks_app_header.dart';
+import '../widgets/ks_mock_badge.dart';
 
+/// `00_AGENT_RULES.md`: OTP is keypad-only, default code `123456`, no
+/// voice OTP, badge always visible. Real request/verify go through
+/// FastAPI (`POST /v1/auth/otp`, `POST /v1/auth/verify`) which falls back
+/// to the mock code itself if the server is unreachable.
 class OtpScreen extends StatefulWidget {
   const OtpScreen({super.key});
 
@@ -18,25 +27,31 @@ class _OtpScreenState extends State<OtpScreen> {
   final _otpCtrl = TextEditingController();
   bool _otpSent = false;
   bool _loading = false;
+  String? _error;
 
-  static const _mockCode = '123456';
-
-  void _sendOtp() {
+  Future<void> _sendOtp() async {
     if (_phoneCtrl.text.length < 10) return;
-    setState(() { _loading = true; });
-    Future.delayed(const Duration(seconds: 1), () {
-      if (!mounted) return;
-      setState(() { _otpSent = true; _loading = false; });
-    });
+    setState(() { _loading = true; _error = null; });
+    await ApiService.requestOtp(_phoneCtrl.text);
+    if (!mounted) return;
+    setState(() { _otpSent = true; _loading = false; });
   }
 
-  void _verifyOtp() {
-    if (_otpCtrl.text != _mockCode) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Invalid OTP. Use 123456 for testing.')),
-      );
+  Future<void> _verifyOtp() async {
+    setState(() { _loading = true; _error = null; });
+    final ok = await ApiService.verifyOtp(_phoneCtrl.text, _otpCtrl.text);
+    if (!mounted) return;
+    if (!ok) {
+      setState(() {
+        _loading = false;
+        _error = 'Invalid OTP. Use 123456 for testing.';
+      });
       return;
     }
+    final provider = context.read<SessionProvider>();
+    provider.isAuthenticated = true;
+    unawaited(provider.loadArtisan());
+    setState(() => _loading = false);
     context.go(AppRoutes.onboarding);
   }
 
@@ -102,6 +117,7 @@ class _OtpScreenState extends State<OtpScreen> {
                     Text('OTP sent to +91 ${_phoneCtrl.text}',
                         style: KsTextStyles.body(color: KsColors.terracotta)),
                     const SizedBox(height: 16),
+                    // Numeric keypad only — no free-text keyboard, per spec.
                     TextField(
                       controller: _otpCtrl,
                       keyboardType: TextInputType.number,
@@ -116,38 +132,46 @@ class _OtpScreenState extends State<OtpScreen> {
                       ),
                       onChanged: (_) => setState(() {}),
                     ),
+                    if (_error != null) ...[
+                      const SizedBox(height: 8),
+                      Text(_error!, style: KsTextStyles.caption.copyWith(color: Colors.red)),
+                    ],
                     const SizedBox(height: 16),
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
-                        onPressed: _otpCtrl.text.length == 6 ? _verifyOtp : null,
+                        onPressed: _otpCtrl.text.length == 6 && !_loading ? _verifyOtp : null,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: KsColors.terracotta,
                           foregroundColor: KsColors.white,
                           padding: const EdgeInsets.symmetric(vertical: 16),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         ),
-                        child: Text('Verify & Continue', style: KsTextStyles.buttonLabel),
+                        child: _loading
+                            ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                            : Text('Verify & Continue', style: KsTextStyles.buttonLabel),
                       ),
                     ),
                     const SizedBox(height: 12),
                     TextButton(
-                      onPressed: () => setState(() { _otpSent = false; _otpCtrl.clear(); }),
+                      onPressed: () => setState(() { _otpSent = false; _otpCtrl.clear(); _error = null; }),
                       child: const Text('Change number'),
                     ),
                   ],
                   const SizedBox(height: 24),
+                  const KsMockBadge(),
+                  const SizedBox(height: 8),
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
                       color: KsColors.surfaceMuted,
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: Row(
+                    child: const Row(
                       children: [
-                        const Icon(Icons.info_outline, size: 16, color: KsColors.textSecondary),
-                        const SizedBox(width: 8),
-                        Text('Test OTP: $_mockCode', style: KsTextStyles.caption),
+                        Icon(Icons.info_outline, size: 16, color: KsColors.textSecondary),
+                        SizedBox(width: 8),
+                        Text('Test OTP: 123456'),
                       ],
                     ),
                   ),

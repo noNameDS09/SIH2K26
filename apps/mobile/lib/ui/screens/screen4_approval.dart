@@ -9,9 +9,10 @@ import '../theme/ks_text_styles.dart';
 import '../widgets/ks_app_header.dart';
 import '../widgets/ks_bottom_nav.dart';
 import '../widgets/ks_cards.dart';
-import '../widgets/ks_progress_bar.dart';
+import '../widgets/ks_stage_progress.dart';
 import '../../services/session_provider.dart';
 import '../../services/api_service.dart';
+import '../../models/listing.dart';
 
 class Screen4Approval extends StatefulWidget {
   const Screen4Approval({super.key});
@@ -34,7 +35,13 @@ class _Screen4ApprovalState extends State<Screen4Approval> {
     if (_isPublishing) return;
     setState(() => _isPublishing = true);
     final id = sp.listingId ?? 'demo-${DateTime.now().millisecondsSinceEpoch}';
-    await ApiService.signListing(id);
+    final response = await ApiService.signListing(id);
+    if (response != null) {
+      // `publicUrl` is only ever returned here — the server never
+      // persists it back onto the listing document, so this is the one
+      // chance to capture it for /distribute's QR card.
+      sp.updateListing(Listing.mergeSignResponse(sp.listing ?? {'id': id}, response));
+    }
     if (!mounted) return;
     setState(() => _isPublishing = false);
     context.go(AppRoutes.distribute);
@@ -144,22 +151,28 @@ class _Screen4ApprovalState extends State<Screen4Approval> {
   Widget build(BuildContext context) {
     final sp = context.watch<SessionProvider>();
     final listing = sp.listing;
+    final fields = listing?['fields'];
+    final fieldsMap = fields is Map ? fields : const {};
 
-    final cluster = listing?['cluster'] as String? ?? 'Chanderi Cluster, MP';
-    final titleEn = listing?['title_en'] as String? ?? 'Heritage Craft Product';
-    final descEn = listing?['desc_en'] as String? ??
-        'Woven painstakingly on a traditional pit-loom using fine mulberry silk warp and hand-spun zari motifs.';
+    final cluster = listing?['cluster'] as String? ?? 'Cluster not set';
+    final titleEn = listing?['title_en'] as String? ?? 'Untitled listing';
+    final descEn = listing?['desc_en'] as String? ?? 'No description yet.';
     final prices = listing?['prices'];
     final listedPrice = prices is Map ? prices['listed'] : null;
     final priceNum = (listedPrice as num?)?.toInt() ??
         (prices is Map ? prices['recommended'] as num? : null)?.toInt();
-    final priceStr = priceNum != null ? '₹$priceNum' : '₹3,850';
+    final priceStr = priceNum != null ? '₹$priceNum' : '—';
     final hasCustomPrice = listedPrice is num;
     final imageBytes = sp.enhancedImageBytes ?? sp.capturedImageBytes;
     final rawId = sp.listingId;
     final listingIdStr = rawId != null
-        ? '#KS-${rawId.replaceFirst('listing-', '').substring(0, 8).toUpperCase()}'
-        : '#KS-2025-IND-8942';
+        ? '#KS-${rawId.replaceFirst('listing-', '').substring(0, rawId.length.clamp(0, 8)).toUpperCase()}'
+        : '#—';
+    final materialValue = fieldsMap['material'] as String? ?? '—';
+    final techniqueValue = fieldsMap['technique'] as String? ?? '—';
+    final hoursValue = fieldsMap['hours'] != null ? '${fieldsMap['hours']} hrs' : '—';
+    final effortValue = fieldsMap['effort'] as String? ?? '—';
+    final isGiTagged = fieldsMap['gi'] == 'yes';
 
     final ks = KsStrings.of(context);
 
@@ -178,11 +191,7 @@ class _Screen4ApprovalState extends State<Screen4Approval> {
                 onBack: () => context.go('/intelligence'),
               ),
               const SizedBox(height: 12),
-              const KsProgressBar(
-                currentStep: 4,
-                totalSteps: 5,
-                label: 'STAGE 4 — ARTISAN APPROVAL & LISTING',
-              ),
+              const KsStageProgress(stage: 4, label: 'ARTISAN APPROVAL & LISTING'),
               const SizedBox(height: 22),
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -249,9 +258,9 @@ class _Screen4ApprovalState extends State<Screen4Approval> {
                 onTap: () => _showListingDetails(listingIdStr),
               ),
               const SizedBox(height: 14),
-              _ArtisanIdentity(cluster: cluster),
+              _ArtisanIdentity(cluster: cluster, giTagged: isGiTagged),
               const SizedBox(height: 12),
-              _ProductVisual(imageBytes: imageBytes),
+              _ProductVisual(imageBytes: imageBytes, isStudioResult: sp.enhancedImageBytes != null),
               const SizedBox(height: 14),
               _ProvenanceCard(
                 description: descEn,
@@ -264,11 +273,11 @@ class _Screen4ApprovalState extends State<Screen4Approval> {
               const SizedBox(height: 12),
               Row(
                 children: [
-                  Expanded(child: _StatCard(label: ks.material, value: ks.handcraftedLabel, note: ks.naturalDyeLabel)),
+                  Expanded(child: _StatCard(label: ks.material, value: materialValue, note: techniqueValue)),
                   const SizedBox(width: 7),
-                  Expanded(child: _StatCard(label: ks.craftTime, value: ks.artisanCraftTime, note: ks.traditionalLabel)),
+                  Expanded(child: _StatCard(label: ks.craftTime, value: hoursValue, note: effortValue)),
                   const SizedBox(width: 7),
-                  Expanded(child: _StatCard(label: ks.priceLabel, value: priceStr, note: ks.fairWageModel)),
+                  Expanded(child: _StatCard(label: ks.priceLabel, value: priceStr, note: hasCustomPrice ? 'Artisan set' : 'AI recommended')),
                 ],
               ),
               const SizedBox(height: 12),
@@ -303,20 +312,9 @@ class _Screen4ApprovalState extends State<Screen4Approval> {
       ),
       bottomNavigationBar: KsBottomNav(
         currentIndex: 1,
-        onTap: (index) {
-          if (index == 4) {
-            context.go(AppRoutes.distribute);
-          } else {
-            _message('${_navName(index)} is not part of this two-screen build.');
-          }
-        },
+        onTap: (index) => KsBottomNav.navigate(context, index),
       ),
     );
-  }
-
-  String _navName(int index) {
-    const names = ['Studio', 'Kala List', 'Bolo', 'Samuh', 'Bazaar'];
-    return names[index];
   }
 }
 
@@ -366,8 +364,9 @@ class _VerifiedHeader extends StatelessWidget {
 }
 
 class _ArtisanIdentity extends StatelessWidget {
-  const _ArtisanIdentity({required this.cluster});
+  const _ArtisanIdentity({required this.cluster, required this.giTagged});
   final String cluster;
+  final bool giTagged;
 
   @override
   Widget build(BuildContext context) {
@@ -395,7 +394,7 @@ class _ArtisanIdentity extends StatelessWidget {
               ),
             ),
           ),
-          KsPill(text: KsStrings.of(context).giCertified, green: true),
+          if (giTagged) KsPill(text: KsStrings.of(context).giCertified, green: true),
         ],
       ),
     );
@@ -403,8 +402,13 @@ class _ArtisanIdentity extends StatelessWidget {
 }
 
 class _ProductVisual extends StatelessWidget {
-  const _ProductVisual({this.imageBytes});
+  const _ProductVisual({this.imageBytes, this.isStudioResult = false});
   final Uint8List? imageBytes;
+
+  /// True only when [imageBytes] actually passed the ΔE quality gate —
+  /// distinct from just "an image exists" so a rejected/offline photo is
+  /// never labelled "Enhanced" here either (mirrors the fix on `/studio`).
+  final bool isStudioResult;
 
   @override
   Widget build(BuildContext context) {
@@ -417,21 +421,13 @@ class _ProductVisual extends StatelessWidget {
             fit: StackFit.expand,
             children: [
               Image.memory(imageBytes!, fit: BoxFit.cover),
-              const Positioned(
+              Positioned(
                 left: 10,
                 top: 10,
                 child: KsPill(
-                  text: 'Enhanced Image',
-                  icon: Icons.auto_fix_high_rounded,
-                  green: true,
-                ),
-              ),
-              const Positioned(
-                right: 10,
-                bottom: 10,
-                child: KsPill(
-                  text: 'AI Studio',
-                  icon: Icons.view_in_ar_outlined,
+                  text: isStudioResult ? 'Studio image' : 'Original photo',
+                  icon: isStudioResult ? Icons.auto_fix_high_rounded : Icons.photo_outlined,
+                  green: isStudioResult,
                 ),
               ),
             ],
@@ -443,64 +439,20 @@ class _ProductVisual extends StatelessWidget {
       height: 190,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(11),
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Color(0xFF6B2416),
-            Color(0xFFB04B24),
-            Color(0xFF4B1A11),
+        color: KsColors.surfaceMuted,
+      ),
+      child: const Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.image_outlined, size: 40, color: KsColors.textSecondary),
+            SizedBox(height: 8),
+            Text('No photo yet', style: TextStyle(color: KsColors.textSecondary)),
           ],
         ),
       ),
-      child: Stack(
-        children: [
-          Positioned.fill(
-            child: CustomPaint(painter: _FabricPainter()),
-          ),
-          const Positioned(
-            left: 10,
-            top: 10,
-            child: KsPill(
-              text: '4K Multi-Calibrated',
-              icon: Icons.hd_rounded,
-              green: true,
-            ),
-          ),
-          const Positioned(
-            right: 10,
-            bottom: 10,
-            child: KsPill(
-              text: 'AR 3D Model Attached',
-              icon: Icons.view_in_ar_outlined,
-            ),
-          ),
-        ],
-      ),
     );
   }
-}
-
-class _FabricPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()..color = const Color(0x35F2C28B);
-    for (double x = -size.height; x < size.width; x += 26) {
-      canvas.drawLine(
-        Offset(x, size.height),
-        Offset(x + size.height * .7, 0),
-        paint..strokeWidth = 2,
-      );
-    }
-    paint.color = const Color(0x22FFD9B0);
-    for (double y = 12; y < size.height; y += 24) {
-      canvas.drawCircle(Offset(size.width * .32, y), 3, paint);
-      canvas.drawCircle(Offset(size.width * .67, y + 8), 2.5, paint);
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 class _ProvenanceCard extends StatelessWidget {

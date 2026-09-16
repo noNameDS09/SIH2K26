@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import '../routes/app_routes.dart';
 import '../theme/ks_colors.dart';
 import '../theme/ks_text_styles.dart';
 
@@ -19,6 +21,20 @@ class KsBottomNav extends StatelessWidget {
     (Icons.currency_rupee, 'Money'),
     (Icons.insights_outlined, 'Insights'),
   ];
+
+  /// Single navigation mapping for every screen that embeds this nav —
+  /// previously copy-pasted per screen (and, on approval/distribute,
+  /// implemented as a broken snackbar-only stub that didn't match the
+  /// icons shown).
+  static void navigate(BuildContext context, int index) {
+    switch (index) {
+      case 0: context.go(AppRoutes.home); break;
+      case 1: context.go(AppRoutes.capture); break;
+      case 2: context.go(AppRoutes.shop); break;
+      case 3: context.go(AppRoutes.money); break;
+      case 4: context.go(AppRoutes.insights); break;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {

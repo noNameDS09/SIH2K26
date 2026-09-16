@@ -397,9 +397,9 @@ class KsStrings {
     recommendedTarget: 'Recommended Price',
     netMargin: 'Net Margin',
     guaranteed: 'Guaranteed',
-    lowestPrice: 'Floor',
+    lowestPrice: 'Minimum sustainable',
     recommendedPrice: 'Recommended',
-    highestPrice: 'Aspirational',
+    highestPrice: 'Higher opportunity',
     opportunityAgent: 'OPPORTUNITY AGENT',
     bundleTitle: 'Bundle Opportunity',
     bundleBody:
@@ -450,7 +450,7 @@ class KsStrings {
     kalaSetuVerifiedCard: 'KALASETU VERIFIED CARD',
     clusterGradeCert: 'Cluster-Grade Handcrafted Certificate',
     heritageProvenance: 'HERITAGE PROVENANCE STORY',
-    aiTranslationNote: 'AI Translation Model: Bhashini Indic-v4 • Verified',
+    aiTranslationNote: 'AI Translation Model: Sarvam Translate • Verified',
     material: 'MATERIAL',
     craftTime: 'CRAFT TIME',
     priceLabel: 'PRICE',
@@ -483,7 +483,7 @@ class KsStrings {
     hubBatchDispatch: 'Hub Batch Dispatch',
     scheduledForTomorrow: 'Scheduled for tomorrow',
     addProductPrompt: 'Would you like to add another product?',
-    bhashiniNlpNote: 'App speaks → Artisan answers (Bhashini NLP)',
+    bhashiniNlpNote: 'App speaks → Artisan answers (Sarvam NLP)',
     createAnotherProduct: 'Create Another Product +',
   );
 
@@ -588,7 +588,7 @@ class KsStrings {
     kalaSetuVerifiedCard: 'कलासेतु सत्यापित कार्ड',
     clusterGradeCert: 'क्लस्टर-श्रेणी हस्तशिल्प प्रमाण पत्र',
     heritageProvenance: 'विरासत उत्पत्ति कहानी',
-    aiTranslationNote: 'AI अनुवाद: भाषिनी Indic-v4 • सत्यापित',
+    aiTranslationNote: 'AI अनुवाद: Sarvam Indic-v4 • सत्यापित',
     material: 'सामग्री',
     craftTime: 'शिल्प समय',
     priceLabel: 'मूल्य',
@@ -621,7 +621,7 @@ class KsStrings {
     hubBatchDispatch: 'हब बैच डिस्पैच',
     scheduledForTomorrow: 'कल के लिए निर्धारित',
     addProductPrompt: 'क्या आप दूसरा उत्पाद जोड़ना चाहते हैं?',
-    bhashiniNlpNote: 'ऐप बोलता है → कारीगर जवाब देता है (भाषिनी NLP)',
+    bhashiniNlpNote: 'ऐप बोलता है → कारीगर जवाब देता है (Sarvam NLP)',
     createAnotherProduct: 'दूसरा उत्पाद बनाएं +',
   );
 
@@ -727,7 +727,7 @@ class KsStrings {
     kalaSetuVerifiedCard: 'कलासेतु पडताळलेले कार्ड',
     clusterGradeCert: 'क्लस्टर-दर्जा हस्तशिल्प प्रमाणपत्र',
     heritageProvenance: 'वारसा उत्पत्ती कथा',
-    aiTranslationNote: 'AI भाषांतर: भाषिणी Indic-v4 • पडताळले',
+    aiTranslationNote: 'AI भाषांतर: Sarvam Indic-v4 • पडताळले',
     material: 'साहित्य',
     craftTime: 'शिल्प वेळ',
     priceLabel: 'किंमत',
@@ -760,7 +760,7 @@ class KsStrings {
     hubBatchDispatch: 'हब बॅच डिस्पॅच',
     scheduledForTomorrow: 'उद्यासाठी निर्धारित',
     addProductPrompt: 'तुम्हाला दुसरे उत्पाद जोडायचे आहे का?',
-    bhashiniNlpNote: 'ॲप बोलते → कारागीर उत्तर देतो (भाषिणी NLP)',
+    bhashiniNlpNote: 'ॲप बोलते → कारागीर उत्तर देतो (Sarvam NLP)',
     createAnotherProduct: 'दुसरे उत्पाद तयार करा +',
   );
 
@@ -866,7 +866,7 @@ class KsStrings {
     kalaSetuVerifiedCard: 'கலாசேது சரிபார்க்கப்பட்ட அட்டை',
     clusterGradeCert: 'கிளஸ்டர்-தர கைவினை சான்றிதழ்',
     heritageProvenance: 'மரபு மூலக்கூறு கதை',
-    aiTranslationNote: 'AI மொழிபெயர்ப்பு: பாஷிணி Indic-v4 • சரிபார்க்கப்பட்டது',
+    aiTranslationNote: 'AI மொழிபெயர்ப்பு: Sarvam Indic-v4 • சரிபார்க்கப்பட்டது',
     material: 'பொருள்',
     craftTime: 'கைவினை நேரம்',
     priceLabel: 'விலை',
@@ -899,7 +899,7 @@ class KsStrings {
     hubBatchDispatch: 'மையம் தொகுதி அனுப்புதல்',
     scheduledForTomorrow: 'நாளைக்கு திட்டமிடப்பட்டது',
     addProductPrompt: 'மற்றொரு தயாரிப்பை சேர்க்க விரும்புகிறீர்களா?',
-    bhashiniNlpNote: 'ஆப் பேசுகிறது → கைவினைஞர் பதிலளிக்கிறார் (பாஷிணி NLP)',
+    bhashiniNlpNote: 'ஆப் பேசுகிறது → கைவினைஞர் பதிலளிக்கிறார் (Sarvam NLP)',
     createAnotherProduct: 'மற்றொரு தயாரிப்பை உருவாக்கவும் +',
   );
 
@@ -1005,7 +1005,7 @@ class KsStrings {
     kalaSetuVerifiedCard: 'కళాసేతు ధృవీకరించబడిన కార్డ్',
     clusterGradeCert: 'క్లస్టర్-గ్రేడ్ హ్యాండ్‌క్రాఫ్టెడ్ సర్టిఫికేట్',
     heritageProvenance: 'వారసత్వ మూలం కథ',
-    aiTranslationNote: 'AI అనువాదం: భాషిణి Indic-v4 • ధృవీకరించబడింది',
+    aiTranslationNote: 'AI అనువాదం: Sarvam Indic-v4 • ధృవీకరించబడింది',
     material: 'పదార్థం',
     craftTime: 'క్రాఫ్ట్ సమయం',
     priceLabel: 'ధర',
@@ -1039,7 +1039,7 @@ class KsStrings {
     scheduledForTomorrow: 'రేపటికి నిర్ధారించబడింది',
     addProductPrompt: 'మరొక ఉత్పత్తి జోడించాలనుకుంటున్నారా?',
     bhashiniNlpNote:
-        'యాప్ మాట్లాడుతుంది → చేతివృత్తులు సమాధానమిస్తుంది (భాషిణి NLP)',
+        'యాప్ మాట్లాడుతుంది → చేతివృత్తులు సమాధానమిస్తుంది (Sarvam NLP)',
     createAnotherProduct: 'మరొక ఉత్పత్తి సృష్టించండి +',
   );
 
@@ -1145,7 +1145,7 @@ class KsStrings {
     kalaSetuVerifiedCard: 'ಕಲಾಸೇತು ಪರಿಶೀಲಿಸಿದ ಕಾರ್ಡ್',
     clusterGradeCert: 'ಕ್ಲಸ್ಟರ್-ದರ್ಜೆ ಹಸ್ತಶಿಲ್ಪ ಪ್ರಮಾಣಪತ್ರ',
     heritageProvenance: 'ಪರಂಪರೆ ಮೂಲ ಕಥೆ',
-    aiTranslationNote: 'AI ಅನುವಾದ: ಭಾಷಿಣಿ Indic-v4 • ಪರಿಶೀಲಿಸಲಾಗಿದೆ',
+    aiTranslationNote: 'AI ಅನುವಾದ: Sarvam Indic-v4 • ಪರಿಶೀಲಿಸಲಾಗಿದೆ',
     material: 'ವಸ್ತು',
     craftTime: 'ಕರಕುಶಲ ಸಮಯ',
     priceLabel: 'ಬೆಲೆ',
@@ -1179,7 +1179,7 @@ class KsStrings {
     scheduledForTomorrow: 'ನಾಳೆಗೆ ನಿಗದಿಪಡಿಸಲಾಗಿದೆ',
     addProductPrompt: 'ಮತ್ತೊಂದು ಉತ್ಪನ್ನ ಸೇರಿಸಲು ಬಯಸುತ್ತೀರಾ?',
     bhashiniNlpNote:
-        'ಅಪ್ ಮಾತನಾಡುತ್ತದೆ → ಕುಶಲಕರ್ಮಿ ಉತ್ತರಿಸುತ್ತಾರೆ (ಭಾಷಿಣಿ NLP)',
+        'ಅಪ್ ಮಾತನಾಡುತ್ತದೆ → ಕುಶಲಕರ್ಮಿ ಉತ್ತರಿಸುತ್ತಾರೆ (Sarvam NLP)',
     createAnotherProduct: 'ಮತ್ತೊಂದು ಉತ್ಪನ್ನ ರಚಿಸಿ +',
   );
 
@@ -1284,7 +1284,7 @@ class KsStrings {
     kalaSetuVerifiedCard: 'কালাসেতু যাচাইকৃত কার্ড',
     clusterGradeCert: 'ক্লাস্টার-গ্রেড হস্তশিল্প সার্টিফিকেট',
     heritageProvenance: 'ঐতিহ্য উৎস গল্প',
-    aiTranslationNote: 'AI অনুবাদ: ভাষিণী Indic-v4 • যাচাই করা হয়েছে',
+    aiTranslationNote: 'AI অনুবাদ: Sarvam Indic-v4 • যাচাই করা হয়েছে',
     material: 'উপকরণ',
     craftTime: 'শিল্পকর্মের সময়',
     priceLabel: 'মূল্য',
@@ -1317,7 +1317,7 @@ class KsStrings {
     hubBatchDispatch: 'হাব ব্যাচ ডিসপ্যাচ',
     scheduledForTomorrow: 'আগামীকালের জন্য নির্ধারিত',
     addProductPrompt: 'আপনি কি আরেকটি পণ্য যোগ করতে চান?',
-    bhashiniNlpNote: 'অ্যাপ বলে → কারিগর উত্তর দেয় (ভাষিণী NLP)',
+    bhashiniNlpNote: 'অ্যাপ বলে → কারিগর উত্তর দেয় (Sarvam NLP)',
     createAnotherProduct: 'আরেকটি পণ্য তৈরি করুন +',
   );
 
@@ -1422,7 +1422,7 @@ class KsStrings {
     kalaSetuVerifiedCard: 'કળાસેતુ ચકાસાયેલ કાર્ડ',
     clusterGradeCert: 'ક્લસ્ટર-ગ્રેડ હસ્તશિલ્પ પ્રમાણપત્ર',
     heritageProvenance: 'વિરાસત ઉત્પત્તિ વાર્તા',
-    aiTranslationNote: 'AI અનુવાદ: ભાષિણી Indic-v4 • ચકાસાયેલ',
+    aiTranslationNote: 'AI અનુવાદ: Sarvam Indic-v4 • ચકાસાયેલ',
     material: 'સામગ્રી',
     craftTime: 'હસ્તકળા સમય',
     priceLabel: 'ભાવ',
@@ -1454,7 +1454,7 @@ class KsStrings {
     hubBatchDispatch: 'હબ બૅચ ડિસ્પૅચ',
     scheduledForTomorrow: 'કાલ માટે નિર્ધારિત',
     addProductPrompt: 'શું તમે બીજો ઉત્પાદ ઉમેરવા ઈચ્છો છો?',
-    bhashiniNlpNote: 'ઍp બોલે → કારીગર જવાb આpe (ભાષiणी NLP)',
+    bhashiniNlpNote: 'ઍp બોલે → કારીગર જવાb આpe (Sarvam NLP)',
     createAnotherProduct: 'બીજો ઉત્પાદ બનાવો +',
   );
 
@@ -1559,7 +1559,7 @@ class KsStrings {
     kalaSetuVerifiedCard: 'ਕਲਾਸੇਤੁ ਤਸਦੀਕਸ਼ੁਦਾ ਕਾਰਡ',
     clusterGradeCert: 'ਕਲੱਸਟਰ-ਗ੍ਰੇਡ ਹੱਥਕਾਰੀ ਸਰਟੀਫਿਕੇਟ',
     heritageProvenance: 'ਵਿਰਾਸਤ ਮੂਲ ਕਹਾਣੀ',
-    aiTranslationNote: 'AI ਅਨੁਵਾਦ: ਭਾਸ਼ਿਣੀ Indic-v4 • ਤਸਦੀਕ',
+    aiTranslationNote: 'AI ਅਨੁਵਾਦ: Sarvam Indic-v4 • ਤਸਦੀਕ',
     material: 'ਸਮੱਗਰੀ',
     craftTime: 'ਦਸਤਕਾਰੀ ਸਮਾਂ',
     priceLabel: 'ਕੀਮਤ',
@@ -1592,7 +1592,7 @@ class KsStrings {
     hubBatchDispatch: 'ਹੱਬ ਬੈਚ ਡਿਸਪੈਚ',
     scheduledForTomorrow: 'ਕੱਲ੍ਹ ਲਈ ਨਿਰਧਾਰਿਤ',
     addProductPrompt: 'ਕੀ ਤੁਸੀਂ ਕੋਈ ਹੋਰ ਉਤਪਾਦ ਜੋੜਨਾ ਚਾਹੁੰਦੇ ਹੋ?',
-    bhashiniNlpNote: 'ਐਪ ਬੋਲਦੀ ਹੈ → ਕਾਰੀਗਰ ਜਵਾਬ ਦਿੰਦਾ ਹੈ (ਭਾਸ਼ਿਣੀ NLP)',
+    bhashiniNlpNote: 'ਐਪ ਬੋਲਦੀ ਹੈ → ਕਾਰੀਗਰ ਜਵਾਬ ਦਿੰਦਾ ਹੈ (Sarvam NLP)',
     createAnotherProduct: 'ਦੂਜਾ ਉਤਪਾਦ ਬਣਾਓ +',
   );
 
@@ -1698,7 +1698,7 @@ class KsStrings {
     kalaSetuVerifiedCard: 'കലാസേതു പരിശോധിച്ച കാർഡ്',
     clusterGradeCert: 'ക്ലസ്റ്റർ-ഗ്രേഡ് ഹസ്തനിർമ്മിത സർട്ടിഫിക്കറ്റ്',
     heritageProvenance: 'പൈതൃക ഉൽഭവ കഥ',
-    aiTranslationNote: 'AI വിവർത്തനം: ഭാഷിണി Indic-v4 • പരിശോധിച്ചു',
+    aiTranslationNote: 'AI വിവർത്തനം: Sarvam Indic-v4 • പരിശോധിച്ചു',
     material: 'വസ്തു',
     craftTime: 'കരകൗശല സമയം',
     priceLabel: 'വില',
@@ -1732,7 +1732,7 @@ class KsStrings {
     scheduledForTomorrow: 'നാളെക്കായി നിർണ്ണയിച്ചിട്ടുണ്ട്',
     addProductPrompt: 'മറ്റൊരു ഉൽപ്പന്നം ചേർക്കണോ?',
     bhashiniNlpNote:
-        'ആപ്പ് സംസാരിക്കുന്നു → കരകൗശലക്കാരൻ ഉത്തരം നൽകുന്നു (ഭാഷിണി NLP)',
+        'ആപ്പ് സംസാരിക്കുന്നു → കരകൗശലക്കാരൻ ഉത്തരം നൽകുന്നു (Sarvam NLP)',
     createAnotherProduct: 'മറ്റൊരു ഉൽപ്പന്നം ഉണ്ടാക്കുക +',
   );
 
@@ -1837,7 +1837,7 @@ class KsStrings {
     kalaSetuVerifiedCard: 'কলাসেতু যাচাইকৃত কাৰ্ড',
     clusterGradeCert: 'ক্লাষ্টাৰ-গ্ৰেড হস্তশিল্প সনদপত্ৰ',
     heritageProvenance: 'ঐতিহ্য উৎস কাহিনী',
-    aiTranslationNote: 'AI অনুবাদ: ভাষিণী Indic-v4 • যাচাই কৰা হৈছে',
+    aiTranslationNote: 'AI অনুবাদ: Sarvam Indic-v4 • যাচাই কৰা হৈছে',
     material: 'সামগ্ৰী',
     craftTime: 'শিল্পকৰ্মৰ সময়',
     priceLabel: 'মূল্য',
@@ -1869,7 +1869,7 @@ class KsStrings {
     hubBatchDispatch: 'হাব বেচ প্ৰেৰণ',
     scheduledForTomorrow: 'কালিৰ বাবে নিৰ্ধাৰিত',
     addProductPrompt: 'আপুনি আন এটা উৎপাদ যোগ দিব বিচাৰেনে?',
-    bhashiniNlpNote: 'এপে কয় → কাৰিকৰে উত্তৰ দিয়ে (ভাষিণী NLP)',
+    bhashiniNlpNote: 'এপে কয় → কাৰিকৰে উত্তৰ দিয়ে (Sarvam NLP)',
     createAnotherProduct: 'আন এটা উৎপাদ তৈয়াৰ কৰক +',
   );
 
@@ -1974,7 +1974,7 @@ class KsStrings {
     kalaSetuVerifiedCard: 'କଳାସେତୁ ଯାଞ୍ଚ ହୋଇଥିବା କାର୍ଡ',
     clusterGradeCert: 'କ୍ଲଷ୍ଟର-ଗ୍ରେଡ ହସ୍ତଶିଳ୍ପ ପ୍ରମାଣ ପତ୍ର',
     heritageProvenance: 'ଐତିହ୍ୟ ଉତ୍ସ କାହାଣୀ',
-    aiTranslationNote: 'AI ଅନୁବାଦ: ଭାଷ‍ିଣୀ Indic-v4 • ଯାଞ୍ଚ ହୋଇଛି',
+    aiTranslationNote: 'AI ଅନୁବାଦ: Sarvam Indic-v4 • ଯାଞ୍ଚ ହୋଇଛି',
     material: 'ସାମଗ୍ରୀ',
     craftTime: 'ଶିଳ୍ପ ସମୟ',
     priceLabel: 'ମୂଲ୍ୟ',
@@ -2006,7 +2006,7 @@ class KsStrings {
     hubBatchDispatch: 'ହବ ବ୍ୟାଚ ଡ଼ିସ୍ପ୍ୟାଚ',
     scheduledForTomorrow: 'ଆସନ୍ତାକାଲ ପାଇଁ ନିର୍ଧାରିତ',
     addProductPrompt: 'ଆପଣ ଆଉ ଏକ ଉତ୍ପାଦ ଯୋଗ କରିବାକୁ ଚାହୁଁଛନ୍ତି କି?',
-    bhashiniNlpNote: 'ଆପ ବୋଲୁଛି → কারiगर ଉତ୍ତର ଦିଉଛି (ଭାଷ‍ିଣୀ NLP)',
+    bhashiniNlpNote: 'ଆପ ବୋଲୁଛି → কারiगर ଉତ୍ତର ଦିଉଛି (Sarvam NLP)',
     createAnotherProduct: 'ଅନ୍ୟ ଏକ ଉତ୍ପାଦ ତିଆରି +',
   );
 }

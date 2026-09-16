@@ -1,11 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
+import '../../models/listing.dart';
+import '../../services/api_service.dart';
+import '../../services/session_provider.dart';
 import '../routes/app_routes.dart';
 import '../theme/ks_colors.dart';
 import '../theme/ks_text_styles.dart';
 import '../widgets/ks_app_header.dart';
 import '../widgets/ks_bottom_nav.dart';
+import '../widgets/ks_listing_card.dart';
+import '../widgets/ks_spoken_empty_state.dart';
 
+/// Stage 5–6 — inventory. `GET /v1/listings`, not the hardcoded six-item
+/// list this screen used to show. Tapping a draft resumes it at the
+/// furthest-along pipeline step it reached; tapping a published listing
+/// shows its own details only — never a market/browse surface (spec: no
+/// shop, no browse-all, no cart on the app).
 class CatalogScreen extends StatefulWidget {
   const CatalogScreen({super.key});
 
@@ -15,22 +26,68 @@ class CatalogScreen extends StatefulWidget {
 
 class _CatalogScreenState extends State<CatalogScreen> {
   int _filterIdx = 0;
-  static const _filters = ['All', 'Live', 'Pending', 'Draft'];
+  static const _filters = ['All', 'Published', 'Draft'];
 
-  static const _listings = [
-    ('Handloom Paithani Saree', '₹5,200', 'Live', 'Maheshwar, MP'),
-    ('Banjara Embroidery Bag', '₹1,800', 'Pending', 'Kutch, Gujarat'),
-    ('Warli Art Painting', '₹3,400', 'Live', 'Palghar, MH'),
-    ('Dhokra Metal Figurine', '₹2,600', 'Live', 'Bastar, CG'),
-    ('Blue Pottery Vase', '₹1,200', 'Draft', 'Jaipur, RJ'),
-    ('Madhubani Wall Art', '₹4,800', 'Live', 'Mithila, Bihar'),
-  ];
+  bool _loading = true;
+  List<Listing> _listings = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() => _loading = true);
+    final listings = await ApiService.listListings();
+    if (!mounted) return;
+    setState(() { _listings = listings; _loading = false; });
+  }
+
+  String _resumeRoute(Listing l) {
+    if (l.originalUrl == null) return AppRoutes.capture;
+    if (l.titleEn == null && l.titleHi == null) return AppRoutes.live;
+    if (l.missingCostingSlots.isNotEmpty) return AppRoutes.intelligence;
+    return AppRoutes.pricing;
+  }
+
+  void _openDraft(SessionProvider provider, Listing l) {
+    provider.listingId = l.id;
+    provider.updateListing(l.toJson());
+    context.go(_resumeRoute(l));
+  }
+
+  void _openPublished(Listing l) {
+    showModalBottomSheet(
+      context: context,
+      builder: (_) => Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(l.titleEn ?? l.titleHi ?? 'Listing', style: KsTextStyles.h3),
+            const SizedBox(height: 8),
+            if (l.prices.listed != null)
+              Text('₹${l.prices.listed}', style: KsTextStyles.price(color: KsColors.terracotta, size: 20)),
+            if (l.publicUrl != null) ...[
+              const SizedBox(height: 8),
+              Text(l.publicUrl!, style: KsTextStyles.caption),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    final filtered = _filterIdx == 0
-        ? _listings
-        : _listings.where((l) => l.$3 == _filters[_filterIdx]).toList();
+    final provider = context.watch<SessionProvider>();
+    final filtered = switch (_filterIdx) {
+      1 => _listings.where((l) => l.status == ListingStatus.published).toList(),
+      2 => _listings.where((l) => l.status == ListingStatus.draft).toList(),
+      _ => _listings,
+    };
 
     return Scaffold(
       backgroundColor: KsColors.background,
@@ -40,7 +97,6 @@ class _CatalogScreenState extends State<CatalogScreen> {
           Expanded(
             child: Column(
               children: [
-                // Filter chips
                 SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
                   padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
@@ -68,100 +124,51 @@ class _CatalogScreenState extends State<CatalogScreen> {
                     }),
                   ),
                 ),
-
                 Expanded(
-                  child: ListView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    itemCount: filtered.length,
-                    itemBuilder: (context, i) {
-                      final item = filtered[i];
-                      final isLive = item.$3 == 'Live';
-                      return Container(
-                        margin: const EdgeInsets.only(bottom: 12),
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          color: KsColors.surface1,
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 56,
-                              height: 56,
-                              decoration: BoxDecoration(
-                                color: KsColors.surfaceMuted,
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: const Icon(Icons.image_outlined,
-                                  color: KsColors.textSecondary, size: 24),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(item.$1, style: KsTextStyles.bodyMedium(size: 13)),
-                                  const SizedBox(height: 2),
-                                  Text(item.$4,
-                                      style: KsTextStyles.caption.copyWith(
-                                          color: KsColors.textSecondary)),
-                                  const SizedBox(height: 4),
-                                  Text(item.$2,
-                                      style: KsTextStyles.price(color: KsColors.terracotta, size: 14)),
-                                ],
+                  child: _loading
+                      ? const Center(child: CircularProgressIndicator(color: KsColors.terracotta))
+                      : filtered.isEmpty
+                          ? const KsSpokenEmptyState(
+                              icon: Icons.inventory_2_outlined,
+                              text: 'No listings yet — tap + to make your first one.',
+                            )
+                          : RefreshIndicator(
+                              onRefresh: _load,
+                              child: ListView.builder(
+                                padding: const EdgeInsets.symmetric(horizontal: 20),
+                                itemCount: filtered.length,
+                                itemBuilder: (context, i) {
+                                  final l = filtered[i];
+                                  return Padding(
+                                    padding: const EdgeInsets.only(bottom: 12),
+                                    child: KsListingCard(
+                                      listing: l,
+                                      onTap: () => l.status == ListingStatus.published
+                                          ? _openPublished(l)
+                                          : _openDraft(provider, l),
+                                    ),
+                                  );
+                                },
                               ),
                             ),
-                            Column(children: [
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                decoration: BoxDecoration(
-                                  color: isLive
-                                      ? KsColors.paleGreen
-                                      : item.$3 == 'Draft'
-                                          ? KsColors.surfaceMuted
-                                          : KsColors.peach3,
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Text(item.$3,
-                                    style: KsTextStyles.label(
-                                        color: isLive
-                                            ? KsColors.deepGreen
-                                            : item.$3 == 'Draft'
-                                                ? KsColors.textSecondary
-                                                : KsColors.terracotta,
-                                        size: 9)),
-                              ),
-                            ]),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
                 ),
               ],
             ),
           ),
           KsBottomNav(
             currentIndex: 2,
-            onTap: (i) => _navTap(context, i),
+            onTap: (i) => KsBottomNav.navigate(context, i),
           ),
         ],
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () => context.go(AppRoutes.capture),
+        onPressed: () {
+          provider.reset();
+          context.go(AppRoutes.capture);
+        },
         backgroundColor: KsColors.terracotta,
         child: const Icon(Icons.add, color: KsColors.white),
       ),
     );
-  }
-
-  void _navTap(BuildContext context, int i) {
-    switch (i) {
-      case 0: context.go(AppRoutes.home); break;
-      case 1: context.go(AppRoutes.capture); break;
-      case 2: break;
-      case 3: context.go(AppRoutes.money); break;
-      case 4: context.go(AppRoutes.insights); break;
-    }
   }
 }

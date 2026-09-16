@@ -9,7 +9,9 @@ import 'package:record/record.dart';
 import 'l10n/ks_strings.dart';
 import 'l10n/locale_provider.dart';
 import 'widgets/ks_progress_bar.dart';
+import 'widgets/ks_mock_badge.dart';
 import '../services/api_service.dart';
+import '../services/wav_utils.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -32,13 +34,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   final AudioRecorder _recorder = AudioRecorder();
   StreamSubscription<Uint8List>? _recordSub;
   final List<Uint8List> _pcmChunks = [];
-
-  @override
-  void initState() {
-    super.initState();
-    // Pre-authenticate so STT is ready for consent verification
-    ApiService.authenticate();
-  }
 
   @override
   void dispose() {
@@ -161,7 +156,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   Future<void> _stopConsentRecording() async {
     if (!mounted) return;
-    final locale = context.read<LocaleProvider>().locale;
+    final sarvamCode = KsStrings.sarvamLangCode(context);
     setState(() {
       _isRecordingConsent = false;
       _consentVerifying = true;
@@ -173,9 +168,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     _recordSub = null;
 
     if (_pcmChunks.isNotEmpty) {
-      final wav = _buildWav(_pcmChunks);
-      final sarvamCode = _toSarvamCode(locale.languageCode);
-      final transcript = await ApiService.transcribeAudio(wav, sarvamCode);
+      final wav = buildWav(_pcmChunks);
+      final (transcript, _) = await ApiService.transcribeAudio(wav, sarvamCode);
       if (!mounted) return;
       // Any non-trivial speech counts as consent (liveness check)
       final verified = transcript.trim().length > 2;
@@ -199,53 +193,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     }
   }
 
-  static String _toSarvamCode(String langCode) {
-    const map = {
-      'en': 'en-IN',
-      'hi': 'hi-IN',
-      'mr': 'mr-IN',
-      'ta': 'ta-IN',
-      'te': 'te-IN',
-      'kn': 'kn-IN',
-      'bn': 'bn-IN',
-      'gu': 'gu-IN',
-      'pa': 'pa-IN',
-      'ml': 'ml-IN',
-      'as': 'as-IN',
-      'or': 'od-IN',
-      'ur': 'ur-IN',
-    };
-    return map[langCode] ?? 'hi-IN';
-  }
-
-  static Uint8List _buildWav(List<Uint8List> chunks,
-      {int sampleRate = 16000}) {
-    final pcm = Uint8List.fromList(chunks.expand((c) => c).toList());
-    final header = ByteData(44);
-    void setStr(int offset, String s) {
-      for (var i = 0; i < s.length; i++) {
-        header.setUint8(offset + i, s.codeUnitAt(i));
-      }
-    }
-
-    setStr(0, 'RIFF');
-    header.setUint32(4, 36 + pcm.length, Endian.little);
-    setStr(8, 'WAVE');
-    setStr(12, 'fmt ');
-    header.setUint32(16, 16, Endian.little);
-    header.setUint16(20, 1, Endian.little);
-    header.setUint16(22, 1, Endian.little);
-    header.setUint32(24, sampleRate, Endian.little);
-    header.setUint32(28, sampleRate * 2, Endian.little);
-    header.setUint16(32, 2, Endian.little);
-    header.setUint16(34, 16, Endian.little);
-    setStr(36, 'data');
-    header.setUint32(40, pcm.length, Endian.little);
-    final result = Uint8List(44 + pcm.length);
-    result.setRange(0, 44, header.buffer.asUint8List());
-    result.setRange(44, result.length, pcm);
-    return result;
-  }
 
   void _showSnack(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -338,12 +285,20 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       ? () async {
                           final locale =
                               context.read<LocaleProvider>().locale;
-                          ApiService.updateProfile({
+                          // Registry card fields shown above are seeded
+                          // lookup data; send them so the server actually
+                          // records what onboarding displayed, not just
+                          // lang/consent (06_DATA.md: artisans/{uid} carries
+                          // cluster + pehchan).
+                          await ApiService.updateProfile({
                             'lang': locale.languageCode,
-                            'consentAt':
-                                DateTime.now().toIso8601String(),
+                            'consentAt': DateTime.now().toIso8601String(),
+                            'cluster': 'Ashoknagar, MP',
+                            // Backend's ProfileUpdateRequest.pehchan is
+                            // dict[str, Any], not a bare string.
+                            'pehchan': {'id': '8842'},
                           });
-                          if (context.mounted) context.go('/capture');
+                          if (context.mounted) context.go('/home');
                         }
                       : null,
                   style: FilledButton.styleFrom(
@@ -486,11 +441,11 @@ class _ScannerCard extends StatelessWidget {
                       right: 27,
                       child: _ScannerChip(label: '98% Match', green: true)),
                 ],
-                // Demo label
+                // Demo label — `00_AGENT_RULES.md` standard mock string.
                 const Positioned(
                   bottom: 5,
                   right: 15,
-                  child: _ScannerChip(label: 'Mock — OCR backend pending'),
+                  child: KsMockBadge(),
                 ),
               ],
             ),

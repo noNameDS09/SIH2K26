@@ -1,15 +1,30 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../../services/session_provider.dart';
-import '../l10n/locale_provider.dart';
+import '../../services/api_service.dart';
+import '../l10n/ks_strings.dart';
+import '../routes/app_routes.dart';
 import '../theme/ks_colors.dart';
 import '../theme/ks_text_styles.dart';
 import '../widgets/ks_app_header.dart';
-import '../widgets/ks_progress_bar.dart';
-import '../l10n/ks_strings.dart';
+import '../widgets/ks_stage_progress.dart';
+import '../widgets/ks_trend_line_card.dart';
+import '../../models/trend.dart';
+import '../../models/listing.dart';
+
+const _editableFields = [
+  ('craft', 'Craft type'),
+  ('material', 'Material'),
+  ('technique', 'Technique'),
+  ('colour', 'Colour'),
+  ('occasion', 'Occasion'),
+  ('gi', 'GI status'),
+  ('hours', 'Hours of work'),
+  ('material_cost_inr', 'Material cost (₹)'),
+  ('material_source', 'Material source'),
+  ('effort', 'Effort level'),
+];
 
 class Screen3Intelligence extends StatefulWidget {
   const Screen3Intelligence({super.key});
@@ -19,390 +34,514 @@ class Screen3Intelligence extends StatefulWidget {
 }
 
 class _Screen3IntelligenceState extends State<Screen3Intelligence> {
-  int _selectedBand = 1;
-  bool _useCustomPrice = false;
-  String? _customPriceError;
-  final TextEditingController _customPriceController = TextEditingController();
+  final _controllers = <String, TextEditingController>{};
+  final _titleEnCtrl = TextEditingController();
+  final _titleHiCtrl = TextEditingController();
+  final _descEnCtrl = TextEditingController();
+  final _descHiCtrl = TextEditingController();
+
+  bool _dirty = false;
+  bool _saving = false;
+  bool _speakingTts = false;
+  String? _message;
+  Trend? _trend;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      if (!mounted) return;
-      final provider = context.read<SessionProvider>();
-      // If cataloger isn't done yet, finalize with one more turn
-      if (!provider.isDone) {
-        final locale = context.read<LocaleProvider>().locale;
-        const map = {
-          'en': 'en-IN', 'hi': 'hi-IN', 'mr': 'mr-IN', 'ta': 'ta-IN',
-          'te': 'te-IN', 'kn': 'kn-IN', 'bn': 'bn-IN', 'gu': 'gu-IN',
-          'pa': 'pa-IN', 'ml': 'ml-IN', 'as': 'as-IN', 'or': 'od-IN',
-        };
-        final code = map[locale.languageCode] ?? 'hi-IN';
-        await provider.stopRecordingAndSubmit(langCode: code);
+    for (final (key, _) in _editableFields) {
+      _controllers[key] = TextEditingController();
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadFromProvider());
+    ApiService.trends().then((t) {
+      if (mounted) setState(() => _trend = t);
+    });
+  }
+
+  void _loadFromProvider() {
+    final provider = context.read<SessionProvider>();
+    final listing = provider.listing ?? {};
+
+    _titleEnCtrl.text = (listing['title_en'] as String?) ?? '';
+    _titleHiCtrl.text = (listing['title_hi'] as String?) ?? '';
+    _descEnCtrl.text = (listing['desc_en'] as String?) ?? (listing['description'] as String?) ?? '';
+    _descHiCtrl.text = (listing['desc_hi'] as String?) ?? '';
+
+    final fields = listing['fields'];
+    if (fields is Map) {
+      for (final (key, _) in _editableFields) {
+        final raw = fields[key];
+        _controllers[key]?.text =
+            raw is List ? raw.join(', ') : (raw?.toString() ?? '');
       }
-    });
-  }
-
-  Map<String, int> get _prices {
-    final listing = context.read<SessionProvider>().listing;
-    final raw = listing?['prices'];
-    if (raw is Map) {
-      return {
-        'floor': (raw['floor'] as num?)?.toInt() ?? 3800,
-        'recommended': (raw['recommended'] as num?)?.toInt() ?? 5200,
-        'ceiling': (raw['ceiling'] as num?)?.toInt() ?? 7500,
-      };
     }
-    return {'floor': 3800, 'recommended': 5200, 'ceiling': 7500};
-  }
-
-  void _selectBand(int index, String label) {
-    setState(() {
-      _selectedBand = index;
-      _useCustomPrice = false;
-    });
-    _showSnack('$label ${KsStrings.of(context).priceBandSelected}');
-  }
-
-  void _activateCustomPrice() {
-    setState(() {
-      _useCustomPrice = true;
-      _selectedBand = -1;
-    });
-  }
-
-  void _useEnteredPrice() {
-    final price = int.tryParse(_customPriceController.text.trim());
-    if (price == null || price <= 0) {
-      setState(() => _customPriceError = 'Enter a valid price using numbers only.');
-      _showSnack('Please enter a valid price using numbers only.');
-      return;
-    }
-
-    context.read<SessionProvider>().setListedPrice(price);
-    FocusScope.of(context).unfocus();
-    setState(() {
-      _customPriceError = null;
-      _useCustomPrice = true;
-      _selectedBand = -1;
-    });
-    _showSnack('₹$price will be used on the final product card.');
+    setState(() => _dirty = false);
   }
 
   @override
   void dispose() {
-    _customPriceController.dispose();
+    _titleEnCtrl.dispose();
+    _titleHiCtrl.dispose();
+    _descEnCtrl.dispose();
+    _descHiCtrl.dispose();
+    for (final ctrl in _controllers.values) ctrl.dispose();
     super.dispose();
   }
 
-  Future<void> _toggleAudio() async {
+  void _markDirty() {
+    if (!_dirty) setState(() { _dirty = true; _message = null; });
+  }
+
+  int get _completedCount {
+    var count = 0;
+    if (_titleEnCtrl.text.trim().isNotEmpty) count++;
+    if (_titleHiCtrl.text.trim().isNotEmpty) count++;
+    if (_descEnCtrl.text.trim().isNotEmpty) count++;
+    if (_descHiCtrl.text.trim().isNotEmpty) count++;
+    for (final (key, _) in _editableFields) {
+      if (_controllers[key]!.text.trim().isNotEmpty) count++;
+    }
+    return count;
+  }
+
+  int get _totalCount => 4 + _editableFields.length;
+
+  Future<void> _saveDraft() async {
+    if (!_dirty || _saving) return;
+    setState(() { _saving = true; _message = null; });
+
     final provider = context.read<SessionProvider>();
-    final locale = context.read<LocaleProvider>().locale;
-    const map = {
-      'en': 'en-IN', 'hi': 'hi-IN', 'mr': 'mr-IN', 'ta': 'ta-IN',
-      'te': 'te-IN', 'kn': 'kn-IN', 'bn': 'bn-IN', 'gu': 'gu-IN',
-      'pa': 'pa-IN', 'ml': 'ml-IN', 'as': 'as-IN', 'or': 'od-IN', 'ur': 'ur-IN',
-    };
-    final sarvamCode = map[locale.languageCode] ?? 'hi-IN';
-    final listing = provider.listing;
-    // Use the locale's language title if available
-    final titleKey = 'title_${locale.languageCode}';
-    final text = (listing?[titleKey] as String?)
-        ?? (listing?['title_hi'] as String?)
-        ?? (listing?['title_en'] as String?)
-        ?? 'तुमची यादी तयार आहे';
-    await provider.speakText(text, langCode: sarvamCode);
+    final id = provider.listing?['id'] as String?;
+    if (id == null) {
+      setState(() { _saving = false; _message = 'No listing to save.'; });
+      return;
+    }
+
+    final nextFields = <String, dynamic>{};
+    for (final (key, _) in _editableFields) {
+      final raw = _controllers[key]!.text.trim();
+      if (key == 'colour') {
+        nextFields[key] = raw.isNotEmpty
+            ? raw.split(',').map((s) => s.trim()).where((s) => s.isNotEmpty).toList()
+            : [];
+      } else if (key == 'hours' || key == 'material_cost_inr') {
+        nextFields[key] = raw.isNotEmpty ? num.tryParse(raw) : null;
+      } else {
+        nextFields[key] = raw.isNotEmpty ? raw : null;
+      }
+    }
+
+    try {
+      final updated = await ApiService.patchListing(id, {
+        'fields': nextFields,
+        'title_en': _titleEnCtrl.text.trim(),
+        'title_hi': _titleHiCtrl.text.trim(),
+        'desc_en': _descEnCtrl.text.trim(),
+        'desc_hi': _descHiCtrl.text.trim(),
+      });
+      if (updated != null) provider.updateListing(updated.toJson());
+      if (mounted) setState(() { _dirty = false; _saving = false; _message = 'Draft changes saved.'; });
+    } catch (_) {
+      if (mounted) setState(() { _saving = false; _message = 'Could not save draft.'; });
+    }
   }
 
-  void _copyHashtag(String tag) async {
-    await Clipboard.setData(ClipboardData(text: tag));
-    if (mounted) _showSnack('${KsStrings.of(context).hashtagCopied}: $tag');
+  Future<void> _listenAudio() async {
+    if (_speakingTts) return;
+    setState(() => _speakingTts = true);
+    final provider = context.read<SessionProvider>();
+    final langCode = _sarvamCode(context);
+    final listing = provider.listing ?? {};
+    final text = (listing['title_hi'] as String?) ??
+        (listing['title_en'] as String?) ??
+        'आपकी सूची तैयार है';
+    try {
+      await provider.speakText(text, langCode: langCode);
+    } catch (_) {}
+    if (mounted) setState(() => _speakingTts = false);
   }
 
-  void _showSnack(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(msg, style: KsTextStyles.body(color: KsColors.white, size: 13)),
-        backgroundColor: KsColors.terracotta,
-        duration: const Duration(seconds: 2),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      ),
-    );
+  /// Costing slots the Live cataloger did not fill (`10_VOICE_AND_AGENTS.md`
+  /// costing questions) — gates the route to `/costing` before `/pricing`.
+  List<String> _missingCostingSlots(SessionProvider provider) {
+    final fields = provider.listing?['fields'];
+    if (fields is! Map) return Listing.costingSlots;
+    return Listing.costingSlots.where((k) => fields[k] == null).toList();
   }
+
+  String _nextRoute(SessionProvider provider) =>
+      _missingCostingSlots(provider).isEmpty ? AppRoutes.pricing : AppRoutes.costing;
+
+  String _sarvamCode(BuildContext context) => KsStrings.sarvamLangCode(context);
 
   @override
   Widget build(BuildContext context) {
-    final ks = KsStrings.of(context);
     return Consumer<SessionProvider>(
       builder: (context, provider, _) {
         final listing = provider.listing;
-        final prices = _prices;
-        final titleMr = (listing?['title_mr'] as String?) ?? 'हस्तनिर्मित बांस-जरी कापड';
-        final titleEn = (listing?['title_en'] as String?) ?? 'Handcrafted Bamboo-Zari Cotton Fabric';
-        final cluster = (listing?['cluster'] as String?) ?? 'Maheshwar, MP';
+        final photoUrl = listing?['studio_url'] as String? ??
+            listing?['original_url'] as String? ??
+            listing?['photo_url'] as String?;
 
         return Scaffold(
           backgroundColor: KsColors.background,
-          appBar: KsAppHeader(
-            title: ks.intelligenceReview,
-            onBack: () => context.go('/capture'),
-          ),
-          body: provider.isLoading
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const CircularProgressIndicator(color: KsColors.terracotta, strokeWidth: 2.5),
-                      const SizedBox(height: 16),
-                      Text(provider.statusMessage ?? 'AI विश्लेषण…',
-                          style: KsTextStyles.label(color: KsColors.terracotta, size: 13)),
-                    ],
+          body: Column(
+            children: [
+              KsAppHeader(
+                title: 'Review',
+                onBack: () => context.go(AppRoutes.live),
+              ),
+              if (provider.isLoading)
+                Expanded(
+                  child: Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const CircularProgressIndicator(color: KsColors.terracotta, strokeWidth: 2),
+                        const SizedBox(height: 16),
+                        Text(provider.statusMessage ?? 'Processing…',
+                            style: KsTextStyles.body(color: KsColors.terracotta, size: 13)),
+                      ],
+                    ),
                   ),
                 )
-              : SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const SizedBox(height: 16),
-                      const KsProgressBar(totalSteps: 7, currentStep: 4, label: 'STAGE 4 — CRAFT INTELLIGENCE'),
-                      const SizedBox(height: 12),
-                      _StageBadge(label: ks.stage3Badge),
-                      const SizedBox(height: 20),
-                      _HeroPills(confidenceLabel: ks.confidencePill, agentLabel: ks.multiAgentPill),
-                      const SizedBox(height: 16),
-                      Text(ks.craftIntelligence, style: KsTextStyles.editorial(size: 24)),
-                      const SizedBox(height: 6),
-                      Text(ks.analysisSubtext, style: KsTextStyles.body()),
-                      const SizedBox(height: 24),
+              else
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const SizedBox(height: 16),
+                        const KsStageProgress(stage: 3, label: 'REVIEW'),
+                        const SizedBox(height: 20),
 
-                      // ── Listing Agent ─────────────────────────────────────
-                      _AgentCard(
-                        agentLabel: ks.listingAgent,
-                        statusLabel: ks.specsExtracted,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _FieldLabel(ks.seoTitleLabel),
-                            const SizedBox(height: 6),
-                            _SeoTitleBox(titleMr: titleMr, titleEn: titleEn),
-                            const SizedBox(height: 16),
-                            _AudioSummaryRow(
-                              label: ks.audioSummary,
-                              playing: provider.isPlayingAudio,
-                              onTap: _toggleAudio,
-                            ),
-                            const SizedBox(height: 12),
-                            _HashtagRow(onCopy: _copyHashtag),
-                          ],
+                        // Page intro
+                        Text('Check every product detail', style: KsTextStyles.h2),
+                        const SizedBox(height: 6),
+                        Text(
+                          'Nothing saves while you type. Use the save action when the draft is accurate.',
+                          style: KsTextStyles.body(color: KsColors.textSecondary, size: 12),
                         ),
-                      ),
-                      const SizedBox(height: 16),
+                        const SizedBox(height: 16),
 
-                      // ── Trend Agent ───────────────────────────────────────
-                      _AgentCard(
-                        agentLabel: ks.trendAgent,
-                        statusLabel: null,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Expanded(child: _DataChip(label: ks.peakWindows, value: ks.peakValue)),
-                                const SizedBox(width: 10),
-                                Expanded(child: _DataChip(label: ks.topHotspots, value: ks.hotspotsValue)),
+                        // Completion count
+                        _CompletionBar(
+                          completed: _completedCount,
+                          total: _totalCount,
+                        ),
+                        const SizedBox(height: 16),
+
+                        KsTrendLineCard(trend: _trend),
+                        const SizedBox(height: 20),
+
+                        // Listen to listing TTS
+                        _AudioListenRow(
+                          speaking: _speakingTts,
+                          onTap: _listenAudio,
+                        ),
+                        const SizedBox(height: 20),
+
+                        // Product image preview (if available)
+                        if (photoUrl != null) ...[
+                          _ProductImagePreview(url: photoUrl),
+                          const SizedBox(height: 20),
+                        ],
+
+                        // Bilingual public card
+                        _SectionCard(
+                          label: 'BILINGUAL PUBLIC CARD',
+                          child: Column(
+                            children: [
+                              _EditField(
+                                label: 'English title',
+                                controller: _titleEnCtrl,
+                                onChanged: (_) => _markDirty(),
+                              ),
+                              const SizedBox(height: 12),
+                              _EditField(
+                                label: 'Hindi title',
+                                controller: _titleHiCtrl,
+                                onChanged: (_) => _markDirty(),
+                              ),
+                              const SizedBox(height: 12),
+                              _EditField(
+                                label: 'English description',
+                                controller: _descEnCtrl,
+                                maxLines: 3,
+                                onChanged: (_) => _markDirty(),
+                              ),
+                              const SizedBox(height: 12),
+                              _EditField(
+                                label: 'Hindi description',
+                                controller: _descHiCtrl,
+                                maxLines: 3,
+                                onChanged: (_) => _markDirty(),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+
+                        // Product and costing fields
+                        _SectionCard(
+                          label: 'PRODUCT AND COSTING FIELDS',
+                          child: Column(
+                            children: [
+                              for (var i = 0; i < _editableFields.length; i++) ...[
+                                if (i > 0) const SizedBox(height: 12),
+                                _EditField(
+                                  label: _editableFields[i].$2,
+                                  controller: _controllers[_editableFields[i].$1]!,
+                                  keyboardType: (_editableFields[i].$1 == 'hours' ||
+                                          _editableFields[i].$1 == 'material_cost_inr')
+                                      ? TextInputType.number
+                                      : TextInputType.text,
+                                  onChanged: (_) => _markDirty(),
+                                ),
                               ],
-                            ),
-                            const SizedBox(height: 14),
-                            const _TrendSparkline(),
-                            const SizedBox(height: 12),
-                            Text(ks.trendBody, style: KsTextStyles.body(size: 13)),
-                          ],
+                            ],
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 16),
+                        const SizedBox(height: 20),
 
-                      // ── Fair-Price Agent ──────────────────────────────────
-                      _AgentCard(
-                        agentLabel: ks.fairPriceAgent,
-                        statusLabel: ks.fairWageCertified,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                        // Status / message
+                        if (_message != null) ...[
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                            decoration: BoxDecoration(
+                              color: _message!.contains('saved') ? KsColors.paleGreen : KsColors.peach3,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Text(_message!,
+                                style: KsTextStyles.body(
+                                    color: _message!.contains('saved') ? KsColors.deepGreen : KsColors.terracotta,
+                                    size: 12)),
+                          ),
+                          const SizedBox(height: 16),
+                        ],
+
+                        // Save draft button
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                            onPressed: _dirty && !_saving ? _saveDraft : null,
+                            icon: _saving
+                                ? const SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(strokeWidth: 2, color: KsColors.terracotta),
+                                  )
+                                : const Icon(Icons.check, size: 18, color: KsColors.terracotta),
+                            label: Text(
+                              _saving ? 'Saving changes…' : 'Save draft changes',
+                              style: KsTextStyles.body(
+                                  color: _dirty ? KsColors.terracotta : KsColors.textSecondary, size: 13),
+                            ),
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              side: BorderSide(
+                                  color: _dirty ? KsColors.terracotta : KsColors.border),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+
+                        // Continue to pricing
+                        Row(
                           children: [
-                            _CostRow(label: ks.rawMaterial, amount: '₹820'),
-                            _CostRow(label: ks.labourCost, amount: '₹1,960'),
-                            _CostRow(label: ks.finishing, amount: '₹320'),
-                            const SizedBox(height: 14),
-                            _RecommendedBox(
-                              price: '₹${prices['recommended']!}',
-                              targetLabel: ks.recommendedTarget,
-                              marginLabel: ks.netMargin,
-                              guaranteedLabel: ks.guaranteed,
+                            Expanded(
+                              child: OutlinedButton(
+                                onPressed: () => context.go(AppRoutes.live),
+                                style: OutlinedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(vertical: 14),
+                                  side: const BorderSide(color: KsColors.border),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                ),
+                                child: Text('Add more by voice',
+                                    style: KsTextStyles.body(color: KsColors.textSecondary, size: 13)),
+                              ),
                             ),
-                            const SizedBox(height: 14),
-                            _PriceBandSelector(
-                              selected: _selectedBand,
-                              prices: prices,
-                              lowestLabel: ks.lowestPrice,
-                              recLabel: ks.recommendedPrice,
-                              highestLabel: ks.highestPrice,
-                              onSelect: _selectBand,
-                            ),
-                            const SizedBox(height: 10),
-                            _CustomPriceInput(
-                              controller: _customPriceController,
-                              active: _useCustomPrice,
-                              onActivate: _activateCustomPrice,
-                              onUse: _useEnteredPrice,
-                              errorText: _customPriceError,
-                              onChanged: (_) {
-                                if (_customPriceError != null) {
-                                  setState(() => _customPriceError = null);
-                                }
-                              },
+                            const SizedBox(width: 12),
+                            Expanded(
+                              flex: 2,
+                              child: ElevatedButton.icon(
+                                onPressed: _dirty || _saving
+                                    ? null
+                                    : () => context.go(_nextRoute(provider)),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: KsColors.terracotta,
+                                  foregroundColor: KsColors.white,
+                                  padding: const EdgeInsets.symmetric(vertical: 14),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                ),
+                                icon: const Icon(Icons.arrow_forward, size: 18),
+                                label: Text(
+                                  _missingCostingSlots(provider).isEmpty
+                                      ? 'Continue to pricing'
+                                      : 'A few more costing details',
+                                  style: KsTextStyles.cta(size: 14),
+                                ),
+                              ),
                             ),
                           ],
                         ),
-                      ),
-                      const SizedBox(height: 16),
-
-                      // ── Business Opportunity Agent ─────────────────────────
-                      _AgentCard(
-                        agentLabel: ks.opportunityAgent,
-                        statusLabel: null,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(ks.bundleTitle, style: KsTextStyles.bodyMedium()),
-                            const SizedBox(height: 6),
-                            Text(ks.bundleBody, style: KsTextStyles.body(size: 13)),
-                            const SizedBox(height: 14),
-                            const _GmvBar(),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-
-                      // ── Payload Preview ────────────────────────────────────
-                      _PayloadPreview(ks: ks, cluster: cluster),
-                      const SizedBox(height: 24),
-
-                      // ── CTA ───────────────────────────────────────────────
-                      _ReviewCtaButton(
-                        label: ks.reviewCta,
-                        onTap: () {
-                          _showSnack(ks.readyToVerify);
-                          context.go('/pricing');
-                        },
-                      ),
-                      const SizedBox(height: 12),
-                      Center(
-                        child: Text(ks.step3Of5,
-                            style: KsTextStyles.label(color: KsColors.brown3, size: 11)),
-                      ),
-                      const SizedBox(height: 40),
-                    ],
+                        const SizedBox(height: 40),
+                      ],
+                    ),
                   ),
                 ),
+            ],
+          ),
         );
       },
     );
   }
 }
 
-// ─── Stage badge ──────────────────────────────────────────────────────────────
-
-class _StageBadge extends StatelessWidget {
-  final String label;
-  const _StageBadge({required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Container(width: 7, height: 7,
-            decoration: const BoxDecoration(color: KsColors.terracotta, shape: BoxShape.circle)),
-        const SizedBox(width: 6),
-        Text(label, style: KsTextStyles.label(color: KsColors.mainText, size: 11)),
-      ],
-    );
-  }
-}
-
-// ─── Hero pills ───────────────────────────────────────────────────────────────
-
-class _HeroPills extends StatelessWidget {
-  final String confidenceLabel;
-  final String agentLabel;
-  const _HeroPills({required this.confidenceLabel, required this.agentLabel});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        _Pill(label: confidenceLabel, accent: true),
-        const SizedBox(width: 8),
-        _Pill(label: agentLabel, accent: false),
-      ],
-    );
-  }
-}
-
-class _Pill extends StatelessWidget {
-  final String label;
-  final bool accent;
-  const _Pill({required this.label, required this.accent});
+class _CompletionBar extends StatelessWidget {
+  final int completed;
+  final int total;
+  const _CompletionBar({required this.completed, required this.total});
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: accent ? KsColors.terracotta : KsColors.peach3,
-        borderRadius: BorderRadius.circular(20),
+        color: KsColors.surface1,
+        borderRadius: BorderRadius.circular(12),
       ),
-      child: Text(label,
-          style: KsTextStyles.label(color: accent ? KsColors.white : KsColors.terracotta, size: 10)),
-    );
-  }
-}
-
-// ─── Agent card ───────────────────────────────────────────────────────────────
-
-class _AgentCard extends StatelessWidget {
-  final String agentLabel;
-  final String? statusLabel;
-  final Widget child;
-  const _AgentCard({required this.agentLabel, this.statusLabel, required this.child});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(color: KsColors.surface1, borderRadius: BorderRadius.circular(16)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Container(width: 7, height: 7,
-                  decoration: const BoxDecoration(color: KsColors.terracotta, shape: BoxShape.circle)),
-              const SizedBox(width: 6),
-              Expanded(child: Text(agentLabel, style: KsTextStyles.label(color: KsColors.terracotta, size: 10))),
-              if (statusLabel != null) ...[
-                const SizedBox(width: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                  decoration: BoxDecoration(color: KsColors.paleGreen, borderRadius: BorderRadius.circular(10)),
-                  child: Text(statusLabel!, style: KsTextStyles.label(color: KsColors.deepGreen, size: 9)),
-                ),
-              ],
+              Text('Catalog details',
+                  style: KsTextStyles.body(color: KsColors.textSecondary, size: 12)),
+              const Spacer(),
+              Text('$completed of $total completed',
+                  style: KsTextStyles.bodyMedium(size: 12, color: KsColors.terracotta)),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 8),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: total > 0 ? completed / total : 0,
+              backgroundColor: KsColors.peach3,
+              color: KsColors.terracotta,
+              minHeight: 6,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AudioListenRow extends StatelessWidget {
+  final bool speaking;
+  final VoidCallback onTap;
+  const _AudioListenRow({required this.speaking, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: KsColors.peach3,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: KsColors.terracotta.withAlpha(60)),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              speaking ? Icons.pause_circle_filled : Icons.play_circle_filled,
+              color: KsColors.terracotta,
+              size: 24,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    speaking ? 'Reading your listing…' : 'Listen to your listing',
+                    style: KsTextStyles.bodyMedium(size: 13),
+                  ),
+                  Text(
+                    'AI reads the draft title in your language',
+                    style: KsTextStyles.body(color: KsColors.textSecondary, size: 11),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ProductImagePreview extends StatelessWidget {
+  final String url;
+  const _ProductImagePreview({required this.url});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      height: 180,
+      decoration: BoxDecoration(
+        color: KsColors.surface1,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: KsColors.border),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(11),
+        child: url.startsWith('http')
+            ? Image.network(url, fit: BoxFit.cover, errorBuilder: (_, __, ___) => _emptyMedia())
+            : _emptyMedia(),
+      ),
+    );
+  }
+
+  Widget _emptyMedia() => Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.image_outlined, size: 32, color: KsColors.textSecondary),
+          const SizedBox(height: 8),
+          Text('No product photo stored',
+              style: KsTextStyles.body(color: KsColors.textSecondary, size: 12)),
+        ],
+      );
+}
+
+class _SectionCard extends StatelessWidget {
+  final String label;
+  final Widget child;
+  const _SectionCard({required this.label, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: KsColors.surface1,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: KsColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: KsTextStyles.label(color: KsColors.brown3, size: 9)),
+          const SizedBox(height: 14),
           child,
         ],
       ),
@@ -410,518 +549,53 @@ class _AgentCard extends StatelessWidget {
   }
 }
 
-// ─── Listing Agent internals ──────────────────────────────────────────────────
-
-class _FieldLabel extends StatelessWidget {
-  final String text;
-  const _FieldLabel(this.text);
-
-  @override
-  Widget build(BuildContext context) =>
-      Text(text, style: KsTextStyles.label(color: KsColors.brown3, size: 9));
-}
-
-class _SeoTitleBox extends StatelessWidget {
-  final String titleMr;
-  final String titleEn;
-  const _SeoTitleBox({required this.titleMr, required this.titleEn});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: KsColors.white,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: KsColors.peach3, width: 1),
-      ),
-      child: Text(
-        '$titleMr — $titleEn | GI Tag',
-        style: GoogleFonts.plusJakartaSans(
-            color: KsColors.mainText, fontSize: 13, fontWeight: FontWeight.w500, height: 1.5),
-      ),
-    );
-  }
-}
-
-class _AudioSummaryRow extends StatelessWidget {
+class _EditField extends StatelessWidget {
   final String label;
-  final bool playing;
-  final VoidCallback onTap;
-  const _AudioSummaryRow({required this.label, required this.playing, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: BoxDecoration(color: KsColors.peach3, borderRadius: BorderRadius.circular(10)),
-        child: Row(
-          children: [
-            Icon(playing ? Icons.pause_circle : Icons.play_circle_filled,
-                color: KsColors.terracotta, size: 22),
-            const SizedBox(width: 10),
-            Expanded(child: Text(label, style: KsTextStyles.bodyMedium(size: 12))),
-            Container(
-              width: 30, height: 20,
-              decoration: BoxDecoration(color: KsColors.white, borderRadius: BorderRadius.circular(4)),
-              child: CustomPaint(painter: _WaveformPainter()),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _WaveformPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()..color = KsColors.terracotta..strokeWidth = 1.5..strokeCap = StrokeCap.round;
-    const bars = [0.3, 0.7, 0.5, 0.9, 0.4, 0.8, 0.6, 0.3, 0.7, 0.5];
-    final w = size.width / bars.length;
-    for (var i = 0; i < bars.length; i++) {
-      final x = i * w + w / 2;
-      final h = bars[i] * size.height;
-      canvas.drawLine(Offset(x, (size.height - h) / 2), Offset(x, (size.height + h) / 2), paint);
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter old) => false;
-}
-
-class _HashtagRow extends StatelessWidget {
-  final void Function(String) onCopy;
-  const _HashtagRow({required this.onCopy});
-
-  static const _tags = ['#HandloomIndia', '#GITag', '#ZariCraft', '#VocalForLocal'];
-
-  @override
-  Widget build(BuildContext context) {
-    return Wrap(
-      spacing: 6,
-      runSpacing: 6,
-      children: _tags.map((tag) => GestureDetector(
-        onTap: () => onCopy(tag),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-          decoration: BoxDecoration(color: KsColors.surface3, borderRadius: BorderRadius.circular(20)),
-          child: Text(tag, style: KsTextStyles.label(color: KsColors.terracotta, size: 10)),
-        ),
-      )).toList(),
-    );
-  }
-}
-
-// ─── Trend Agent internals ────────────────────────────────────────────────────
-
-class _DataChip extends StatelessWidget {
-  final String label;
-  final String value;
-  const _DataChip({required this.label, required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(color: KsColors.white, borderRadius: BorderRadius.circular(10)),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(label, style: KsTextStyles.label(color: KsColors.brown3, size: 9)),
-          const SizedBox(height: 4),
-          Text(value, style: KsTextStyles.bodyMedium(size: 12)),
-        ],
-      ),
-    );
-  }
-}
-
-class _TrendSparkline extends StatelessWidget {
-  const _TrendSparkline();
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(height: 56, child: CustomPaint(size: const Size(double.infinity, 56), painter: _SparklinePainter()));
-  }
-}
-
-class _SparklinePainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    const values = [0.2, 0.3, 0.25, 0.4, 0.6, 0.75, 0.9, 1.0, 0.85, 0.7, 0.5, 0.8];
-    final dx = size.width / (values.length - 1);
-    final fill = Path();
-    final line = Path();
-    for (var i = 0; i < values.length; i++) {
-      final x = i * dx;
-      final y = size.height * (1 - values[i] * 0.8);
-      if (i == 0) { fill.moveTo(x, y); line.moveTo(x, y); }
-      else { fill.lineTo(x, y); line.lineTo(x, y); }
-    }
-    fill.lineTo(size.width, size.height);
-    fill.lineTo(0, size.height);
-    fill.close();
-    canvas.drawPath(fill, Paint()..shader = LinearGradient(
-      begin: Alignment.topCenter, end: Alignment.bottomCenter,
-      colors: [KsColors.terracotta.withAlpha(60), KsColors.terracotta.withAlpha(0)],
-    ).createShader(Rect.fromLTWH(0, 0, size.width, size.height)));
-    canvas.drawPath(line, Paint()..color = KsColors.terracotta..strokeWidth = 2
-      ..style = PaintingStyle.stroke..strokeCap = StrokeCap.round..strokeJoin = StrokeJoin.round);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter old) => false;
-}
-
-// ─── Fair-Price Agent internals ───────────────────────────────────────────────
-
-class _CostRow extends StatelessWidget {
-  final String label;
-  final String amount;
-  const _CostRow({required this.label, required this.amount});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 5),
-      child: Row(
-        children: [
-          Container(width: 4, height: 4,
-              decoration: const BoxDecoration(color: KsColors.brown4, shape: BoxShape.circle)),
-          const SizedBox(width: 8),
-          Expanded(child: Text(label, style: KsTextStyles.body(size: 12))),
-          Text(amount, style: KsTextStyles.bodyMedium(size: 13)),
-        ],
-      ),
-    );
-  }
-}
-
-class _RecommendedBox extends StatelessWidget {
-  final String price;
-  final String targetLabel;
-  final String marginLabel;
-  final String guaranteedLabel;
-  const _RecommendedBox({required this.price, required this.targetLabel, required this.marginLabel, required this.guaranteedLabel});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: KsColors.white, borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: KsColors.peach3),
-      ),
-      child: Row(
-        children: [
-          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(targetLabel, style: KsTextStyles.label(color: KsColors.brown3, size: 9)),
-            const SizedBox(height: 4),
-            Text(price, style: KsTextStyles.price(color: KsColors.terracotta, size: 26)),
-          ]),
-          const Spacer(),
-          Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-            Text(marginLabel, style: KsTextStyles.label(color: KsColors.brown3, size: 9)),
-            const SizedBox(height: 4),
-            Row(children: [
-              Text('38%', style: KsTextStyles.price(color: KsColors.green, size: 20)),
-              const SizedBox(width: 6),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(color: KsColors.paleGreen, borderRadius: BorderRadius.circular(8)),
-                child: Text(guaranteedLabel, style: KsTextStyles.label(color: KsColors.green, size: 9)),
-              ),
-            ]),
-          ]),
-        ],
-      ),
-    );
-  }
-}
-
-class _PriceBandSelector extends StatelessWidget {
-  final int selected;
-  final Map<String, int> prices;
-  final String lowestLabel;
-  final String recLabel;
-  final String highestLabel;
-  final void Function(int, String) onSelect;
-  const _PriceBandSelector({
-    required this.selected, required this.prices,
-    required this.lowestLabel, required this.recLabel, required this.highestLabel,
-    required this.onSelect,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final bands = [
-      (lowestLabel, '₹${prices['floor']!}'),
-      (recLabel, '₹${prices['recommended']!}'),
-      (highestLabel, '₹${prices['ceiling']!}'),
-    ];
-    return Row(
-      children: List.generate(3, (i) {
-        final active = i == selected;
-        return Expanded(
-          child: Padding(
-            padding: EdgeInsets.only(right: i < 2 ? 8 : 0),
-            child: GestureDetector(
-              onTap: () => onSelect(i, bands[i].$2),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                padding: const EdgeInsets.symmetric(vertical: 10),
-                decoration: BoxDecoration(
-                  color: active ? KsColors.terracotta : KsColors.white,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: active ? KsColors.terracotta : KsColors.peach3),
-                ),
-                child: Column(children: [
-                  Text(bands[i].$1, style: KsTextStyles.label(
-                      color: active ? KsColors.white.withAlpha(180) : KsColors.brown3, size: 8)),
-                  const SizedBox(height: 4),
-                  Text(bands[i].$2, style: KsTextStyles.price(
-                      color: active ? KsColors.white : KsColors.mainText, size: 15)),
-                ]),
-              ),
-            ),
-          ),
-        );
-      }),
-    );
-  }
-}
-
-// ─── Custom price input ───────────────────────────────────────────────────────
-
-class _CustomPriceInput extends StatelessWidget {
   final TextEditingController controller;
-  final bool active;
-  final VoidCallback onActivate;
-  final VoidCallback onUse;
-  final String? errorText;
-  final ValueChanged<String> onChanged;
+  final int maxLines;
+  final TextInputType keyboardType;
+  final ValueChanged<String>? onChanged;
 
-  const _CustomPriceInput({
+  const _EditField({
+    required this.label,
     required this.controller,
-    required this.active,
-    required this.onActivate,
-    required this.onUse,
-    required this.errorText,
-    required this.onChanged,
+    this.maxLines = 1,
+    this.keyboardType = TextInputType.text,
+    this.onChanged,
   });
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onActivate,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: active ? KsColors.peach3 : KsColors.white,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-              color: active ? KsColors.terracotta : KsColors.peach3),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Custom Price',
-                style: KsTextStyles.label(color: KsColors.brown3, size: 9)),
-            const SizedBox(height: 6),
-            Row(
-              children: [
-                Text('₹',
-                    style: KsTextStyles.price(
-                        color: KsColors.mainText, size: 20)),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: TextField(
-                    controller: controller,
-                    keyboardType: TextInputType.number,
-                    onTap: onActivate,
-                    onChanged: onChanged,
-                    decoration: InputDecoration(
-                      hintText: 'Enter your price',
-                      hintStyle:
-                          KsTextStyles.body(color: KsColors.brown3, size: 14),
-                      border: InputBorder.none,
-                      isDense: true,
-                      contentPadding: EdgeInsets.zero,
-                    ),
-                    style: KsTextStyles.price(color: KsColors.mainText, size: 20),
-                  ),
-                ),
-                ValueListenableBuilder<TextEditingValue>(
-                  valueListenable: controller,
-                  builder: (ctx, v, child) {
-                    if (v.text.isNotEmpty && active) {
-                      return Material(
-                        color: KsColors.terracotta,
-                        borderRadius: BorderRadius.circular(8),
-                        child: InkWell(
-                          onTap: onUse,
-                          borderRadius: BorderRadius.circular(8),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 5,
-                            ),
-                            child: Text(
-                              'Use This',
-                              style: KsTextStyles.label(
-                                color: KsColors.white,
-                                size: 10,
-                              ),
-                            ),
-                          ),
-                        ),
-                      );
-                    }
-                    return const SizedBox.shrink();
-                  },
-                ),
-              ],
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: KsTextStyles.label(color: KsColors.brown3, size: 9)),
+        const SizedBox(height: 6),
+        TextField(
+          controller: controller,
+          maxLines: maxLines,
+          keyboardType: keyboardType,
+          onChanged: onChanged,
+          style: KsTextStyles.body(color: KsColors.ink, size: 13),
+          decoration: InputDecoration(
+            filled: true,
+            fillColor: KsColors.white,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(color: KsColors.border),
             ),
-            if (errorText != null) ...[
-              const SizedBox(height: 6),
-              Text(
-                errorText!,
-                style: KsTextStyles.body(color: Colors.red.shade700, size: 11),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ─── Business Opportunity internals ──────────────────────────────────────────
-
-class _GmvBar extends StatelessWidget {
-  const _GmvBar();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(color: KsColors.white, borderRadius: BorderRadius.circular(10)),
-      child: Row(
-        children: [
-          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('GMV POTENTIAL', style: KsTextStyles.label(color: KsColors.brown3, size: 9)),
-            const SizedBox(height: 4),
-            Text('₹18,750 / season',
-                style: KsTextStyles.bodyMedium(size: 13, color: KsColors.terracotta)),
-          ]),
-          const Spacer(),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(color: KsColors.peach3, borderRadius: BorderRadius.circular(8)),
-            child: Text('+₹250 bundle', style: KsTextStyles.label(color: KsColors.terracotta, size: 10)),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(color: KsColors.border),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(color: KsColors.terracotta, width: 1.5),
+            ),
           ),
-        ],
-      ),
-    );
-  }
-}
-
-// ─── Payload Preview ──────────────────────────────────────────────────────────
-
-class _PayloadPreview extends StatelessWidget {
-  final KsStrings ks;
-  final String cluster;
-  const _PayloadPreview({required this.ks, required this.cluster});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(color: KsColors.mainText, borderRadius: BorderRadius.circular(16)),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Text(ks.payloadTitle, style: KsTextStyles.label(color: KsColors.peach3, size: 10)),
-              const Spacer(),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: KsColors.green.withAlpha(50), borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: KsColors.paleGreen.withAlpha(80)),
-                ),
-                child: Text(ks.readyToVerify, style: KsTextStyles.label(color: KsColors.paleGreen, size: 9)),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          _PayloadRow(ks.originCluster, cluster),
-          _PayloadRow(ks.weaveTechnique, 'Extra-weft (Jamdani variant)'),
-          _PayloadRow(ks.dispatchSla, '5 working days'),
-          _PayloadRow(ks.channelsMapped, 'GeMB2B • Amazon.in • Etsy'),
-        ],
-      ),
-    );
-  }
-}
-
-class _PayloadRow extends StatelessWidget {
-  final String label;
-  final String value;
-  const _PayloadRow(this.label, this.value);
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 5),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(width: 110,
-              child: Text(label, style: KsTextStyles.label(color: KsColors.brown4, size: 10))),
-          Expanded(child: Text(value, style: KsTextStyles.body(color: KsColors.peach2, size: 12))),
-        ],
-      ),
-    );
-  }
-}
-
-// ─── Review CTA ───────────────────────────────────────────────────────────────
-
-class _ReviewCtaButton extends StatelessWidget {
-  final String label;
-  final VoidCallback onTap;
-  const _ReviewCtaButton({required this.label, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: double.infinity, height: 56,
-        decoration: BoxDecoration(
-          color: KsColors.terracotta, borderRadius: BorderRadius.circular(100),
-          boxShadow: [BoxShadow(color: KsColors.terracotta.withAlpha(70), blurRadius: 12, offset: const Offset(0, 4))],
         ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.verified_outlined, color: KsColors.white, size: 18),
-            const SizedBox(width: 10),
-            Text(label, style: KsTextStyles.cta(size: 15)),
-            const SizedBox(width: 10),
-            const Icon(Icons.arrow_forward, color: KsColors.white, size: 18),
-          ],
-        ),
-      ),
+      ],
     );
   }
 }

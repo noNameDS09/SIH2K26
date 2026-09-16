@@ -7,8 +7,15 @@ import '../routes/app_routes.dart';
 import '../theme/ks_colors.dart';
 import '../theme/ks_text_styles.dart';
 import '../widgets/ks_app_header.dart';
-import '../widgets/ks_progress_bar.dart';
+import '../widgets/ks_stage_progress.dart';
+import '../widgets/ks_mock_badge.dart';
+import '../widgets/ks_provenance_chip.dart';
+import '../../models/provenance.dart';
 
+/// Stage 2 — original vs. studio compare, six bundled backgrounds, ΔE
+/// quality gate. `09_IMAGE_PIPELINE.md` calls this "the quality bottleneck"
+/// of the whole build: a rejected gate must never publish a bad mask, and
+/// only the six named presets exist — no generated/downloaded backgrounds.
 class StudioScreen extends StatefulWidget {
   const StudioScreen({super.key});
 
@@ -16,18 +23,20 @@ class StudioScreen extends StatefulWidget {
   State<StudioScreen> createState() => _StudioScreenState();
 }
 
-class _StudioScreenState extends State<StudioScreen> {
-  int _selectedPreset = 0;
-  bool _showEnhanced = true;
+/// (presetKey, label, swatch) — presetKey is sent verbatim as `bg_preset`
+/// to `POST /v1/images/enhance`; it must match the server's six-preset enum.
+const _presets = [
+  ('white', 'White', Color(0xFFFAFAF8)),
+  ('linen', 'Linen', Color(0xFFEFE6D8)),
+  ('beige', 'Beige', Color(0xFFE3D2B8)),
+  ('slate', 'Slate', Color(0xFF5B6670)),
+  ('jute', 'Jute', Color(0xFFB89968)),
+  ('wood', 'Wood', Color(0xFF7C4A2D)),
+];
 
-  static const _presets = [
-    ('Natural Light', Icons.wb_sunny_outlined, Color(0xFFF5E6D3)),
-    ('Neutral White', Icons.radio_button_unchecked, Color(0xFFF8F8F8)),
-    ('Studio Grey', Icons.panorama_rounded, Color(0xFFE8E8E8)),
-    ('Deep Forest', Icons.forest_outlined, Color(0xFF2D5A27)),
-    ('Indigo Silk', Icons.water_rounded, Color(0xFF3B3B8C)),
-    ('Terracotta', Icons.circle, Color(0xFFB8541E)),
-  ];
+class _StudioScreenState extends State<StudioScreen> {
+  String _selectedPreset = 'linen';
+  bool _showEnhanced = true;
 
   @override
   Widget build(BuildContext context) {
@@ -35,7 +44,12 @@ class _StudioScreenState extends State<StudioScreen> {
       builder: (context, provider, _) {
         final original = provider.capturedImageBytes;
         final enhanced = provider.enhancedImageBytes;
-        final showEnhanced = _showEnhanced && enhanced != null;
+        final rejected = provider.enhanceRejected;
+        final offline = provider.enhanceOffline;
+        // A rejected/offline result must never be shown as "the studio
+        // photo" — force the original into view in that case.
+        final canShowEnhanced = enhanced != null && !rejected && !offline;
+        final showEnhanced = _showEnhanced && canShowEnhanced;
 
         return Scaffold(
           backgroundColor: KsColors.background,
@@ -52,23 +66,39 @@ class _StudioScreenState extends State<StudioScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const SizedBox(height: 16),
-                      const KsProgressBar(
-                        totalSteps: 7,
-                        currentStep: 3,
-                        label: 'STAGE 3 — PHOTO STUDIO',
-                      ),
+                      const KsStageProgress(stage: 2, label: 'PHOTO STUDIO'),
                       const SizedBox(height: 20),
 
-                      // Image preview with before/after toggle
                       if (original != null) ...[
                         _ImagePreviewCard(
                           original: original,
                           enhanced: enhanced,
                           showEnhanced: showEnhanced,
-                          onToggle: () => setState(() => _showEnhanced = !_showEnhanced),
+                          canShowEnhanced: canShowEnhanced,
+                          onToggle: canShowEnhanced
+                              ? () => setState(() => _showEnhanced = !_showEnhanced)
+                              : null,
                           deltaE: provider.imageEnhanceDeltaE,
+                          provenance: provider.enhanceProvenance,
                         ),
-                        const SizedBox(height: 20),
+                        const SizedBox(height: 12),
+                        if (rejected) ...[
+                          _StatusBanner(
+                            icon: Icons.report_gmailerrorred_rounded,
+                            color: const Color(0xFFD9463A),
+                            text:
+                                'Studio image rejected — colour shifted too far (ΔE ${provider.imageEnhanceDeltaE?.toStringAsFixed(1) ?? '?'} > 2.0). Showing the original photo instead.',
+                          ),
+                          const SizedBox(height: 12),
+                        ] else if (offline) ...[
+                          const _StatusBanner(
+                            icon: Icons.wifi_off_rounded,
+                            color: KsColors.textSecondary,
+                            text: 'Waiting for network — showing the original photo until the studio server responds.',
+                          ),
+                          const SizedBox(height: 12),
+                        ],
+                        const SizedBox(height: 8),
                       ] else ...[
                         Container(
                           height: 200,
@@ -91,9 +121,14 @@ class _StudioScreenState extends State<StudioScreen> {
                         const SizedBox(height: 20),
                       ],
 
-                      // Background presets
-                      Text('Background Preset',
-                          style: KsTextStyles.label(color: KsColors.brown3, size: 10)),
+                      Row(
+                        children: [
+                          Text('Background Preset',
+                              style: KsTextStyles.label(color: KsColors.brown3, size: 10)),
+                          const Spacer(),
+                          const KsMockBadge(),
+                        ],
+                      ),
                       const SizedBox(height: 10),
                       GridView.builder(
                         shrinkWrap: true,
@@ -106,21 +141,19 @@ class _StudioScreenState extends State<StudioScreen> {
                         ),
                         itemCount: _presets.length,
                         itemBuilder: (context, i) {
-                          final preset = _presets[i];
-                          final selected = _selectedPreset == i;
+                          final (key, label, swatch) = _presets[i];
+                          final selected = _selectedPreset == key;
                           return GestureDetector(
                             onTap: () {
-                              setState(() => _selectedPreset = i);
+                              setState(() => _selectedPreset = key);
                               if (original != null) {
-                                provider.reEnhanceWithPreset(
-                                  preset: preset.$1.toLowerCase().replaceAll(' ', '_'),
-                                );
+                                provider.reEnhanceWithPreset(preset: key);
                               }
                             },
                             child: AnimatedContainer(
                               duration: const Duration(milliseconds: 150),
                               decoration: BoxDecoration(
-                                color: preset.$3,
+                                color: swatch,
                                 borderRadius: BorderRadius.circular(12),
                                 border: Border.all(
                                   color: selected ? KsColors.terracotta : Colors.transparent,
@@ -130,26 +163,18 @@ class _StudioScreenState extends State<StudioScreen> {
                                     ? [BoxShadow(color: KsColors.terracotta.withAlpha(77), blurRadius: 8)]
                                     : null,
                               ),
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(preset.$2, size: 20,
-                                      color: preset.$3.computeLuminance() > 0.5
-                                          ? KsColors.mainText
-                                          : KsColors.white),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    preset.$1,
-                                    style: TextStyle(
-                                      fontSize: 9,
-                                      fontWeight: FontWeight.w600,
-                                      color: preset.$3.computeLuminance() > 0.5
-                                          ? KsColors.mainText
-                                          : KsColors.white,
-                                    ),
-                                    textAlign: TextAlign.center,
+                              child: Center(
+                                child: Text(
+                                  label,
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: swatch.computeLuminance() > 0.5
+                                        ? KsColors.mainText
+                                        : KsColors.white,
                                   ),
-                                ],
+                                  textAlign: TextAlign.center,
+                                ),
                               ),
                             ),
                           );
@@ -157,7 +182,6 @@ class _StudioScreenState extends State<StudioScreen> {
                       ),
                       const SizedBox(height: 24),
 
-                      // Loading indicator for enhancement
                       if (provider.isEnhancing) ...[
                         Container(
                           padding: const EdgeInsets.all(16),
@@ -182,7 +206,6 @@ class _StudioScreenState extends State<StudioScreen> {
                         const SizedBox(height: 16),
                       ],
 
-                      // Continue CTA
                       SizedBox(
                         width: double.infinity,
                         child: ElevatedButton.icon(
@@ -210,19 +233,51 @@ class _StudioScreenState extends State<StudioScreen> {
   }
 }
 
+class _StatusBanner extends StatelessWidget {
+  const _StatusBanner({required this.icon, required this.color, required this.text});
+
+  final IconData icon;
+  final Color color;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withAlpha(20),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withAlpha(80)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 18, color: color),
+          const SizedBox(width: 10),
+          Expanded(child: Text(text, style: KsTextStyles.body(size: 12, color: color))),
+        ],
+      ),
+    );
+  }
+}
+
 class _ImagePreviewCard extends StatelessWidget {
   final Uint8List original;
   final Uint8List? enhanced;
   final bool showEnhanced;
-  final VoidCallback onToggle;
+  final bool canShowEnhanced;
+  final VoidCallback? onToggle;
   final double? deltaE;
+  final Provenance? provenance;
 
   const _ImagePreviewCard({
     required this.original,
     this.enhanced,
     required this.showEnhanced,
-    required this.onToggle,
+    required this.canShowEnhanced,
+    this.onToggle,
     this.deltaE,
+    this.provenance,
   });
 
   @override
@@ -243,7 +298,7 @@ class _ImagePreviewCard extends StatelessWidget {
         const SizedBox(height: 10),
         Row(
           children: [
-            if (enhanced != null) ...[
+            if (canShowEnhanced) ...[
               GestureDetector(
                 onTap: onToggle,
                 child: Container(
@@ -253,7 +308,7 @@ class _ImagePreviewCard extends StatelessWidget {
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
-                    showEnhanced ? 'Enhanced ✦' : 'Original',
+                    showEnhanced ? 'Studio ✦' : 'Original',
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
@@ -262,22 +317,37 @@ class _ImagePreviewCard extends StatelessWidget {
                   ),
                 ),
               ),
-              if (deltaE != null) ...[
-                const SizedBox(width: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: KsColors.paleGreen,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    'ΔE ${deltaE!.toStringAsFixed(1)}',
-                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600,
-                        color: KsColors.deepGreen),
+              const SizedBox(width: 8),
+            ] else
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: KsColors.surfaceMuted,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: const Text('Original',
+                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: KsColors.textSecondary)),
+              ),
+            if (deltaE != null) ...[
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: deltaE! > 2.0 ? const Color(0xFFFBE4E1) : KsColors.paleGreen,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  'ΔE ${deltaE!.toStringAsFixed(1)}',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: deltaE! > 2.0 ? const Color(0xFFD9463A) : KsColors.deepGreen,
                   ),
                 ),
-              ],
+              ),
+              const SizedBox(width: 8),
             ],
+            KsProvenanceChip(provenance: provenance),
           ],
         ),
       ],

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 import '../l10n/ks_strings.dart';
 import '../routes/app_routes.dart';
 import '../theme/ks_colors.dart';
@@ -7,7 +9,11 @@ import '../theme/ks_text_styles.dart';
 import '../widgets/ks_app_header.dart';
 import '../widgets/ks_bottom_nav.dart';
 import '../widgets/ks_cards.dart';
-import '../widgets/ks_progress_bar.dart';
+import '../widgets/ks_stage_progress.dart';
+import '../widgets/ks_qr_card.dart';
+import '../widgets/ks_adapter_toggle.dart';
+import '../widgets/ks_mock_badge.dart';
+import '../../services/session_provider.dart';
 
 class Screen5Outward extends StatefulWidget {
   const Screen5Outward({super.key});
@@ -17,23 +23,10 @@ class Screen5Outward extends StatefulWidget {
 }
 
 class _Screen5OutwardState extends State<Screen5Outward> {
-  final Map<String, bool> channels = {
-    'GeM Portal (Govt e-Market)': true,
-    'ONDC Open Commerce': true,
-    'IndiaHandmade': true,
-  };
-
-  bool shared = false;
-
   void _message(String text) {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(SnackBar(content: Text(text)));
-  }
-
-  void _share() {
-    setState(() => shared = true);
-    _showInfo('WhatsApp Share', 'The product catalog, invoice and audio story are ready to share with a buyer.');
   }
 
   void _showInfo(String title, String message) {
@@ -110,9 +103,23 @@ class _Screen5OutwardState extends State<Screen5Outward> {
 
   void _showStoryCard() => _showInfo('HD Story Card', 'HD story card preview is ready for retail buyers and marketplace listings.');
 
+  Future<void> _copyLink(String? url) async {
+    if (url == null) return;
+    await Clipboard.setData(ClipboardData(text: url));
+    _message('Link copied — share it any way you like.');
+  }
+
   @override
   Widget build(BuildContext context) {
     final ks = KsStrings.of(context);
+    final provider = context.watch<SessionProvider>();
+    final listing = provider.listing;
+    final publicUrl = listing?['publicUrl'] as String? ?? listing?['public_url'] as String?;
+    final qrUrl = listing?['qrUrl'] as String? ?? listing?['qr_url'] as String?;
+    final title = listing?['title_en'] as String?;
+    final prices = listing?['prices'];
+    final price = prices is Map ? (prices['listed'] as num?)?.toInt() : null;
+
     return Scaffold(
       body: SafeArea(
         child: SingleChildScrollView(
@@ -127,11 +134,7 @@ class _Screen5OutwardState extends State<Screen5Outward> {
                 onBack: () => context.go(AppRoutes.approval),
               ),
               const SizedBox(height: 12),
-              const KsProgressBar(
-                currentStep: 5,
-                totalSteps: 5,
-                label: 'STAGE 5 — OUTWARD MULTI-CHANNEL DISTRIBUTION',
-              ),
+              const KsStageProgress(stage: 5, label: 'OUTWARD MULTI-CHANNEL DISTRIBUTION'),
               const SizedBox(height: 18),
               Text.rich(
                 TextSpan(
@@ -148,7 +151,17 @@ class _Screen5OutwardState extends State<Screen5Outward> {
               const SizedBox(height: 8),
               Text(KsStrings.of(context).publishedSubtitle, style: KsTextStyles.body()),
               const SizedBox(height: 14),
-              KsCard(child: _ListingCard(onTap: () => _showInfo('Published Listing', 'This listing is live across 3 verified buyer networks.'))),
+              KsCard(
+                child: _ListingCard(
+                  title: title,
+                  price: price,
+                  onTap: () => _showInfo('Listing', 'ID: ${provider.listingId ?? '—'}'),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text('QR & public link', style: KsTextStyles.section),
+              const SizedBox(height: 10),
+              KsQrCard(qrUrl: qrUrl, publicUrl: publicUrl),
               const SizedBox(height: 16),
               Row(
                 children: [
@@ -165,7 +178,7 @@ class _Screen5OutwardState extends State<Screen5Outward> {
               KsCard(
                 child: Column(
                   children: [
-                    _ChannelHero(onTap: () => _showInfo('Chat Toolkit', 'Catalog, invoice and audio story are bundled here for direct buyer conversations.')),
+                    _ChannelHero(onTap: () => _showInfo('Chat Toolkit', 'Catalog and audio story are bundled here for direct buyer conversations.')),
                     const SizedBox(height: 10),
                     Row(
                       children: [
@@ -178,9 +191,9 @@ class _Screen5OutwardState extends State<Screen5Outward> {
                     ),
                     const SizedBox(height: 10),
                     KsActionButton(
-                      label: shared ? ks.sharedOnWhatsApp : ks.shareOnWhatsApp,
-                      icon: Icons.share_outlined,
-                      onPressed: _share,
+                      label: 'Copy link to share',
+                      icon: Icons.copy_rounded,
+                      onPressed: () => _copyLink(publicUrl),
                     ),
                   ],
                 ),
@@ -190,25 +203,19 @@ class _Screen5OutwardState extends State<Screen5Outward> {
                 children: [
                   Text(ks.marketplaceAdapters, style: KsTextStyles.section),
                   const Spacer(),
-                  KsPill(text: ks.oneClickLiveSync),
+                  const KsMockBadge(),
                 ],
               ),
               const SizedBox(height: 10),
               KsCard(
                 child: Column(
-                  children: channels.keys.map((name) {
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: _MarketplaceRow(
-                        name: name,
-                        enabled: channels[name]!,
-                        onChanged: (value) {
-                          setState(() => channels[name] = value);
-                          _message('$name ${value ? 'enabled' : 'paused'}');
-                        },
-                      ),
-                    );
-                  }).toList(),
+                  children: [
+                    KsAdapterToggle(channel: 'gem', label: 'GeM Portal (Govt e-Market)', listingId: provider.listingId),
+                    const Divider(height: 16),
+                    KsAdapterToggle(channel: 'ondc', label: 'ONDC Open Commerce', listingId: provider.listingId),
+                    const Divider(height: 16),
+                    KsAdapterToggle(channel: 'indiahandmade', label: 'IndiaHandmade', listingId: provider.listingId),
+                  ],
                 ),
               ),
               const SizedBox(height: 16),
@@ -301,7 +308,12 @@ class _Screen5OutwardState extends State<Screen5Outward> {
                     KsActionButton(
                       label: ks.createAnotherProduct,
                       icon: Icons.add_circle_outline,
-                      onPressed: () => context.go(AppRoutes.capture),
+                      onPressed: () {
+                        // Fresh server-issued listingId for the new draft —
+                        // never reuse the just-published one.
+                        provider.reset();
+                        context.go(AppRoutes.capture);
+                      },
                     ),
                   ],
                 ),
@@ -311,27 +323,18 @@ class _Screen5OutwardState extends State<Screen5Outward> {
         ),
       ),
       bottomNavigationBar: KsBottomNav(
-        currentIndex: 4,
-        onTap: (index) {
-          if (index == 1) {
-            context.go(AppRoutes.approval);
-          } else {
-            _message('${_navName(index)} is not part of this two-screen build.');
-          }
-        },
+        currentIndex: 1,
+        onTap: (index) => KsBottomNav.navigate(context, index),
       ),
     );
-  }
-
-  String _navName(int index) {
-    const names = ['Studio', 'Kala List', 'Bolo', 'Samuh', 'Bazaar'];
-    return names[index];
   }
 }
 
 class _ListingCard extends StatelessWidget {
-  const _ListingCard({required this.onTap});
+  const _ListingCard({required this.onTap, this.title, this.price});
   final VoidCallback onTap;
+  final String? title;
+  final int? price;
 
   @override
   Widget build(BuildContext context) {
@@ -360,22 +363,22 @@ class _ListingCard extends StatelessWidget {
                 Row(
                   children: [
                     Expanded(
-                      child: Text('Listing #KS-2025-IND-8942',
+                      child: Text(title ?? 'Your listing',
                           style: KsTextStyles.section.copyWith(fontSize: 12)),
                     ),
-                    const KsPill(text: 'Active Now', green: true),
+                    const KsPill(text: 'Published', green: true),
                   ],
                 ),
                 const SizedBox(height: 4),
-                Text('Live across 3 verified buyer networks',
+                Text('Signed and ready to share — see QR below',
                     style: KsTextStyles.caption),
                 const SizedBox(height: 8),
-                Text('Natural Bamboo Vessel & Vases',
-                    style: KsTextStyles.section.copyWith(fontSize: 12)),
-                Text('₹1,850 • Free Cluster Hub Drop',
-                    style: KsTextStyles.caption.copyWith(
-                        color: KsColors.terracotta,
-                        fontWeight: FontWeight.w700)),
+                Text(
+                  price != null ? '₹$price' : 'Price not set',
+                  style: KsTextStyles.caption.copyWith(
+                      color: KsColors.terracotta,
+                      fontWeight: FontWeight.w700),
+                ),
               ],
             ),
           ),
@@ -455,57 +458,3 @@ class _QuickAction extends StatelessWidget {
   }
 }
 
-class _MarketplaceRow extends StatelessWidget {
-  const _MarketplaceRow({
-    required this.name,
-    required this.enabled,
-    required this.onChanged,
-  });
-
-  final String name;
-  final bool enabled;
-  final ValueChanged<bool> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final initials = name.startsWith('GeM')
-        ? 'G'
-        : name.startsWith('ONDC')
-            ? 'O'
-            : 'IH';
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
-      decoration: BoxDecoration(
-        color: KsColors.surfaceWarm,
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Row(
-        children: [
-          CircleAvatar(
-            radius: 16,
-            backgroundColor: enabled
-                ? KsColors.greenSoft
-                : KsColors.surfaceMuted,
-            child: Text(initials,
-                style: KsTextStyles.caption.copyWith(
-                  color: enabled ? KsColors.greenDark : KsColors.textMuted,
-                  fontWeight: FontWeight.w800,
-                )),
-          ),
-          const SizedBox(width: 9),
-          Expanded(
-            child: Text(name,
-                style: KsTextStyles.caption.copyWith(
-                    color: KsColors.ink, fontWeight: FontWeight.w700)),
-          ),
-          Switch.adaptive(
-            value: enabled,
-            onChanged: onChanged,
-            activeColor: KsColors.terracotta,
-          ),
-        ],
-      ),
-    );
-  }
-}
