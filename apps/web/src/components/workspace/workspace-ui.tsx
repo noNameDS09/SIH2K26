@@ -152,22 +152,55 @@ function humanSource(source: string) {
 export function Provenance({
   value,
   label = "Source details",
+  interactive = true,
 }: {
   value?: ProvenanceData | null;
   label?: string;
+  interactive?: boolean;
 }) {
   const [open, setOpen] = useState(false);
-  if (!value?.source) return <span className="ks-source ks-source--missing"><Icon name="info" size={14} />Source unavailable</span>;
+
+  if (!value?.source) {
+    return (
+      <span className="ks-source ks-source--missing">
+        <Icon name="info" size={14} />
+        Source unavailable
+      </span>
+    );
+  }
+
+  if (!interactive) {
+    return (
+      <span className="ks-source">
+        <Icon name="info" size={14} />
+        {label}
+      </span>
+    );
+  }
+
   return (
     <span className="ks-source-wrap">
-      <button className="ks-source" type="button" onClick={() => setOpen((current) => !current)} aria-expanded={open}>
-        <Icon name="info" size={14} />{label}
+      <button
+        className="ks-source"
+        type="button"
+        onClick={() => setOpen((current) => !current)}
+        aria-expanded={open}
+      >
+        <Icon name="info" size={14} />
+        {label}
       </button>
+
       {open ? (
         <span className="ks-source-popover" role="status">
           <strong>{humanSource(value.source)}</strong>
-          {typeof value.confidence === "number" ? <span>{Math.round(value.confidence * 100)}% confidence</span> : null}
-          {value.ts ? <span>Updated {new Date(value.ts).toLocaleDateString("en-IN")}</span> : null}
+          {typeof value.confidence === "number" ? (
+            <span>{Math.round(value.confidence * 100)}% confidence</span>
+          ) : null}
+          {value.ts ? (
+            <span>
+              Updated {new Date(value.ts).toLocaleDateString("en-IN")}
+            </span>
+          ) : null}
         </span>
       ) : null}
     </span>

@@ -1303,7 +1303,11 @@ export function PricingPage() {
                 <h2>{band.title}</h2>
                 <strong>{formatMoney(price?.value)}</strong>
                 <p>{band.description}</p>
-                <Provenance value={price?.provenance} label="Price source" />
+                <Provenance
+  value={price?.provenance}
+  label="Price source"
+  interactive={false}
+/>
               </button>
             );
           })}
