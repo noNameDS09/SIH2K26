@@ -1,4 +1,50 @@
+# ------------------------------------------------------------------
+# Original requirements-studio.txt (image studio / compositing only)
+# ------------------------------------------------------------------
 pillow>=10.4.0
 numpy>=2.0.0
 rembg>=2.0.65
 onnxruntime>=1.19.0
+
+# ------------------------------------------------------------------
+# EXTENDED REQUIREMENTS — Full backend + voice (Sarvam STT + TTS)
+# Based on analysis of all .py files under apps/api/src/kalasetu_api
+# ------------------------------------------------------------------
+
+# --- Backend / API (FastAPI + middleware + file uploads) ---
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0
+python-multipart>=0.0.9
+httpx>=0.27.0
+
+# --- Voice / Speech (Sarvam Saaras v3 STT + Bulbul v3 TTS — REST via httpx) ---
+# Note: STT adapter uses POST /speech-to-text (audio file, model: saaras:v3)
+# Note: TTS adapter uses POST /text-to-speech (JSON, model: bulbul:v3)
+# No extra pip package beyond httpx needed (calls are REST, not SDK-based)
+
+# --- LLM adapter (Gemini text JSON for listing copy; optional for advisor) ---
+# If keeping Gemini for generate_listing_json / phrase_advisor_sentence
+google-genai>=1.0.0
+# If switching to Sarvam only, this can be removed (see note below)
+
+# --- Config / Settings (Pydantic + env file) ---
+pydantic>=2.0.0
+pydantic-settings>=2.0.0
+python-dotenv>=1.0.0
+
+# --- Firebase backend (Auth, Firestore, Storage — used by adapters/firebase.py) ---
+firebase-admin>=6.5.0
+
+# --- Catalog / Pricing / Data (standard library mostly; csv module built-in) ---
+# No extra pip packages needed for pricing.py (uses csv + datetime)
+
+# --- QR / Signing (listing media) ---
+qrcode>=7.4.0
+
+# --- Streamlit tester (streamlit_cataloger_sarvam.py) ---
+streamlit>=1.38.0
+
+# --- Optional / Development ---
+# Used by studio: rembg downloads ~180MB isnet-general-use.onnx on first run
+# Used by live socket: requires valid SARVAM_API_KEY and GEMINI_API_KEY (if keeping Gemini for copy)
+# If using pure Sarvam only: remove google-genai and set GEMINI_API_KEY to empty
