@@ -61,6 +61,7 @@ class _PricingScreenState extends State<PricingScreen> {
     setState(() => _saving = true);
     try {
       await ApiService.patchListing(_listing!['id'] as String, {'price_hint': value});
+      if (!mounted) return;
       setState(() {
         _saved = true;
         _message = 'Price saved';
@@ -68,7 +69,7 @@ class _PricingScreenState extends State<PricingScreen> {
         _error = '';
       });
     } catch (_) {
-      setState(() => _error = 'Could not save price');
+      if (mounted) setState(() => _error = 'Could not save price');
     } finally {
       if (mounted) setState(() => _saving = false);
     }

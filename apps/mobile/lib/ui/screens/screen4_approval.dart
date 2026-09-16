@@ -2,6 +2,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import 'package:audioplayers/audioplayers.dart';
 import '../l10n/ks_strings.dart';
 import '../routes/app_routes.dart';
 import '../theme/ks_colors.dart';
@@ -26,7 +27,35 @@ class _Screen4ApprovalState extends State<Screen4Approval> {
   bool _heardCard = false;
   bool _speaking = false;
   bool _signed = false;
+  bool _loading = true;
+  Map<String, dynamic>? _listing;
   final List<bool> _confirmations = [false, false, false, false];
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadListing());
+  }
+
+  Future<void> _loadListing() async {
+    final sp = context.read<SessionProvider>();
+    final id = sp.listingId;
+    if (id == null || id.isEmpty) {
+      if (mounted) setState(() => _loading = false);
+      return;
+    }
+    try {
+      final res = await ApiService.getListing(id);
+      if (mounted) {
+        setState(() {
+          _listing = res;
+          _loading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
 
   void _message(String text) {
     ScaffoldMessenger.of(context)
@@ -61,6 +90,26 @@ class _Screen4ApprovalState extends State<Screen4Approval> {
 
   bool get _allConfirmed => _confirmations.every((c) => c);
   bool get _readyToSign => _allConfirmed && _heardCard;
+
+  Future<void> _listenToCard(String titleEn, String descEn) async {
+    if (_speaking) return;
+    setState(() => _speaking = true);
+    setState(() => _heardCard = false);
+    try {
+      final text = [titleEn, descEn].where((t) => t.trim().isNotEmpty).join('. ');
+      final result = await ApiService.synthesizeSpeech(text, 'en-IN');
+      if (result != null) {
+        final audio = AudioPlayer();
+        await audio.play(BytesSource(result));
+        await Future.delayed(const Duration(seconds: 3));
+      }
+      setState(() => _heardCard = true);
+    } catch (_) {
+      _message('Audio playback failed.');
+    } finally {
+      setState(() => _speaking = false);
+    }
+  }
 
   void _showListenSheet(String title, String message, {VoidCallback? onPlay}) {
     showModalBottomSheet<void>(
@@ -157,15 +206,24 @@ class _Screen4ApprovalState extends State<Screen4Approval> {
 
   @override
   Widget build(BuildContext context) {
+    if (_loading) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
     final sp = context.watch<SessionProvider>();
-    final listing = sp.listing;
+    final listing = _listing ?? sp.listing;
 
     final cluster = listing?['cluster'] as String? ?? 'Chanderi Cluster, MP';
     final titleEn = listing?['title_en'] as String? ?? 'Heritage Craft Product';
     final descEn = listing?['desc_en'] as String? ??
         'Woven painstakingly on a traditional pit-loom using fine mulberry silk warp and hand-spun zari motifs.';
-    final priceNum = (listing?['prices']?['recommended'] as num?)?.toInt();
+    
+    final listedPriceValue = (listing?['prices']?['listed']?['value'] as num?)?.toInt();
+    final priceHintValue = (listing?['price_hint'] as num?)?.toInt();
+    final recommendedPrice = (listing?['prices']?['recommended']?['value'] as num?)?.toInt();
+    final priceNum = listedPriceValue ?? priceHintValue ?? recommendedPrice;
     final priceStr = priceNum != null ? '₹$priceNum' : '₹3,850';
+    
     final imageBytes = sp.enhancedImageBytes ?? sp.capturedImageBytes;
     final rawId = sp.listingId;
     final listingIdStr = rawId != null
@@ -264,11 +322,7 @@ class _Screen4ApprovalState extends State<Screen4Approval> {
               const SizedBox(height: 14),
               _ProvenanceCard(
                 description: descEn,
-                onListen: () => _showListenSheet(
-                  'Heritage Provenance Story',
-                  descEn,
-                  onPlay: () => sp.speakText(descEn),
-                ),
+                onListen: () => _listenToCard(titleEn, descEn),
               ),
               const SizedBox(height: 12),
               Row(
@@ -285,6 +339,26 @@ class _Screen4ApprovalState extends State<Screen4Approval> {
                 cluster: cluster,
                 onTap: () => _showGeoProof(cluster),
               ),
+              const SizedBox(height: 14),
+              // Confirmation checklist
+              Text('Your confirmation', style: KsTextStyles.section),
+              const SizedBox(height: 6),
+              ...[
+                'The product details are correct.',
+                'The listed price is my decision.',
+                'The story represents my work accurately.',
+                'The public card contains no claims I do not recognise.',
+              ].asMap().entries.map((entry) => Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Checkbox(
+                    value: _confirmations[entry.key],
+                    onChanged: (val) => setState(() => _confirmations[entry.key] = val ?? false),
+                    activeColor: KsColors.terracotta,
+                  ),
+                  Expanded(child: Padding(padding: const EdgeInsets.symmetric(vertical: 4), child: Text(entry.value, style: KsTextStyles.body()))),
+                ],
+              )).toList(),
               const SizedBox(height: 14),
               KsActionButton(
                 label: _isPublishing ? ks.publishingLabel : ks.approveAndPublish,
