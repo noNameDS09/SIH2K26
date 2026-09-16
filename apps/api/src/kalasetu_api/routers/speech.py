@@ -45,6 +45,33 @@ async def detect_language(file: UploadFile = File(...)) -> dict:
     audio = await file.read()
     if not audio:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Audio file is empty")
+    # Basic audio size validation to avoid sending silent/empty clips to LID
+    if len(audio) < 1000:
+        detected_code = "hi-IN"
+        transcript = ""
+        source = "mock-fallback"
+        confidence = 0.5
+        label = language_label(detected_code)
+        greeting = get_welcome_greeting(detected_code)
+        audio_b64 = ""
+        try:
+            tts_audio = synthesize_speech(greeting, language_code=detected_code)
+            audio_b64 = base64.b64encode(tts_audio).decode("ascii")
+        except Exception:
+            audio_b64 = ""
+        return {
+            "language_code": detected_code,
+            "language_name": label,
+            "transcript": transcript,
+            "greeting": greeting,
+            "audio_b64": audio_b64,
+            "content_type": "audio/wav" if audio_b64 else "",
+            "provenance": {
+                "source": source,
+                "version": "3",
+                "confidence": confidence,
+            },
+        }
 
     detected_code = "hi-IN"
     transcript = ""

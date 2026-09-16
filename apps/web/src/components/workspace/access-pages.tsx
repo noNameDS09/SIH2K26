@@ -180,12 +180,12 @@ function VoiceLanguageDetector({
               void audio.play().catch(() => {});
             }
 
-            // Auto-advance to /otp after brief confirmation
-            window.setTimeout(() => {
-              window.localStorage.setItem("kalasetu_language", res.language_code);
-              window.dispatchEvent(new CustomEvent("kalasetu_lang_change", { detail: res.language_code }));
-              router.push("/otp");
-            }, 2500);
+            // Auto-advance removed: user must confirm before proceeding
+            // Play greeting audio for confirmation, but do not navigate automatically
+            if (res.audio_b64) {
+              const audio = new Audio(`data:${res.content_type || "audio/wav"};base64,${res.audio_b64}`);
+              void audio.play().catch(() => {});
+            }
           } else {
             setStatus("error");
             setErrorMessage("भाषा पहचानी नहीं जा सकी। नीचे से चुनें। / Could not detect language.");
@@ -275,12 +275,32 @@ function VoiceLanguageDetector({
           )}
           {status === "detected" && detectedData && (
             <div className="ks-voice-lid-detected">
-              <Icon name="check" size={20} />
               <div>
                 <p className="ks-voice-lid-prompt">
                   <strong>{detectedData.name}</strong> पहचानी गई!
                 </p>
                 <p className="ks-voice-lid-subtext">{detectedData.greeting}</p>
+              </div>
+              <div style={{ display: "flex", gap: "8px", marginTop: "12px" }}>
+                <button
+                  type="button"
+                  className="ks-voice-lid-btn"
+                  onClick={() => {
+                    window.localStorage.setItem("kalasetu_language", detectedData.code);
+                    window.dispatchEvent(new CustomEvent("kalasetu_lang_change", { detail: detectedData.code }));
+                    router.push("/otp");
+                  }}
+                >
+                  <span>Continue →</span>
+                </button>
+                <button
+                  type="button"
+                  className="ks-voice-lid-btn"
+                  style={{ background: "var(--ks-paper)", border: "1px solid var(--ks-border)" }}
+                  onClick={() => setStatus("idle")}
+                >
+                  <span>Choose another language</span>
+                </button>
               </div>
             </div>
           )}
