@@ -5,6 +5,26 @@ import 'ks_colors.dart';
 abstract final class KsTextStyles {
   // ── Static getters (backward-compatible) ──────────────────────────────────
 
+  static TextStyle get h2 => GoogleFonts.plusJakartaSans(
+        fontSize: 20,
+        fontWeight: FontWeight.w700,
+        color: KsColors.ink,
+        height: 1.2,
+      );
+
+  static TextStyle get h3 => GoogleFonts.plusJakartaSans(
+        fontSize: 16,
+        fontWeight: FontWeight.w700,
+        color: KsColors.ink,
+        height: 1.3,
+      );
+
+  static TextStyle get buttonLabel => GoogleFonts.plusJakartaSans(
+        fontSize: 14,
+        fontWeight: FontWeight.w700,
+        color: KsColors.white,
+      );
+
   static TextStyle get display => GoogleFonts.playfairDisplay(
         fontSize: 25,
         height: 1.08,

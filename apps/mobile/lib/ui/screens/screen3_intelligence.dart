@@ -167,7 +167,7 @@ class _Screen3IntelligenceState extends State<Screen3Intelligence> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const SizedBox(height: 16),
-                      const KsProgressBar(totalSteps: 5, currentStep: 3, label: 'STAGE 3 — CRAFT INTELLIGENCE'),
+                      const KsProgressBar(totalSteps: 7, currentStep: 4, label: 'STAGE 4 — CRAFT INTELLIGENCE'),
                       const SizedBox(height: 12),
                       _StageBadge(label: ks.stage3Badge),
                       const SizedBox(height: 20),
@@ -294,7 +294,7 @@ class _Screen3IntelligenceState extends State<Screen3Intelligence> {
                         label: ks.reviewCta,
                         onTap: () {
                           _showSnack(ks.readyToVerify);
-                          context.go('/approval');
+                          context.go('/pricing');
                         },
                       ),
                       const SizedBox(height: 12),

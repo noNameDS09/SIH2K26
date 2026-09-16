@@ -1,9 +1,12 @@
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import 'package:record/record.dart';
 
 import 'l10n/locale_provider.dart';
+import '../services/api_service.dart';
 
 /// Voice-first language selection shown immediately after the launch splash.
 class LanguageScreen extends StatefulWidget {
@@ -42,10 +45,89 @@ class _LanguageScreenState extends State<LanguageScreen> {
 
   _Language _selectedLanguage = _languages.first;
   bool _isRecording = false;
+  bool _isDetecting = false;
+  final _recorder = AudioRecorder();
+  final List<Uint8List> _pcmChunks = [];
+
+  @override
+  void dispose() {
+    _recorder.dispose();
+    super.dispose();
+  }
 
   void _continue() {
     context.read<LocaleProvider>().setLocale(Locale(_selectedLanguage.localeCode));
-    context.go('/onboarding');
+    context.go('/otp');
+  }
+
+  Future<void> _onRecordingTap() async {
+    if (_isRecording) {
+      // Stop recording and detect language
+      setState(() { _isRecording = false; _isDetecting = true; });
+      try {
+        await _recorder.stop();
+        if (_pcmChunks.isNotEmpty) {
+          final wav = _buildWav(_pcmChunks);
+          final detectedCode = await ApiService.detectLanguage(wav);
+          if (detectedCode != null && mounted) {
+            // Map BCP-47 to locale code (e.g. mr-IN -> mr)
+            final langCode = detectedCode.split('-').first.toLowerCase();
+            final match = _languages.where((l) => l.localeCode == langCode).firstOrNull;
+            if (match != null) {
+              setState(() => _selectedLanguage = match);
+              // Play greeting if TTS available
+            }
+          }
+        }
+      } catch (_) {}
+      if (mounted) setState(() => _isDetecting = false);
+    } else {
+      // Start recording
+      _pcmChunks.clear();
+      try {
+        final hasPermission = await _recorder.hasPermission();
+        if (!hasPermission) return;
+        final stream = await _recorder.startStream(
+          const RecordConfig(encoder: AudioEncoder.pcm16bits, sampleRate: 16000, numChannels: 1),
+        );
+        stream.listen((chunk) => _pcmChunks.add(Uint8List.fromList(chunk)));
+        setState(() => _isRecording = true);
+        // Auto-stop after 3 seconds
+        Future.delayed(const Duration(seconds: 3), () {
+          if (_isRecording && mounted) _onRecordingTap();
+        });
+      } catch (_) {
+        setState(() => _isRecording = true);
+        Future.delayed(const Duration(seconds: 3), () {
+          if (_isRecording && mounted) setState(() => _isRecording = false);
+        });
+      }
+    }
+  }
+
+  static Uint8List _buildWav(List<Uint8List> chunks, {int sampleRate = 16000}) {
+    final pcm = Uint8List.fromList(chunks.expand((c) => c).toList());
+    final header = ByteData(44);
+    void setStr(int offset, String s) {
+      for (var i = 0; i < s.length; i++) header.setUint8(offset + i, s.codeUnitAt(i));
+    }
+    setStr(0, 'RIFF');
+    header.setUint32(4, 36 + pcm.length, Endian.little);
+    setStr(8, 'WAVE');
+    setStr(12, 'fmt ');
+    header.setUint32(16, 16, Endian.little);
+    header.setUint16(20, 1, Endian.little);
+    header.setUint16(22, 1, Endian.little);
+    header.setUint32(24, sampleRate, Endian.little);
+    header.setUint32(28, sampleRate * 2, Endian.little);
+    header.setUint16(32, 2, Endian.little);
+    header.setUint16(34, 16, Endian.little);
+    setStr(36, 'data');
+    header.setUint32(40, pcm.length, Endian.little);
+    final result = Uint8List(44 + pcm.length);
+    result.setRange(0, 44, header.buffer.asUint8List());
+    result.setRange(44, result.length, pcm);
+    return result;
   }
 
   @override
@@ -70,9 +152,8 @@ class _LanguageScreenState extends State<LanguageScreen> {
                     selectedLanguage: _selectedLanguage,
                     languages: _languages,
                     isRecording: _isRecording,
-                    onRecordingTap: () => setState(
-                      () => _isRecording = !_isRecording,
-                    ),
+                    isDetecting: _isDetecting,
+                    onRecordingTap: _onRecordingTap,
                     onLanguageChanged: (language) => setState(
                       () => _selectedLanguage = language,
                     ),
@@ -113,11 +194,13 @@ class _LanguageChoiceCard extends StatelessWidget {
     required this.onRecordingTap,
     required this.onLanguageChanged,
     required this.onContinue,
+    this.isDetecting = false,
   });
 
   final _Language selectedLanguage;
   final List<_Language> languages;
   final bool isRecording;
+  final bool isDetecting;
   final VoidCallback onRecordingTap;
   final ValueChanged<_Language> onLanguageChanged;
   final VoidCallback onContinue;
@@ -155,12 +238,14 @@ class _LanguageChoiceCard extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             Text(
-              isRecording
-                  ? 'Listening… tap again when you finish'
-                  : 'Tap to tell us your language',
+              isDetecting
+                  ? 'Detecting language…'
+                  : isRecording
+                      ? 'Listening… tap again when you finish'
+                      : 'Tap to tell us your language',
               textAlign: TextAlign.center,
               style: GoogleFonts.plusJakartaSans(
-                color: isRecording
+                color: isRecording || isDetecting
                     ? const Color(0xFF9F3C07)
                     : const Color(0xFF705F58),
                 fontSize: 11,

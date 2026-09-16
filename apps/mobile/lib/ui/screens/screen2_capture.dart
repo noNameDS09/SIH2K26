@@ -150,7 +150,7 @@ class _Screen2CaptureState extends State<Screen2Capture> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const SizedBox(height: 16),
-              const KsProgressBar(totalSteps: 5, currentStep: 2, label: 'STAGE 2 — PRODUCT CAPTURE'),
+              const KsProgressBar(totalSteps: 7, currentStep: 2, label: 'STAGE 2 — PRODUCT CAPTURE'),
               const SizedBox(height: 12),
               _StageBadge(label: ks.stage2Badge),
               const SizedBox(height: 20),
@@ -201,7 +201,7 @@ class _Screen2CaptureState extends State<Screen2Capture> {
               const SizedBox(height: 24),
               _RunIntelligenceButton(
                 label: ks.runIntelligence,
-                onTap: () => context.go('/intelligence'),
+                onTap: () => context.go('/studio'),
               ),
               const SizedBox(height: 12),
               Center(

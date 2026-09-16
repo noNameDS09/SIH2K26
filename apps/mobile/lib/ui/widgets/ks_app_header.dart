@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import '../theme/ks_colors.dart';
 import '../theme/ks_text_styles.dart';
+import '../routes/app_routes.dart';
+import 'ks_sahayak_widget.dart';
 
 class KsAppHeader extends StatelessWidget implements PreferredSizeWidget {
   const KsAppHeader({
@@ -8,11 +11,15 @@ class KsAppHeader extends StatelessWidget implements PreferredSizeWidget {
     required this.title,
     this.onBack,
     this.showProfile = true,
+    this.showSahayak = false,
+    this.languageChip,
   });
 
   final String title;
   final VoidCallback? onBack;
   final bool showProfile;
+  final bool showSahayak;
+  final String? languageChip;
 
   @override
   Size get preferredSize => const Size.fromHeight(56);
@@ -44,21 +51,49 @@ class KsAppHeader extends StatelessWidget implements PreferredSizeWidget {
                 Expanded(
                   child: Text(title, style: KsTextStyles.section),
                 ),
+
+                // Language chip
+                if (languageChip != null) ...[
+                  GestureDetector(
+                    onTap: () => context.go(AppRoutes.language),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: KsColors.peach3,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(languageChip!,
+                          style: KsTextStyles.label(color: KsColors.terracotta, size: 10)),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                ],
+
+                // Sahayak mic button
+                if (showSahayak) ...[
+                  IconButton(
+                    tooltip: 'Sahayak AI Assistant',
+                    onPressed: () => KsSahayakWidget.show(context),
+                    icon: const Icon(Icons.auto_awesome, size: 18),
+                    style: IconButton.styleFrom(
+                      minimumSize: const Size(36, 36),
+                      foregroundColor: KsColors.terracotta,
+                      backgroundColor: KsColors.peach3,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                ],
+
                 if (showProfile)
                   Material(
                     color: KsColors.terracottaDark,
                     shape: const CircleBorder(),
                     child: InkWell(
                       customBorder: const CircleBorder(),
-                      onTap: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Profile — Coming Soon'),
-                            duration: Duration(seconds: 2),
-                            behavior: SnackBarBehavior.floating,
-                          ),
-                        );
-                      },
+                      onTap: () => context.go(AppRoutes.settings),
                       child: const SizedBox(
                         width: 38,
                         height: 38,

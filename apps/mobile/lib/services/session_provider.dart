@@ -116,6 +116,17 @@ class SessionProvider extends ChangeNotifier {
     _setLoading(false, null);
   }
 
+  // ── Typed text submit ─────────────────────────────────────────────────────
+
+  Future<void> submitTypedText(String text, {String langCode = 'mr-IN'}) async {
+    if (isLoading) return;
+    _setLoading(true, 'माहिती नोंदवत आहे…');
+    lastTranscript = text;
+    final result = await ApiService.catalogTurn(session: _session, transcript: text);
+    _applyTurnResult(result);
+    _setLoading(false, null);
+  }
+
   // ── TTS + audio playback ──────────────────────────────────────────────────
 
   Future<void> speakText(String text, {String langCode = 'mr-IN'}) async {
@@ -139,6 +150,15 @@ class SessionProvider extends ChangeNotifier {
   }
 
   bool enhancedIsMock = false;
+  double? imageEnhanceDeltaE;
+  String _currentBgPreset = 'natural_light';
+
+  /// Re-enhances the already-captured image with a different background preset.
+  Future<void> reEnhanceWithPreset({required String preset}) async {
+    if (capturedImageBytes == null) return;
+    _currentBgPreset = preset;
+    await _enhanceInBackground(capturedImageBytes!, bgPreset: preset);
+  }
 
   /// Stores the artisan's explicit price choice separately from the AI
   /// recommendation so the approval card can clearly use the override.
@@ -154,15 +174,19 @@ class SessionProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> _enhanceInBackground(Uint8List bytes) async {
+  Future<void> _enhanceInBackground(Uint8List bytes, {String? bgPreset}) async {
     isEnhancing = true;
     enhancedIsMock = false;
     notifyListeners();
-    final id = 'listing-${DateTime.now().millisecondsSinceEpoch}';
+    final id = listingId ?? 'listing-${DateTime.now().millisecondsSinceEpoch}';
     listingId = id;
     // Run API call and minimum animation time in parallel
     final results = await Future.wait([
-      ApiService.enhanceImage(imageBytes: bytes, listingId: id),
+      ApiService.enhanceImage(
+        imageBytes: bytes,
+        listingId: id,
+        bgPreset: bgPreset ?? _currentBgPreset,
+      ),
       Future.delayed(const Duration(seconds: 3)),
     ]);
     final result = results[0] as Map<String, dynamic>?;
@@ -176,10 +200,12 @@ class SessionProvider extends ChangeNotifier {
         enhancedImageBytes = bytes;
       }
       enhancedIsMock = result['accepted'] != true;
+      imageEnhanceDeltaE = (result['delta_e'] as num?)?.toDouble();
     } else {
       // Backend offline — show original as placeholder, flag as mock
       enhancedImageBytes = bytes;
       enhancedIsMock = true;
+      imageEnhanceDeltaE = null;
     }
     notifyListeners();
   }

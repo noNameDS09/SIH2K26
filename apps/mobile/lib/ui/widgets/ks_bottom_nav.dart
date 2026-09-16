@@ -13,11 +13,11 @@ class KsBottomNav extends StatelessWidget {
   final ValueChanged<int> onTap;
 
   static const _items = [
-    (Icons.home_outlined, 'Studio'),
-    (Icons.grid_view_rounded, 'Kala List'),
-    (Icons.mic_none_rounded, 'Bolo'),
-    (Icons.groups_outlined, 'Samuh'),
-    (Icons.storefront_outlined, 'Bazaar'),
+    (Icons.home_outlined, 'Home'),
+    (Icons.add_a_photo_outlined, 'Add'),
+    (Icons.grid_view_rounded, 'Catalog'),
+    (Icons.currency_rupee, 'Money'),
+    (Icons.insights_outlined, 'Insights'),
   ];
 
   @override
