@@ -2,18 +2,18 @@ import 'package:flutter/material.dart';
 
 abstract final class KsColors {
   // ── Base surfaces ─────────────────────────────────────────────────────────
-  static const background   = Color(0xFFFCF9F5);
+  static const background   = Color(0xFFffeed6)  // web cream, pipeline background;
   static const surface      = Color(0xFFFFFFFF);
-  static const surfaceWarm  = Color(0xFFF4ECE5);
-  static const surfaceMuted = Color(0xFFEDE4DC);
+  static const surfaceWarm  = Color(0xFFfcf4e3)  // web cream light;
+  static const surfaceMuted = Color(0xFFe8dcc6)  // web paper muted;
 
   // Surface aliases used by screens
-  static const surface1 = Color(0xFFF4ECE5); // == surfaceWarm
-  static const surface2 = Color(0xFFEDE4DC); // == surfaceMuted
+  static const surface1 = Color(0xFFfcf4e3)  // web cream light; // == surfaceWarm
+  static const surface2 = Color(0xFFe8dcc6)  // web paper muted; // == surfaceMuted
   static const surface3 = Color(0xFFF3EDE9); // slightly lighter muted
 
   // ── Brand – terracotta ────────────────────────────────────────────────────
-  static const terracotta     = Color(0xFFAD3E05);
+  static const terracotta     = Color(0xFF827148)  // web brown, pipeline brand;
   static const terracottaDark = Color(0xFF873006);
   static const terracottaSoft = Color(0xFFF3DED2);
   static const orange         = Color(0xFFE05A1A);

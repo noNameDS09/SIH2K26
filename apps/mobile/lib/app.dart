@@ -11,7 +11,15 @@ class KalaSetuApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MultiProvider(
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: Opacity(
+            opacity: 0.04,
+            child: Image.asset('assets/heroes/KS-Hero-transparent.png', fit: BoxFit.cover, repeat: ImageRepeat.repeatY),
+          ),
+        ),
+        MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => LocaleProvider()),
         ChangeNotifierProvider(create: (_) => SessionProvider()),
@@ -36,7 +44,7 @@ class KalaSetuApp extends StatelessWidget {
             ),
           ),
         ),
-      ),
+      ],
     );
   }
 }

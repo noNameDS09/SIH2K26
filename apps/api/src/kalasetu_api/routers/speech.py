@@ -6,14 +6,15 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, s
 from pydantic import BaseModel, Field
 
 from kalasetu_api.adapters.speech.sarvam import SarvamError, synthesize_speech, transcribe_audio
-from kalasetu_api.deps import require_bearer
+from kalasetu_api.deps import current_uid, require_bearer
 from kalasetu_api.engines.cataloger import (
     CatalogerSession,
     apply_transcript,
+    apply_live_tool,
     listing_table_rows,
-    session_field_values,
     start_session,
 )
+from kalasetu_api.adapters.firebase import save_listing, get_firestore_client
 from kalasetu_api.engines.languages import (
     get_welcome_greeting,
     language_label,
@@ -175,7 +176,11 @@ async def tts(body: TtsRequest, _: str = Depends(require_bearer)) -> dict:
 
 
 @router.post("/live/turn")
-async def live_turn(body: CatalogTurnRequest, _: str = Depends(require_bearer)) -> dict:
+async def live_turn(
+    body: CatalogTurnRequest,
+    uid: str = Depends(current_uid),
+    _: str = Depends(require_bearer),
+) -> dict:
     """Turn-based cataloger (Flash JSON at the end). Not a Gemini Live socket."""
     session = (
         start_session(cluster=body.cluster, language_code=body.language_code)
@@ -184,6 +189,22 @@ async def live_turn(body: CatalogTurnRequest, _: str = Depends(require_bearer)) 
     )
     if body.transcript.strip():
         session = apply_transcript(session, body.transcript, auto_advance=True)
+    # Persist session state to Firestore (catalog session) — Milestone 4 fix
+    try:
+        from kalasetu_api.config import get_settings, Settings
+        settings = get_settings()
+        db = get_firestore_client(settings)
+        if db is not None:
+            session_doc_ref = db.collection("catalog_sessions").document(f"{uid}_default")
+            session_doc_ref.set({
+                "uid": uid,
+                "session": session.to_dict(),
+                "updatedAt": __import__('datetime').datetime.now(__import__('datetime').timezone.utc).isoformat(),
+                "listing_id": (session.listing or {}).get("id") if isinstance(session.listing, dict) else None,
+            })
+    except Exception:
+        pass  # Persistence failure must not break turn response
+
     return {
         "session": session.to_dict(),
         "speak": session.speak,

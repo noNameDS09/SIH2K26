@@ -153,6 +153,23 @@ class ApiService {
     }
   }
 
+  // ── Listings: price calculation ───────────────────────────────────────────
+
+  static Future<Map<String, dynamic>?> priceCalculation(String listingId) async {
+    try {
+      final res = await http
+          .post(
+            Uri.parse('$_base/v1/listings/$listingId/price'),
+            headers: _authHeaders,
+          )
+          .timeout(const Duration(seconds: 15));
+      if (res.statusCode == 200) {
+        return jsonDecode(res.body) as Map<String, dynamic>;
+      }
+    } catch (_) {}
+    return null;
+  }
+
   // ── Listings: sign & publish ──────────────────────────────────────────────
 
   static Future<Map<String, dynamic>?> signListing(String listingId) async {
@@ -175,7 +192,46 @@ class ApiService {
     };
   }
 
-  // ── Generic byte fetch (for studio_url, etc.) ────────────────────────────
+  // ── Listings: export & market ─────────────────────────────────────────────
+
+  static Future<Map<String, dynamic>?> exportPreparation(String listingId, String channel) async {
+    try {
+      final res = await http
+          .post(
+            Uri.parse('$_base/v1/listings/$listingId/export'),
+            headers: _authHeaders,
+            body: jsonEncode({'channel': channel}),
+          )
+          .timeout(const Duration(seconds: 15));
+      if (res.statusCode == 200) return jsonDecode(res.body) as Map<String, dynamic>;
+    } catch (_) {}
+    return null;
+  }
+
+  static Future<List<dynamic>> marketLoad() async {
+    try {
+      final res = await http
+          .get(Uri.parse('$_base/v1/market'))
+          .timeout(const Duration(seconds: 15));
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body) as Map<String, dynamic>;
+        return data['items'] as List<dynamic>? ?? [];
+      }
+    } catch (_) {}
+    return [];
+  }
+
+  static Future<Map<String, dynamic>?> publicCardLoad(String listingId) async {
+    try {
+      final res = await http
+          .get(Uri.parse('$_base/v1/listings/$listingId'))
+          .timeout(const Duration(seconds: 15));
+      if (res.statusCode == 200) return jsonDecode(res.body) as Map<String, dynamic>;
+    } catch (_) {}
+    return null;
+  }
+
+  // ── Generic byte fetch (for studio_url, etc.) ─────────────────────────────
 
   static Future<Uint8List?> fetchBytes(String url) async {
     try {
