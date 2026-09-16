@@ -47,6 +47,36 @@ QUESTIONS_MR: dict[str, str] = {
     "extras": "आणखी काही सांगायचे आहे का? नाही तर नाही म्हणा.",
 }
 
+QUESTIONS_HI: dict[str, str] = {
+    "craft": "यह कौन सा उत्पाद है? उदाहरण के लिए साड़ी, दीपक या आभूषण।",
+    "material": "यह किस चीज़ से बना है? सामग्री बताइए।",
+    "technique": "इसे कैसे बनाया? कौन सी कला या तकनीक इस्तेमाल की?",
+    "hours": "इसे बनाने में कितने घंटे या दिन लगे?",
+    "colour": "मुख्य रंग कौन से हैं?",
+    "occasion": "इसे कब इस्तेमाल करते हैं—त्योहार, शादी या रोज़मर्रा में?",
+    "gi": "क्या इसे जीआई टैग मिला है? हाँ, नहीं या पता नहीं।",
+    "material_cost_inr": "सामग्री पर कितने रुपये खर्च हुए?",
+    "material_source": "सामग्री अपनी थी, दुकान से ली या व्यापारी से?",
+    "effort": "काम आसान, सामान्य या कुशल कारीगरी वाला था?",
+    "extras": "और कुछ बताना चाहते हैं? नहीं हो तो नहीं कहें।",
+}
+
+QUESTIONS_EN: dict[str, str] = {
+    "craft": "What is this product called? For example, a saree, lamp, or piece of jewellery.",
+    "material": "What is it made from? Please tell us the material.",
+    "technique": "How did you make it? Which craft or technique did you use?",
+    "hours": "How many hours or days did it take to make?",
+    "colour": "What are the main colours?",
+    "occasion": "When do people use it—for festivals, weddings, or everyday use?",
+    "gi": "Does it have a GI tag? Say yes, no, or I do not know.",
+    "material_cost_inr": "How many rupees did you spend on the materials?",
+    "material_source": "Were the materials your own, bought from a shop, or bought from a trader?",
+    "effort": "Was the work simple, regular, or skilled?",
+    "extras": "Is there anything else buyers should know? Say no if not.",
+}
+
+QUESTIONS_BY_LANGUAGE = {"hi-IN": QUESTIONS_HI, "en-IN": QUESTIONS_EN, "mr-IN": QUESTIONS_MR}
+
 LABELS_MR: dict[str, str] = {
     "craft": "उत्पादन",
     "material": "साहित्य",
@@ -59,6 +89,20 @@ LABELS_MR: dict[str, str] = {
     "material_source": "साहित्य स्रोत",
     "effort": "कष्ट",
     "extras": "अधिक",
+}
+
+LABELS_BY_LANGUAGE = {
+    "hi-IN": {
+        "craft": "उत्पाद", "material": "सामग्री", "technique": "तकनीक", "hours": "समय",
+        "colour": "रंग", "occasion": "अवसर", "gi": "जीआई", "material_cost_inr": "सामग्री खर्च",
+        "material_source": "सामग्री स्रोत", "effort": "मेहनत", "extras": "अन्य",
+    },
+    "en-IN": {
+        "craft": "Product", "material": "Material", "technique": "Technique", "hours": "Time",
+        "colour": "Colours", "occasion": "Occasion", "gi": "GI tag", "material_cost_inr": "Material cost",
+        "material_source": "Material source", "effort": "Effort", "extras": "Other",
+    },
+    "mr-IN": LABELS_MR,
 }
 
 _DEV_DIGITS = str.maketrans("०१२३४५६७८९", "0123456789")
@@ -146,6 +190,16 @@ def _now_iso() -> str:
 
 def _fold(text: str) -> str:
     return re.sub(r"\s+", " ", (text or "").strip().lower())
+
+
+def question_for(language_code: str, slot: str) -> str:
+    questions = QUESTIONS_BY_LANGUAGE.get(language_code, QUESTIONS_MR)
+    return questions.get(slot, questions["extras"])
+
+
+def label_for(language_code: str, slot: str) -> str:
+    labels = LABELS_BY_LANGUAGE.get(language_code, LABELS_MR)
+    return labels.get(slot, slot)
 
 
 def _provenance(source: str, confidence: float, version: str = "1") -> dict[str, Any]:
@@ -252,8 +306,12 @@ def display_value(value: Any) -> str:
     return str(value)
 
 
-def reread_line(slot: str, value: Any) -> str:
-    return f"{LABELS_MR[slot]}: {display_value(value)}. बरोबर आहे का?"
+def reread_line(slot: str, value: Any, language_code: str = LANG_MR) -> str:
+    if language_code == "en-IN":
+        return f"{label_for(language_code, slot)}: {display_value(value)}. Is that correct?"
+    if language_code == "hi-IN":
+        return f"{label_for(language_code, slot)}: {display_value(value)}। क्या यह सही है?"
+    return f"{label_for(language_code, slot)}: {display_value(value)}. बरोबर आहे का?"
 
 
 @dataclass
@@ -325,9 +383,9 @@ class CatalogerSession:
             cluster=data.get("cluster") or "varanasi",
             phase=data.get("phase") or "interviewing",
             current_slot=data.get("current_slot") or "craft",
-            question=data.get("question") or QUESTIONS_MR["craft"],
+            question=data.get("question") or question_for(data.get("language_code") or LANG_MR, "craft"),
             reread=data.get("reread"),
-            speak=data.get("speak") or QUESTIONS_MR["craft"],
+            speak=data.get("speak") or question_for(data.get("language_code") or LANG_MR, "craft"),
             listing=data.get("listing"),
             error=data.get("error"),
             artisan_name=data.get("artisan_name") or "",
@@ -346,7 +404,7 @@ def start_session(
     artisan_name: str = "",
     photo_attached: bool = False,
 ) -> CatalogerSession:
-    question = QUESTIONS_MR["craft"]
+    question = question_for(language_code, "craft")
     return CatalogerSession(
         language_code=language_code,
         cluster=cluster,
@@ -383,15 +441,15 @@ def _capture(session: CatalogerSession, slot: str, transcript: str, *, unknown: 
     state.confirmed = False
     session.current_slot = slot
     session.phase = "confirming"
-    session.reread = reread_line(slot, state.value)
+    session.reread = reread_line(slot, state.value, session.language_code)
     session.speak = session.reread
-    session.question = QUESTIONS_MR[slot]
+    session.question = question_for(session.language_code, slot)
 
 
 def _ask(session: CatalogerSession, slot: str) -> None:
     session.current_slot = slot
     session.phase = "interviewing"
-    session.question = QUESTIONS_MR[slot]
+    session.question = question_for(session.language_code, slot)
     session.reread = None
     session.speak = session.question
 
@@ -451,20 +509,19 @@ def _finalize(session: CatalogerSession) -> CatalogerSession:
 
     prices = compute_prices(fields, cluster=session.cluster)
     listing = {
-        "fields": {
-            key: {
-                "value": fields.get(key),
-                "provenance": session.slots.get(key, SlotState()).provenance
-                or _provenance(source, confidence),
-            }
+        # Persist user-facing values as plain fields. Provenance stays beside
+        # them so pricing, review, and export can consume the same shape.
+        "fields": fields,
+        "provenance": [
+            {"field": key, **(session.slots.get(key, SlotState()).provenance or _provenance(source, confidence))}
             for key in SLOT_ORDER
-        },
-        "title_hi": {"value": copy["title_hi"], "provenance": _provenance(source, confidence)},
-        "title_en": {"value": copy["title_en"], "provenance": _provenance(source, confidence)},
-        "desc_hi": {"value": copy["desc_hi"], "provenance": _provenance(source, confidence)},
-        "desc_en": {"value": copy["desc_en"], "provenance": _provenance(source, confidence)},
-        "title_local": {"value": copy["title_local"] or copy["title_en"], "provenance": _provenance(source, confidence)},
-        "desc_local": {"value": copy["desc_local"] or copy["desc_en"], "provenance": _provenance(source, confidence)},
+        ],
+        "title_hi": copy["title_hi"],
+        "title_en": copy["title_en"],
+        "desc_hi": copy["desc_hi"],
+        "desc_en": copy["desc_en"],
+        "title_local": copy["title_local"] or copy["title_en"],
+        "desc_local": copy["desc_local"] or copy["desc_en"],
         "prices": prices,
         "cluster": session.cluster,
         "language_code": session.language_code,
@@ -474,7 +531,11 @@ def _finalize(session: CatalogerSession) -> CatalogerSession:
     read_title = copy["title_local"] or copy["title_mr"] or copy["title_hi"] or display_value(fields.get("craft"))
     read_desc = copy["desc_local"] or copy["desc_mr"] or copy["desc_hi"]
     session.speak = f"{read_title}. {read_desc}".strip()
-    session.question = "लिस्टिंग तयार आहे."
+    session.question = {
+        "en-IN": "Your listing is ready.",
+        "hi-IN": "आपकी लिस्टिंग तैयार है।",
+        "mr-IN": "लिस्टिंग तयार आहे.",
+    }.get(session.language_code, "Your listing is ready.")
     session.reread = session.speak
     return session
 
@@ -657,6 +718,15 @@ def listing_table_rows(session: CatalogerSession) -> list[dict[str, Any]]:
     return rows
 
 
+def session_field_values(session: CatalogerSession) -> dict[str, Any]:
+    """Return the current interview values in the persistence shape."""
+    return {
+        name: state.value
+        for name, state in session.slots.items()
+        if state.value not in (None, "", [])
+    }
+
+
 def _coerce_live_value(slot: str, value_text: str, unknown: bool) -> tuple[Any, float]:
     if unknown or not (value_text or "").strip():
         if slot == "colour":
@@ -691,9 +761,9 @@ def apply_live_tool(session: CatalogerSession, name: str, args: dict[str, Any] |
         state.provenance = _provenance("gemini-live-catalog.v1", confidence)
         session.current_slot = slot
         session.phase = "confirming"
-        session.reread = reread_line(slot, state.value)
+        session.reread = reread_line(slot, state.value, session.language_code)
         session.speak = session.reread
-        session.question = QUESTIONS_MR.get(slot, session.reread)
+        session.question = question_for(session.language_code, slot)
         return {
             "ok": True,
             "slot": slot,
@@ -759,29 +829,17 @@ def _apply_write_copy(session: CatalogerSession, copy: dict[str, Any]) -> dict[s
     fields["extras"] = extras
     prices = compute_prices(fields, cluster=session.cluster)
     listing = {
-        "fields": {
-            key: {
-                "value": fields.get(key),
-                "provenance": session.slots[key].provenance or _provenance(source, confidence),
-            }
+        "fields": fields,
+        "provenance": [
+            {"field": key, **(session.slots[key].provenance or _provenance(source, confidence))}
             for key in SLOT_ORDER
-        },
-        "title_hi": {
-            "value": copy.get("title_hi") or "",
-            "provenance": _provenance(source, confidence),
-        },
-        "title_en": {
-            "value": copy.get("title_en") or "",
-            "provenance": _provenance(source, confidence),
-        },
-        "desc_hi": {
-            "value": copy.get("desc_hi") or "",
-            "provenance": _provenance(source, confidence),
-        },
-        "desc_en": {
-            "value": copy.get("desc_en") or "",
-            "provenance": _provenance(source, confidence),
-        },
+        ],
+        "title_hi": copy.get("title_hi") or "",
+        "title_en": copy.get("title_en") or "",
+        "desc_hi": copy.get("desc_hi") or "",
+        "desc_en": copy.get("desc_en") or "",
+        "title_local": title_local or copy.get("title_en") or "",
+        "desc_local": desc_local or copy.get("desc_en") or "",
         "prices": prices,
         "cluster": session.cluster,
         "language_code": session.language_code,

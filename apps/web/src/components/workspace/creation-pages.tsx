@@ -116,6 +116,13 @@ function listingTitle(listing: Listing | null) {
   return listing?.title_en || listing?.title || listing?.title_hi || "Untitled product";
 }
 
+function persistedValue(value: unknown): unknown {
+  if (value && typeof value === "object" && "value" in value) {
+    return (value as { value?: unknown }).value;
+  }
+  return value;
+}
+
 function listedPrice(listing: Listing | null) {
   const listed = listing?.prices?.listed?.value;
   if (typeof listed === "number") return listed;
@@ -547,9 +554,11 @@ export function LiveCatalogPage() {
   const [error, setError] = useState("");
   const [sttProvenance, setSttProvenance] = useState<ProvenanceData | null>(null);
   const [turnProvenance, setTurnProvenance] = useState<ProvenanceData | null>(null);
+  const [speakingQuestion, setSpeakingQuestion] = useState(false);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
+  const questionAudioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
     const languageTimer = window.setTimeout(() => setLanguage(storedLanguage()), 0);
@@ -576,8 +585,42 @@ export function LiveCatalogPage() {
         recorderRef.current.stop();
       }
       streamRef.current?.getTracks().forEach((track) => track.stop());
+      questionAudioRef.current?.pause();
     };
   }, []);
+
+  const hearQuestion = async () => {
+    if (!question || speakingQuestion) return;
+    setSpeakingQuestion(true);
+    try {
+      const result = await api.tts(question, language);
+      questionAudioRef.current?.pause();
+      const audio = new Audio(`data:${result.content_type || "audio/wav"};base64,${result.audio_b64}`);
+      questionAudioRef.current = audio;
+      audio.onended = () => setSpeakingQuestion(false);
+      await audio.play();
+    } catch (cause) {
+      setError(errorMessage(cause, "The question could not be spoken. You can read it on screen."));
+      setSpeakingQuestion(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!listing || Object.keys(session).length > 0) return;
+    api
+      .liveTurn({
+        transcript: "",
+        language_code: language,
+        cluster: String(listing.cluster || listing.artisan?.cluster || ""),
+      })
+      .then((result) => {
+        setSession(result.session || {});
+        setQuestion(result.question || "What is this product called?");
+      })
+      .catch(() => {
+        // The typed/voice controls remain usable with the local fallback prompt.
+      });
+  }, [language, listing, session]);
 
   const runTurn = async (transcript: string) => {
     const cleanTranscript = transcript.trim();
@@ -594,27 +637,33 @@ export function LiveCatalogPage() {
         session,
       });
       const generated = result.listing || {};
+      const generatedFields = Object.fromEntries(
+        Object.entries((generated.fields as Record<string, unknown> | undefined) || {}).map(
+          ([key, value]) => [key, persistedValue(value)],
+        ),
+      );
       const mergedFields = {
         ...(listing.fields || {}),
-        ...generated,
+        ...(result.fields || {}),
+        ...generatedFields,
       };
       const updated = await api.patchListing(listing.id, {
         fields: mergedFields,
         title_en:
-          typeof generated.title_en === "string"
-            ? generated.title_en
+          typeof persistedValue(generated.title_en) === "string"
+            ? persistedValue(generated.title_en)
             : listing.title_en,
         title_hi:
-          typeof generated.title_hi === "string"
-            ? generated.title_hi
+          typeof persistedValue(generated.title_hi) === "string"
+            ? persistedValue(generated.title_hi)
             : listing.title_hi,
         desc_en:
-          typeof generated.desc_en === "string"
-            ? generated.desc_en
+          typeof persistedValue(generated.desc_en) === "string"
+            ? persistedValue(generated.desc_en)
             : listing.desc_en,
         desc_hi:
-          typeof generated.desc_hi === "string"
-            ? generated.desc_hi
+          typeof persistedValue(generated.desc_hi) === "string"
+            ? persistedValue(generated.desc_hi)
             : listing.desc_hi,
       });
 
@@ -692,6 +741,9 @@ export function LiveCatalogPage() {
           const audio = new Blob(chunksRef.current, { type: sarvamAudioMimeType(recorder.mimeType) });
           const result = await api.stt(audio, language);
           setSttProvenance(result.provenance);
+          if (!result.transcript.trim()) {
+            throw new Error("We could not hear an answer. Please speak a little longer and try again.");
+          }
           await runTurn(result.transcript);
         } catch (cause) {
           setError(errorMessage(cause, "Your speech could not be transcribed."));
@@ -760,6 +812,10 @@ export function LiveCatalogPage() {
           <section className="ks-live-question" aria-busy={busy}>
             <p className="ks-eyebrow">KalaSetu asks</p>
             <h2>{question}</h2>
+            <button className="ks-text-action" type="button" onClick={() => void hearQuestion()} disabled={speakingQuestion}>
+              <Icon name="voice" size={16} />
+              {speakingQuestion ? "Speaking question…" : "Hear question aloud"}
+            </button>
 
             <button
               className={`ks-record-button${recording ? " is-recording" : ""}`}

@@ -11,6 +11,7 @@ from kalasetu_api.engines.cataloger import (
     CatalogerSession,
     apply_transcript,
     listing_table_rows,
+    session_field_values,
     start_session,
 )
 from kalasetu_api.engines.languages import (
@@ -164,6 +165,7 @@ async def live_turn(body: CatalogTurnRequest, _: str = Depends(require_bearer)) 
         "phase": session.phase,
         "done": session.phase == "complete",
         "listing": session.listing,
+        "fields": session_field_values(session),
         "table": listing_table_rows(session) if session.phase == "complete" else [],
         "source_label": "Turn cataloger — not Gemini Live",
     }

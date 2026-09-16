@@ -1032,6 +1032,30 @@
   border-color: var(--ks-sage);
 }
 
+.ks-text-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-block-start: 14px;
+  padding: 8px 12px;
+  border: 1px solid color-mix(in srgb, var(--ks-olive) 42%, transparent);
+  border-radius: 999px;
+  background: var(--ks-paper);
+  color: var(--ks-ink);
+  font: inherit;
+  font-size: 0.86rem;
+  cursor: pointer;
+}
+
+.ks-text-action:hover:not(:disabled) {
+  background: var(--ks-sage);
+}
+
+.ks-text-action:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+
 .ks-record-button {
   width: 100%;
   min-height: 116px;

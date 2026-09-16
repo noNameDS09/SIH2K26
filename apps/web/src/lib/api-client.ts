@@ -141,7 +141,7 @@ export const api = {
     form.set("craft", options.craft || "");
     return request<{ accepted: boolean; deltaE: number; original_url: string; studio_url: string; used_studio: boolean; reused_original?: boolean; bg_preset: string; provenance: Provenance }>("/v1/images/enhance", { method: "POST", body: form });
   },
-  liveTurn: (body: { transcript: string; language_code: string; cluster: string; session?: Record<string, unknown> }) => request<{ session: Record<string, unknown>; question: string; speak: string; done: boolean; listing: Record<string, unknown>; provenance?: Provenance }>("/v1/speech/live/turn", { method: "POST", body: JSON.stringify(body) }),
+  liveTurn: (body: { transcript: string; language_code: string; cluster: string; session?: Record<string, unknown> }) => request<{ session: Record<string, unknown>; question: string; speak: string; done: boolean; listing: Record<string, unknown> | null; fields?: Record<string, unknown>; provenance?: Provenance }>("/v1/speech/live/turn", { method: "POST", body: JSON.stringify(body) }),
   stt: async (audio: Blob, languageCode = "en-IN") => { const form = new FormData(); form.set("file", audio, audioUploadName(audio, "catalog-answer")); form.set("language_code", languageCode); return request<{ transcript: string; language_code: string; provenance: Provenance }>("/v1/speech/stt", { method: "POST", body: form }); },
   tts: (text: string, languageCode = "en-IN") => request<{ audio_b64: string; content_type: string; provenance: Provenance }>("/v1/speech/tts", { method: "POST", body: JSON.stringify({ text, language_code: languageCode }) }),
   detectLanguage: async (audio: Blob) => {
