@@ -458,7 +458,11 @@ def _advance(session: CatalogerSession) -> None:
     nxt = _next_unconfirmed(session)
     if nxt is None:
         session.phase = "copy"
-        session.speak = "सगळी माहिती मिळाली. लिस्टिंग तयार करतो."
+        session.speak = {
+            "en-IN": "I have all the details. I am preparing your listing.",
+            "hi-IN": "सारी जानकारी मिल गई है। आपकी लिस्टिंग तैयार कर रहा हूँ।",
+            "mr-IN": "सगळी माहिती मिळाली. लिस्टिंग तयार करतो.",
+        }.get(session.language_code, "I have all the details. I am preparing your listing.")
         session.question = session.speak
         return
     _ask(session, nxt)
@@ -540,7 +544,12 @@ def _finalize(session: CatalogerSession) -> CatalogerSession:
     return session
 
 
-def apply_transcript(session: CatalogerSession, transcript: str) -> CatalogerSession:
+def apply_transcript(
+    session: CatalogerSession,
+    transcript: str,
+    *,
+    auto_advance: bool = False,
+) -> CatalogerSession:
     session.error = None
     intent = classify_intent(transcript)
     slot = session.current_slot
@@ -578,14 +587,26 @@ def apply_transcript(session: CatalogerSession, transcript: str) -> CatalogerSes
         _capture(session, slot, transcript)
         return session
 
-    # interviewing — confirm/reject words are answers here (हो = GI yes).
+    # Interviewing is deliberately one question -> one field. The UI does not
+    # expose a second confirmation recording, so accepting here prevents the
+    # next answer from being written back into the previous slot.
     if intent == "repeat":
         session.speak = session.question
         return session
     if intent == "unknown":
         _capture(session, slot, transcript, unknown=True)
+        if auto_advance:
+            session.slots[slot].confirmed = True
+            _advance(session)
+            if session.phase == "copy":
+                return _finalize(session)
         return session
     _capture(session, slot, transcript)
+    if auto_advance:
+        session.slots[slot].confirmed = True
+        _advance(session)
+        if session.phase == "copy":
+            return _finalize(session)
     return session
 
 

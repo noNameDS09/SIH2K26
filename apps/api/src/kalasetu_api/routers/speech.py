@@ -156,7 +156,7 @@ async def live_turn(body: CatalogTurnRequest, _: str = Depends(require_bearer)) 
         else CatalogerSession.from_dict(body.session)
     )
     if body.transcript.strip():
-        session = apply_transcript(session, body.transcript)
+        session = apply_transcript(session, body.transcript, auto_advance=True)
     return {
         "session": session.to_dict(),
         "speak": session.speak,
