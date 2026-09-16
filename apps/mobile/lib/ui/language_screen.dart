@@ -1,8 +1,12 @@
+import 'dart:typed_data';
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:record/record.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'l10n/locale_provider.dart';
+import '../services/api_service.dart';
 
 class LanguageScreen extends StatefulWidget {
   const LanguageScreen({super.key});
@@ -74,6 +78,14 @@ class _LanguageScreenState extends State<LanguageScreen> {
                       ),
                     ),
                     const SizedBox(height: 22),
+                    _VoiceLanguageButton(onDetected: (code, name) {
+                      final lang = _languages.cast<_Language?>().firstWhere(
+                        (l) => l?.localeCode == (code.split('-').isNotEmpty ? code.split('-').first : code),
+                        orElse: () => null,
+                      );
+                      if (lang != null) setState(() => _selectedLanguage = lang);
+                    }),
+                    const SizedBox(height: 12),
                     _LanguageGrid(
                       languages: _languages,
                       selectedLanguage: _selectedLanguage,
@@ -266,7 +278,7 @@ class _ContinueBar extends StatelessWidget {
         child: FilledButton(
           onPressed: () {
             context.read<LocaleProvider>().setLocale(Locale(language.localeCode));
-            context.go('/onboarding');
+            context.go('/otp');
           },
           style: FilledButton.styleFrom(
             backgroundColor: const Color(0xFF9F3C07),
@@ -295,4 +307,97 @@ class _Language {
   final String nativeName;
   final String localeCode;
   final String continueText;
+}
+
+class _VoiceLanguageButton extends StatefulWidget {
+  final void Function(String code, String name) onDetected;
+  const _VoiceLanguageButton({required this.onDetected});
+
+  @override
+  State<_VoiceLanguageButton> createState() => _VoiceLanguageButtonState();
+}
+
+class _VoiceLanguageButtonState extends State<_VoiceLanguageButton> {
+  bool _recording = false;
+  bool _detecting = false;
+  final AudioRecorder _recorder = AudioRecorder();
+  final List<Uint8List> _chunks = [];
+  StreamSubscription<Uint8List>? _sub;
+
+  @override
+  void dispose() {
+    _sub?.cancel();
+    _recorder.dispose();
+    super.dispose();
+  }
+
+  Future<void> _start() async {
+    _chunks.clear();
+    try {
+      final hasPermission = await _recorder.hasPermission();
+      if (!hasPermission) {
+        if (mounted) setState(() => _recording = false);
+        return;
+      }
+      final stream = await _recorder.startStream(const RecordConfig(encoder: AudioEncoder.pcm16bits, sampleRate: 16000, numChannels: 1));
+      _sub = stream.listen((chunk) => _chunks.add(Uint8List.fromList(chunk)));
+      if (mounted) setState(() => _recording = true);
+      // Auto-stop after 4s (like web)
+      Future.delayed(const Duration(seconds: 4), () => _stop());
+    } catch (_) {
+      if (mounted) setState(() => _recording = false);
+    }
+  }
+
+  Future<void> _stop() async {
+    if (!_recording) return;
+    try { await _recorder.stop(); } catch (_) {}
+    await _sub?.cancel();
+    _sub = null;
+    if (mounted) setState(() => _recording = false);
+    if (_chunks.isNotEmpty) {
+      final wav = _buildWav(_chunks);
+      setState(() => _detecting = true);
+      final result = await ApiService.detectLanguage(bytes: wav);
+      if (mounted) {
+        setState(() => _detecting = false);
+        widget.onDetected(result['language_code'] ?? 'en', result['language_name'] ?? 'English');
+      }
+    }
+  }
+
+  static Uint8List _buildWav(List<Uint8List> chunks, {int sampleRate = 16000}) {
+    final pcm = Uint8List.fromList(chunks.expand((c) => c).toList());
+    final header = ByteData(44);
+    void setStr(int offset, String s) {
+      for (var i = 0; i < s.length; i++) { header.setUint8(offset + i, s.codeUnitAt(i)); }
+    }
+    setStr(0, 'RIFF');
+    header.setUint32(4, 36 + pcm.length, Endian.little);
+    setStr(8, 'WAVE');
+    setStr(12, 'fmt ');
+    header.setUint32(16, 16, Endian.little);
+    header.setUint16(20, 1, Endian.little);
+    header.setUint16(22, 1, Endian.little);
+    header.setUint32(24, sampleRate, Endian.little);
+    header.setUint32(28, sampleRate * 2, Endian.little);
+    header.setUint16(32, 2, Endian.little);
+    header.setUint16(34, 16, Endian.little);
+    setStr(36, 'data');
+    header.setUint32(40, pcm.length, Endian.little);
+    final result = Uint8List(44 + pcm.length);
+    result.setRange(0, 44, header.buffer.asUint8List());
+    result.setRange(44, result.length, pcm);
+    return result;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return OutlinedButton.icon(
+      onPressed: _detecting ? null : (_recording ? _stop : _start),
+      icon: _detecting ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) : Icon(_recording ? Icons.stop_rounded : Icons.mic_rounded, color: const Color(0xFF9F3C07), size: 18),
+      label: Text(_detecting ? 'Detecting…' : (_recording ? 'Listening… tap to stop' : 'Speak to detect language'), style: const TextStyle(color: Color(0xFF9F3C07), fontSize: 12)),
+      style: OutlinedButton.styleFrom(side: const BorderSide(color: Color(0xFF9F3C07)), shape: const StadiumBorder()),
+    );
+  }
 }

@@ -175,9 +175,9 @@ class _Screen4ApprovalState extends State<Screen4Approval> {
               ),
               const SizedBox(height: 12),
               const KsProgressBar(
-                currentStep: 4,
-                totalSteps: 5,
-                label: 'STAGE 4 — ARTISAN APPROVAL & LISTING',
+                currentStep: 6,
+                totalSteps: 7,
+                label: 'STAGE 6 — ARTISAN APPROVAL & LISTING',
               ),
               const SizedBox(height: 22),
               Row(

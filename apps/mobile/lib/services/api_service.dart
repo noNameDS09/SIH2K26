@@ -13,6 +13,47 @@ class ApiService {
 
   // ── Auth ──────────────────────────────────────────────────────────────────
 
+  static Future<Map<String, dynamic>> requestOtp(String phone) async {
+    try {
+      final res = await http.post(
+        Uri.parse('$_base/v1/auth/otp'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'phone': phone}),
+      );
+      return jsonDecode(res.body) as Map<String, dynamic>;
+    } catch (_) {
+      return {'label': 'Mock — for SIH demo', 'mock': true};
+    }
+  }
+
+  static Future<Map<String, dynamic>> detectLanguage({Uint8List? bytes, String? mimeType}) async {
+    try {
+      final req = http.MultipartRequest('POST', Uri.parse('$_base/v1/speech/detect-language'));
+      req.files.add(http.MultipartFile.fromBytes('file', bytes ?? Uint8List(0), filename: 'audio.wav'));
+      // Simplified: just send bytes
+      final streamed = await req.send().timeout(const Duration(seconds: 30));
+      final body = await streamed.stream.bytesToString();
+      if (streamed.statusCode == 200) return jsonDecode(body) as Map<String, dynamic>;
+    } catch (_) {}
+    return {'language_code':'hi-IN','language_name':'Hindi','transcript':'','greeting':'नमस्ते','audio_b64':''};
+  }
+
+  static Future<bool> verifyOtp(String phone, String code) async {
+    try {
+      final res = await http.post(
+        Uri.parse('$_base/v1/auth/verify'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'phone': phone, 'code': code}),
+      );
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body) as Map<String, dynamic>;
+        _token = data['token'] as String?;
+        return _token != null;
+      }
+    } catch (_) {}
+    return false;
+  }
+
   static Future<bool> authenticate() async {
     try {
       await http.post(

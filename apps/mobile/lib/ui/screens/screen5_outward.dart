@@ -128,9 +128,9 @@ class _Screen5OutwardState extends State<Screen5Outward> {
               ),
               const SizedBox(height: 12),
               const KsProgressBar(
-                currentStep: 5,
-                totalSteps: 5,
-                label: 'STAGE 5 — OUTWARD MULTI-CHANNEL DISTRIBUTION',
+                currentStep: 7,
+                totalSteps: 7,
+                label: 'STAGE 7 — OUTWARD MULTI-CHANNEL DISTRIBUTION',
               ),
               const SizedBox(height: 18),
               Text.rich(
