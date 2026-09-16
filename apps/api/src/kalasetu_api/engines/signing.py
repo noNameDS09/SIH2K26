@@ -92,7 +92,7 @@ def sign_listing_payload(
     base = (public_base_url or get_settings().public_base_url).rstrip("/")
     public_url = f"{base}/v/{listing_id}"
     qr_png = generate_qr_png(public_url)
-    qr_url = put_qr_media(listing_id, qr_png)
+    qr_url = put_qr_media(listing_id, qr_png, uid=uid)
 
     return {
         "listing_id": listing_id,

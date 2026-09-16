@@ -79,11 +79,15 @@ class Settings(BaseSettings):
         return self.resolved_credentials_path is not None
 
     def key_status(self) -> dict[str, bool | str]:
+        bucket = self.firebase_storage_bucket or (
+            f"{self.firebase_project_id}.firebasestorage.app" if self.firebase_project_id else ""
+        )
         return {
             "sarvam_api_key": bool(self.sarvam_api_key),
             "gemini_api_key": bool(self.gemini_api_key),
             "firebase_project_id": bool(self.firebase_project_id),
             "firebase_admin": self.firebase_admin_ready,
+            "firebase_storage": bool(bucket and self.firebase_admin_ready),
             "listing_hmac_secret": bool(self.listing_hmac_secret),
             "otp_provider": self.otp_provider,
             "studio": studio_deps_ok(),
@@ -94,7 +98,7 @@ class Settings(BaseSettings):
         missing = [
             name
             for name, present in status.items()
-            if name not in ("otp_provider", "studio") and present is False
+            if name not in ("otp_provider", "studio", "firebase_storage") and present is False
         ]
         if self.otp_provider == "2factor" and not self.twofactor_api_key:
             missing.append("twofactor_api_key")

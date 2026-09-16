@@ -1,0 +1,35 @@
+"use client";
+
+import Image from "next/image";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { useState } from "react";
+
+export function SiteHeader() {
+  const pathname = usePathname();
+  const [open, setOpen] = useState(false);
+  const workspaceRoutes = ["/language", "/otp", "/onboarding", "/capture", "/studio", "/live", "/intelligence", "/pricing", "/approval", "/distribute", "/shop", "/money", "/insights", "/settings"];
+
+  if (workspaceRoutes.includes(pathname)) return null;
+
+  return (
+    <header className={`site-header${open ? " is-open" : ""}`}>
+      <Link className="brand-lockup" href="/" aria-label="KalaSetu home" onClick={() => setOpen(false)}>
+        <Image src="/assets/brand/logo-transparent.png" alt="KalaSetu" width={1141} height={535} priority />
+      </Link>
+      <nav className="site-nav" aria-label="Primary navigation">
+        <Link href="/" aria-current={pathname === "/" ? "page" : undefined} onClick={() => setOpen(false)}>Home</Link>
+        <Link href="/market" aria-current={pathname === "/market" ? "page" : undefined} onClick={() => setOpen(false)}>Public catalog</Link>
+        <Link href="/#how-it-works" onClick={() => setOpen(false)}>How it works</Link>
+        <Link href="/about" aria-current={pathname === "/about" ? "page" : undefined} onClick={() => setOpen(false)}>About</Link>
+      </nav>
+      <div className="header-actions">
+        <Link className="language-chip" href="/language" onClick={() => setOpen(false)}>English</Link>
+        <Link className="header-link" href="/language" onClick={() => setOpen(false)}>Enter as Artisan <span aria-hidden="true">→</span></Link>
+      </div>
+      <button className="menu-toggle" type="button" aria-label={open ? "Close menu" : "Open menu"} aria-expanded={open} onClick={() => setOpen((current) => !current)}>
+        <span />
+      </button>
+    </header>
+  );
+}

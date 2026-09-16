@@ -13,7 +13,7 @@ from kalasetu_api.adapters.firebase import (
     update_artisan,
 )
 from kalasetu_api.config import get_settings
-from kalasetu_api.deps import require_bearer
+from kalasetu_api.deps import require_bearer, uid_from_token
 
 router = APIRouter(prefix="/v1/auth", tags=["auth"])
 
@@ -33,12 +33,6 @@ class ProfileUpdateRequest(BaseModel):
     cluster: str | None = None
     pehchan: dict[str, Any] | None = None
     consentAt: str | None = None
-
-
-def uid_from_token(token: str) -> str:
-    if token.startswith("dev."):
-        return token.split("dev.", 1)[1]
-    return token
 
 
 @router.post("/otp")
@@ -71,6 +65,7 @@ def verify_otp(body: VerifyRequest) -> dict:
 
     # Mint Firebase custom token if Firebase Admin credentials are ready
     custom_token = mint_custom_token(uid, settings=settings)
+    firebase_ready = bool(custom_token)
 
     return {
         "ok": True,
@@ -78,6 +73,8 @@ def verify_otp(body: VerifyRequest) -> dict:
         "phone": artisan.get("phone", normalize_phone(body.phone)),
         "token": f"dev.{uid}",
         "firebase_custom_token": custom_token,
+        "firebase_ready": firebase_ready,
+        "auth_mode": "firebase" if firebase_ready else "dev",
         "artisan": artisan,
         "label": "Mock — for SIH demo",
     }
