@@ -36,6 +36,32 @@ export type AdvisorResult = { sentence: string; empty: boolean; rule_id?: string
 export type MoneyResult = { sales: Array<Record<string, unknown>>; total_inr: number; count: number; empty: boolean; spoken: string; trade_record: Record<string, unknown> };
 export type InsightsResult = { advisor: AdvisorResult; history: Array<Record<string, unknown>>; trends: { rising?: string[]; provenance?: Provenance; [key: string]: unknown }; n?: number; seed?: boolean };
 
+/** Sarvam rejects the WebM/Opus container emitted by MediaRecorder defaults. */
+export function supportedVoiceRecordingOptions(): MediaRecorderOptions | null {
+  if (typeof MediaRecorder === "undefined") return null;
+  const candidates = ["audio/ogg;codecs=opus", "audio/mp4", "audio/aac"];
+  const mimeType = candidates.find((candidate) => MediaRecorder.isTypeSupported(candidate));
+  return mimeType ? { mimeType } : null;
+}
+
+export function audioUploadName(blob: Blob, baseName: string): string {
+  const type = blob.type.toLowerCase();
+  const extension = type.includes("ogg") || type.includes("opus")
+    ? "ogg"
+    : type.includes("mp4") || type.includes("m4a") || type.includes("aac")
+      ? "m4a"
+      : "wav";
+  return `${baseName}.${extension}`;
+}
+
+export function sarvamAudioMimeType(mimeType: string): string {
+  const normalized = mimeType.toLowerCase().split(";", 1)[0];
+  if (["audio/ogg", "audio/opus", "audio/mp4", "audio/aac"].includes(normalized)) {
+    return normalized;
+  }
+  return "audio/wav";
+}
+
 export type DetectLanguageResult = {
   language_code: string;
   language_name: string;
@@ -116,16 +142,16 @@ export const api = {
     return request<{ accepted: boolean; deltaE: number; original_url: string; studio_url: string; used_studio: boolean; reused_original?: boolean; bg_preset: string; provenance: Provenance }>("/v1/images/enhance", { method: "POST", body: form });
   },
   liveTurn: (body: { transcript: string; language_code: string; cluster: string; session?: Record<string, unknown> }) => request<{ session: Record<string, unknown>; question: string; speak: string; done: boolean; listing: Record<string, unknown>; provenance?: Provenance }>("/v1/speech/live/turn", { method: "POST", body: JSON.stringify(body) }),
-  stt: async (audio: Blob, languageCode = "en-IN") => { const form = new FormData(); form.set("file", audio, "catalog-answer.webm"); form.set("language_code", languageCode); return request<{ transcript: string; language_code: string; provenance: Provenance }>("/v1/speech/stt", { method: "POST", body: form }); },
+  stt: async (audio: Blob, languageCode = "en-IN") => { const form = new FormData(); form.set("file", audio, audioUploadName(audio, "catalog-answer")); form.set("language_code", languageCode); return request<{ transcript: string; language_code: string; provenance: Provenance }>("/v1/speech/stt", { method: "POST", body: form }); },
   tts: (text: string, languageCode = "en-IN") => request<{ audio_b64: string; content_type: string; provenance: Provenance }>("/v1/speech/tts", { method: "POST", body: JSON.stringify({ text, language_code: languageCode }) }),
   detectLanguage: async (audio: Blob) => {
     const form = new FormData();
-    form.set("file", audio, "language-sample.webm");
+    form.set("file", audio, audioUploadName(audio, "language-sample"));
     return request<DetectLanguageResult>("/v1/speech/detect-language", { method: "POST", body: form }, false);
   },
   voiceAction: async (options: { file?: Blob; transcript?: string; language_code?: string; listing_id?: string }) => {
     const form = new FormData();
-    if (options.file) form.set("file", options.file, "voice-cmd.webm");
+    if (options.file) form.set("file", options.file, audioUploadName(options.file, "voice-cmd"));
     if (options.transcript) form.set("transcript", options.transcript);
     form.set("language_code", options.language_code || "hi-IN");
     if (options.listing_id) form.set("listing_id", options.listing_id);

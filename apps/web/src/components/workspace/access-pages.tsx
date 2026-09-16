@@ -8,6 +8,8 @@ import {
   api,
   rememberFirebaseSession,
   rememberSession,
+  sarvamAudioMimeType,
+  supportedVoiceRecordingOptions,
 } from "@/lib/api-client";
 import { Action, Icon, StatusPill } from "./workspace-ui";
 
@@ -110,7 +112,14 @@ function VoiceLanguageDetector({
       setErrorMessage("");
       chunksRef.current = [];
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const recorder = new MediaRecorder(stream);
+      const recorderOptions = supportedVoiceRecordingOptions();
+      if (!recorderOptions) {
+        stream.getTracks().forEach((track) => track.stop());
+        setStatus("error");
+        setErrorMessage("This browser cannot create a compatible voice recording. Please choose a language below.");
+        return;
+      }
+      const recorder = new MediaRecorder(stream, recorderOptions);
       mediaRecorderRef.current = recorder;
 
       recorder.ondataavailable = (event) => {
@@ -119,7 +128,7 @@ function VoiceLanguageDetector({
 
       recorder.onstop = async () => {
         stream.getTracks().forEach((track) => track.stop());
-        const audioBlob = new Blob(chunksRef.current, { type: recorder.mimeType || "audio/webm" });
+        const audioBlob = new Blob(chunksRef.current, { type: sarvamAudioMimeType(recorder.mimeType) });
         if (audioBlob.size === 0) {
           setStatus("error");
           setErrorMessage("कोई आवाज़ नहीं मिली। कृपया दोबारा बोलें। / No voice recorded.");
@@ -514,6 +523,13 @@ function OnboardingAccess() {
 
   useEffect(() => {
     let active = true;
+    if (!window.localStorage.getItem("kalasetu_token")) {
+      router.replace("/language");
+      return () => {
+        active = false;
+      };
+    }
+
     api.me()
       .then((result) => {
         if (!active) return;
@@ -533,7 +549,7 @@ function OnboardingAccess() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [router]);
 
   const finish = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();

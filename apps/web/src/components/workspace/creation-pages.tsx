@@ -12,6 +12,8 @@ import {
   api,
   currentListingId,
   rememberListing,
+  sarvamAudioMimeType,
+  supportedVoiceRecordingOptions,
   type Listing,
   type Provenance as ProvenanceData,
 } from "@/lib/api-client";
@@ -655,7 +657,13 @@ export function LiveCatalogPage() {
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const recorder = new MediaRecorder(stream);
+      const recorderOptions = supportedVoiceRecordingOptions();
+      if (!recorderOptions) {
+        stream.getTracks().forEach((track) => track.stop());
+        setError("This browser cannot create a compatible voice recording. You can use the typed answer below.");
+        return;
+      }
+      const recorder = new MediaRecorder(stream, recorderOptions);
       streamRef.current = stream;
       recorderRef.current = recorder;
       chunksRef.current = [];
@@ -681,9 +689,7 @@ export function LiveCatalogPage() {
 
         setBusy(true);
         try {
-          const audio = new Blob(chunksRef.current, {
-            type: recorder.mimeType || "audio/webm",
-          });
+          const audio = new Blob(chunksRef.current, { type: sarvamAudioMimeType(recorder.mimeType) });
           const result = await api.stt(audio, language);
           setSttProvenance(result.provenance);
           await runTurn(result.transcript);

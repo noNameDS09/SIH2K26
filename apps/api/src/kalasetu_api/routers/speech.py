@@ -91,7 +91,16 @@ async def detect_language(file: UploadFile = File(...)) -> dict:
 
 
 def _sarvam_http_error(exc: SarvamError) -> HTTPException:
-    return HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc))
+    detail = str(exc)
+    if " 400:" in detail or "Invalid file type" in detail or "audio too short" in detail:
+        return HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="The voice recording format was not accepted. Please record again for a little longer.",
+        )
+    return HTTPException(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        detail="The speech service is temporarily unavailable. Please try again.",
+    )
 
 
 @router.post("/stt")
@@ -238,4 +247,3 @@ async def voice_action(
         "content_type": result["content_type"],
         "provenance": result["provenance"],
     }
-

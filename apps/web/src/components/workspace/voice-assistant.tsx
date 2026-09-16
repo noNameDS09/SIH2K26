@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { api, currentListingId, type VoiceActionResult } from "@/lib/api-client";
+import { api, currentListingId, sarvamAudioMimeType, supportedVoiceRecordingOptions, type VoiceActionResult } from "@/lib/api-client";
 import { useTranslation } from "@/lib/language-context";
 import { Icon } from "./workspace-ui";
 
@@ -181,7 +181,14 @@ export function VoiceAssistantDrawer({
       chunksRef.current = [];
 
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const recorder = new MediaRecorder(stream);
+      const recorderOptions = supportedVoiceRecordingOptions();
+      if (!recorderOptions) {
+        stream.getTracks().forEach((track) => track.stop());
+        setState("error");
+        setErrorMessage("This browser cannot create a compatible voice recording. Please type your command.");
+        return;
+      }
+      const recorder = new MediaRecorder(stream, recorderOptions);
       mediaRecorderRef.current = recorder;
 
       recorder.ondataavailable = (event) => {
@@ -190,7 +197,7 @@ export function VoiceAssistantDrawer({
 
       recorder.onstop = async () => {
         stream.getTracks().forEach((track) => track.stop());
-        const audioBlob = new Blob(chunksRef.current, { type: recorder.mimeType || "audio/webm" });
+        const audioBlob = new Blob(chunksRef.current, { type: sarvamAudioMimeType(recorder.mimeType) });
         if (audioBlob.size === 0) {
           setState("error");
           setErrorMessage("कोई आवाज़ रिकॉर्ड नहीं हुई। कृपया दोबारा बोलें।");
