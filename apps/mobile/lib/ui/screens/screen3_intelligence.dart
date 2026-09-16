@@ -59,39 +59,29 @@ class _Screen3IntelligenceState extends State<Screen3Intelligence> {
     });
   }
 
-  void _loadData() {
+  void _loadData() async {
     final provider = context.read<SessionProvider>();
-    final listing = provider.listing;
-    if (listing == null) return;
-    
-    _titleEnCtrl.text = listing['title_en'] ?? '';
-    _titleHiCtrl.text = listing['title_hi'] ?? '';
-    _descEnCtrl.text = listing['desc_en'] ?? listing['description'] ?? '';
-    _descHiCtrl.text = listing['desc_hi'] ?? '';
-
-    final fields = listing['fields'] as Map<String, dynamic>? ?? {};
-    for (var f in _editableFields) {
-      final key = f['key']!;
-      final val = fields[key];
-      if (val is List) {
-        _controllers[key]!.text = val.join(', ');
-      } else {
-        _controllers[key]!.text = val?.toString() ?? '';
+    final id = provider.listingId;
+    if (id == null || id.isEmpty) return;
+    try {
+      final fetched = await ApiService.getListing(id);
+      provider.listing = fetched;
+      final listing = fetched;
+      _titleEnCtrl.text = (listing['title_en'] as String?) ?? '';
+      _titleHiCtrl.text = (listing['title_hi'] as String?) ?? '';
+      _descEnCtrl.text = (listing['desc_en'] as String?) ?? (listing['description'] as String?) ?? '';
+      _descHiCtrl.text = (listing['desc_hi'] as String?) ?? '';
+      final fields = (listing['fields'] as Map<String, dynamic>?) ?? {};
+      for (var f in _editableFields) {
+        final key = f['key']!;
+        final val = fields[key];
+        if (val is List) {
+          _controllers[key]!.text = val.join(', ');
+        } else {
+          _controllers[key]!.text = val?.toString() ?? '';
+        }
       }
-    }
-    
-    // Add listener to mark dirty
-    void markDirty() {
-      if (!_isDirty) setState(() => _isDirty = true);
-    }
-    _titleEnCtrl.addListener(markDirty);
-    _titleHiCtrl.addListener(markDirty);
-    _descEnCtrl.addListener(markDirty);
-    _descHiCtrl.addListener(markDirty);
-    for (var c in _controllers.values) {
-      c.addListener(markDirty);
-    }
-    setState(() => _isDirty = false);
+    } catch (_) {}
   }
 
   @override
