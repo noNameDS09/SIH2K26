@@ -116,6 +116,14 @@ class SessionProvider extends ChangeNotifier {
     _setLoading(false, null);
   }
 
+  Future<void> forceFinalizeCatalog() async {
+    _setLoading(true, 'माहिती नोंदवत आहे…');
+    final result =
+        await ApiService.catalogTurn(session: _session, transcript: 'हो');
+    _applyTurnResult(result);
+    _setLoading(false, null);
+  }
+
   // ── TTS + audio playback ──────────────────────────────────────────────────
 
   Future<void> speakText(String text, {String langCode = 'mr-IN'}) async {
@@ -189,13 +197,42 @@ class SessionProvider extends ChangeNotifier {
   // ── Helpers ───────────────────────────────────────────────────────────────
 
   void _applyTurnResult(Map<String, dynamic> result) {
-    _session =
-        (result['session'] as Map<String, dynamic>?) ?? _session;
+    _session = (result['session'] as Map<String, dynamic>?) ?? _session;
     currentQuestion = result['speak'] as String?;
     isDone = result['done'] == true;
+    
+    final generated = result['listing'] as Map<String, dynamic>? ?? {};
+    final generatedFields = generated['fields'] as Map<String, dynamic>? ?? {};
+    final resultFields = result['fields'] as Map<String, dynamic>? ?? {};
+    
+    final currentFields = listing?['fields'] as Map<String, dynamic>? ?? {};
+    final mergedFields = {
+      ...currentFields,
+      ...resultFields,
+      ...generatedFields,
+    };
+    
+    listing = {
+      ...(listing ?? {}),
+      'fields': mergedFields,
+      'title_en': generated['title_en'] ?? listing?['title_en'],
+      'title_hi': generated['title_hi'] ?? listing?['title_hi'],
+      'desc_en': generated['desc_en'] ?? listing?['desc_en'],
+      'desc_hi': generated['desc_hi'] ?? listing?['desc_hi'],
+    };
+    
     if (isDone) {
-      listing = result['listing'] as Map<String, dynamic>?;
       table = result['table'] as List<dynamic>?;
+    }
+
+    if (listingId != null && listing != null) {
+      ApiService.patchListing(listingId!, {
+        'fields': mergedFields,
+        'title_en': listing!['title_en'],
+        'title_hi': listing!['title_hi'],
+        'desc_en': listing!['desc_en'],
+        'desc_hi': listing!['desc_hi'],
+      }).catchError((_) => <String, dynamic>{}); // fire and forget
     }
   }
 

@@ -128,12 +128,17 @@ def compute_prices(
     """floor / recommended / aspirational. listed is an override if provided."""
     craft = fields.get("craft")
     material = fields.get("material")
-    raw_cost = fields.get("material_cost_inr")
-    if raw_cost in (None, "", "unknown"):
+    
+    try:
+        material_cost = float(fields.get("material_cost_inr"))
+    except (TypeError, ValueError):
         material_cost = typical_material_cost(craft, material) or DEFAULT_MATERIAL_COST
-    else:
-        material_cost = float(raw_cost)
-    hours = float(fields.get("hours") or DEFAULT_HOURS)
+        
+    try:
+        hours = float(fields.get("hours"))
+    except (TypeError, ValueError):
+        hours = DEFAULT_HOURS
+        
     wage = cluster_wage(cluster, craft)
     effort_factor = EFFORT_FACTOR.get(_norm(fields.get("effort")) or "normal", 1.2)
     floor = material_cost + (hours * wage * effort_factor) + OVERHEAD_INR

@@ -179,6 +179,17 @@ class ApiService {
 
   // ── Auth: profile update ─────────────────────────────────────────────────
 
+  static Future<Map<String, dynamic>> getListing(String id) async {
+    try {
+      final res = await http.get(
+        Uri.parse('$_base/v1/listings/$id'),
+        headers: _authHeaders,
+      );
+      if (res.statusCode == 200) return jsonDecode(res.body) as Map<String, dynamic>;
+    } catch (_) {}
+    return {};
+  }
+
   static Future<bool> updateProfile(Map<String, dynamic> profile) async {
     try {
       final res = await http
@@ -213,6 +224,27 @@ class ApiService {
       'status': 'published',
       'signature': 'demo-hmac-sha256',
       'qr_url': 'https://kalasetu.demo/v/$listingId',
+    };
+  }
+
+  // ── Listings: update ──────────────────────────────────────────────────────
+
+  static Future<Map<String, dynamic>> patchListing(String listingId, Map<String, dynamic> updates) async {
+    try {
+      final res = await http
+          .patch(
+            Uri.parse('$_base/v1/listings/$listingId'),
+            headers: _authHeaders,
+            body: jsonEncode(updates),
+          )
+          .timeout(const Duration(seconds: 15));
+      if (res.statusCode == 200) {
+        return jsonDecode(res.body) as Map<String, dynamic>;
+      }
+    } catch (_) {}
+    return {
+      'id': listingId,
+      ...updates,
     };
   }
 

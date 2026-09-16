@@ -48,6 +48,10 @@ class _Screen2CaptureState extends State<Screen2Capture> {
     setState(() => _localImageBytes = bytes);
     final provider = context.read<SessionProvider>();
     await provider.setCapturedImage(bytes);
+    if (mounted) {
+      // Auto-advance to Stage 2 (studio) after capture
+      Future.delayed(const Duration(milliseconds: 500), () => context.go('/studio'));
+    }
   }
 
   Future<void> _openCamera() async {
@@ -183,26 +187,12 @@ class _Screen2CaptureState extends State<Screen2Capture> {
                 onSample: _loadSample,
               ),
               const SizedBox(height: 24),
-              _VoiceQueryCard(
-                isListening: provider.isRecording,
-                isLoading: provider.isLoading,
-                statusMessage: provider.statusMessage,
-                question: provider.currentQuestion ?? ks.voiceQuery,
-                transcript: provider.lastTranscript,
-                isDone: provider.isDone,
-                onMicTap: _toggleMic,
-                onPlayTap: _playQuestion,
-                asrLabel: ks.voiceAsrLabel,
-                languageName: ks.languageName,
-                activeQueryLabel: ks.activeQuery,
-                hintText: ks.missingInfoHint,
-                listeningLabel: ks.listening,
-              ),
-              const SizedBox(height: 24),
-              _RunIntelligenceButton(
-                label: ks.runIntelligence,
-                onTap: () => context.go('/studio'),
-              ),
+              // Auto-advance to studio after image capture (Stage 1 → 2)
+              if (_localImageBytes != null && provider.enhancedImageBytes != null)
+                Container(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: const Text('Auto-advancing to Studio (Stage 2)…', style: TextStyle(color: Color(0xFF9F3C07), fontSize: 12)),
+                ),
               const SizedBox(height: 12),
               Center(
                 child: Text(ks.stepFooter,
@@ -847,34 +837,3 @@ class _ImagePanel extends StatelessWidget {
 
 // ─── Run Intelligence CTA ─────────────────────────────────────────────────────
 
-class _RunIntelligenceButton extends StatelessWidget {
-  final String label;
-  final VoidCallback onTap;
-  const _RunIntelligenceButton({required this.label, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: double.infinity,
-        height: 56,
-        decoration: BoxDecoration(
-          color: KsColors.terracotta,
-          borderRadius: BorderRadius.circular(100),
-          boxShadow: [BoxShadow(color: KsColors.terracotta.withAlpha(70), blurRadius: 12, offset: const Offset(0, 4))],
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.auto_awesome, color: KsColors.white, size: 18),
-            const SizedBox(width: 10),
-            Text(label, style: KsTextStyles.cta(size: 15)),
-            const SizedBox(width: 10),
-            const Icon(Icons.arrow_forward, color: KsColors.white, size: 18),
-          ],
-        ),
-      ),
-    );
-  }
-}

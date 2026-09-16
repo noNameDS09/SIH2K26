@@ -1,16 +1,17 @@
+import os
 
+code = """import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../services/session_provider.dart';
 import '../../services/api_service.dart';
-import '../l10n/locale_provider.dart';
 import '../theme/ks_colors.dart';
 import '../theme/ks_text_styles.dart';
 import '../widgets/ks_app_header.dart';
 import '../widgets/ks_progress_bar.dart';
-
-
+import '../l10n/ks_strings.dart';
+import '../widgets/ks_bottom_nav.dart';
 
 class Screen3Intelligence extends StatefulWidget {
   const Screen3Intelligence({super.key});
@@ -49,12 +50,7 @@ class _Screen3IntelligenceState extends State<Screen3Intelligence> {
     for (var f in _editableFields) {
       _controllers[f['key']!] = TextEditingController();
     }
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      if (!mounted) return;
-      final provider = context.read<SessionProvider>();
-      if (!provider.isDone) {
-        await provider.forceFinalizeCatalog();
-      }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadData();
     });
   }
@@ -116,11 +112,12 @@ class _Screen3IntelligenceState extends State<Screen3Intelligence> {
 
   Future<void> _saveDraft() async {
     final provider = context.read<SessionProvider>();
-    if (_isSaving) return;
+    final listing = provider.listing;
+    if (listing == null || _isSaving) return;
 
     setState(() => _isSaving = true);
     
-    final currentFields = provider.listing?['fields'] as Map<String, dynamic>? ?? {};
+    final currentFields = listing['fields'] as Map<String, dynamic>? ?? {};
     final nextFields = Map<String, dynamic>.from(currentFields);
     
     for (var f in _editableFields) {
@@ -156,7 +153,7 @@ class _Screen3IntelligenceState extends State<Screen3Intelligence> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error saving draft: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text('Error saving draft: \$e'), backgroundColor: Colors.red),
         );
       }
     } finally {
@@ -196,6 +193,7 @@ class _Screen3IntelligenceState extends State<Screen3Intelligence> {
   Widget build(BuildContext context) {
     final provider = context.watch<SessionProvider>();
     final listing = provider.listing;
+    final ks = KsStrings.of(context);
     final imageBytes = provider.enhancedImageBytes ?? provider.capturedImageBytes;
     
     final currentTitle = _titleEnCtrl.text.isNotEmpty 
@@ -212,17 +210,8 @@ class _Screen3IntelligenceState extends State<Screen3Intelligence> {
         title: 'Step 4 · Review',
         onBack: () => context.go('/live'), // Adjust route as necessary based on your nav
       ),
-      body: provider.isLoading
-          ? Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const CircularProgressIndicator(color: KsColors.terracotta, strokeWidth: 2.5),
-                  const SizedBox(height: 16),
-                  Text(provider.statusMessage ?? 'AI विश्लेषण…', style: KsTextStyles.label(color: KsColors.terracotta, size: 13)),
-                ],
-              ),
-            )
+      body: listing == null
+          ? const Center(child: CircularProgressIndicator(color: KsColors.terracotta))
           : SingleChildScrollView(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Column(
@@ -249,105 +238,6 @@ class _Screen3IntelligenceState extends State<Screen3Intelligence> {
                   ),
                   const SizedBox(height: 6),
                   Text('Nothing saves while you type. Use the explicit save action when the draft is accurate.', style: KsTextStyles.body()),
-                  const SizedBox(height: 24),
-
-                  // AI Intelligence Preview (Advisor + Trend + Price Bands)
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: KsColors.surface1,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: KsColors.peach3),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            const Icon(Icons.auto_awesome, size: 18, color: Color(0xFF9F3C07)),
-                            const SizedBox(width: 6),
-                            Text('AI Intelligence', style: TextStyle(fontWeight: FontWeight.w700, color: Color(0xFF32302E), fontSize: 14)),
-                            const Spacer(),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                              decoration: BoxDecoration(color: Color(0xFFCAEDAB), borderRadius: BorderRadius.circular(6)),
-                              child: Row(
-                                children: [
-                                  const Icon(Icons.check_circle_outline, size: 10, color: Color(0xFF476430)),
-                                  const SizedBox(width: 4),
-                                  Text('Provenance verified', style: TextStyle(fontSize: 9, color: Color(0xFF476430))),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        // Advisor sentence
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                          decoration: BoxDecoration(color: KsColors.background, borderRadius: BorderRadius.circular(8)),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('Advisor line', style: TextStyle(fontSize: 9, color: KsColors.brown3)),
-                              const SizedBox(height: 4),
-                              Text('No significant demand gap detected for this craft category.', style: TextStyle(fontSize: 12, color: KsColors.mainText, fontWeight: FontWeight.w500)),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        // Trend line
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                          decoration: BoxDecoration(color: KsColors.background, borderRadius: BorderRadius.circular(8)),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('Market trend', style: TextStyle(fontSize: 9, color: KsColors.brown3)),
-                              const SizedBox(height: 4),
-                              Text('Rising interest (+3 listings) — seed label visible.', style: TextStyle(fontSize: 12, color: KsColors.mainText, fontWeight: FontWeight.w500)),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        // Price preview
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Container(
-                                padding: const EdgeInsets.all(10),
-                                decoration: BoxDecoration(color: KsColors.peach1, borderRadius: BorderRadius.circular(8)),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text('Minimum sustainable', style: TextStyle(fontSize: 9, color: KsColors.brown3)),
-                                    const SizedBox(height: 2),
-                                    Text('Not calculated yet', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: KsColors.terracotta)),
-                                  ],
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Container(
-                                padding: const EdgeInsets.all(10),
-                                decoration: BoxDecoration(color: KsColors.peach2, borderRadius: BorderRadius.circular(8)),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text('Recommended', style: TextStyle(fontSize: 9, color: KsColors.brown3)),
-                                    const SizedBox(height: 2),
-                                    Text('Not calculated yet', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: KsColors.terracotta)),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
                   const SizedBox(height: 24),
 
                   // Draft Preview Card
@@ -405,7 +295,7 @@ class _Screen3IntelligenceState extends State<Screen3Intelligence> {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Text('Catalog details', style: KsTextStyles.bodyMedium()),
-                            Text('$_completeCount of ${_editableFields.length} completed', style: KsTextStyles.label()),
+                            Text('\$_completeCount of ${_editableFields.length} completed', style: KsTextStyles.label()),
                           ],
                         ),
                         const SizedBox(height: 8),
@@ -447,7 +337,7 @@ class _Screen3IntelligenceState extends State<Screen3Intelligence> {
                             label: Text(_isSaving ? 'Saving changes...' : 'Save draft changes'),
                             style: FilledButton.styleFrom(
                               backgroundColor: KsColors.terracotta,
-                              disabledBackgroundColor: KsColors.terracotta.withValues(alpha: 0.5),
+                              disabledBackgroundColor: KsColors.terracotta.withOpacity(0.5),
                               padding: const EdgeInsets.symmetric(vertical: 16),
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                             ),
@@ -458,42 +348,6 @@ class _Screen3IntelligenceState extends State<Screen3Intelligence> {
                   ),
                   const SizedBox(height: 24),
 
-
-                  // AI Intelligence Preview
-                  const SizedBox(height: 16),
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF3EDE9),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: const Color(0xFFE7E1DD)),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            const Icon(Icons.auto_awesome, size: 18, color: Color(0xFF9F3C07)),
-                            const SizedBox(width: 6),
-                            Text('AI Intelligence Preview', style: TextStyle(fontWeight: FontWeight.w700, color: Color(0xFF32302E), fontSize: 13)),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        Text('Craft: ${listing?["fields"]?["craft"] ?? "—"}', style: TextStyle(fontSize: 11, color: Color(0xFF705F58))),
-                        const SizedBox(height: 4),
-                        Text('Trend: Rising', style: TextStyle(fontSize: 11, color: Color(0xFF705F58))),
-                        const SizedBox(height: 4),
-                        Text('Advisor: No opportunity gap detected.', style: TextStyle(fontSize: 11, color: Color(0xFF705F58))),
-                        const SizedBox(height: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(color: Colors.green.withAlpha(30), borderRadius: BorderRadius.circular(6)),
-                          child: Text('Provenance: kalasetu-intelligence.v1', style: TextStyle(fontSize: 9, color: Color(0xFF476430))),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 16),
                   // Actions
                   SizedBox(
                     width: double.infinity,
@@ -516,7 +370,7 @@ class _Screen3IntelligenceState extends State<Screen3Intelligence> {
                       label: const Text('Continue to pricing'),
                       style: FilledButton.styleFrom(
                         backgroundColor: KsColors.terracotta,
-                        disabledBackgroundColor: KsColors.terracotta.withValues(alpha: 0.5),
+                        disabledBackgroundColor: KsColors.terracotta.withOpacity(0.5),
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                       ),
@@ -529,3 +383,7 @@ class _Screen3IntelligenceState extends State<Screen3Intelligence> {
     );
   }
 }
+"""
+
+with open('apps/mobile/lib/ui/screens/screen3_intelligence.dart', 'w') as f:
+    f.write(code)
