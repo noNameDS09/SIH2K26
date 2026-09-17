@@ -5,8 +5,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
   static const String baseUrl = 'http://localhost:8000';
-  // static const String baseUrl = 'https://wild-worms-cry.loca.lt';
-  // static const String baseUrl = 'http://172.20.10.4:8000';
   static String? _token;
 
   static void setToken(String? token) {
