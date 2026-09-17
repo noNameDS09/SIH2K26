@@ -1,7 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:qr_flutter/qr_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:provider/provider.dart';
 import '../l10n/ks_strings.dart';
+import '../../services/session_provider.dart';
 import '../routes/app_routes.dart';
+import '../../services/api_service.dart';
 import '../theme/ks_colors.dart';
 import '../theme/ks_text_styles.dart';
 import '../widgets/ks_app_header.dart';
@@ -148,7 +153,44 @@ class _Screen5OutwardState extends State<Screen5Outward> {
               const SizedBox(height: 8),
               Text(KsStrings.of(context).publishedSubtitle, style: KsTextStyles.body()),
               const SizedBox(height: 14),
-              KsCard(child: _ListingCard(onTap: () => _showInfo('Published Listing', 'This listing is live across 3 verified buyer networks.'))),
+              KsCard(
+                child: Consumer<SessionProvider>(
+                  builder: (context, provider, _) => _ListingCard(
+                    listingId: provider.listingId,
+                    onTap: () => _showInfo('Published Listing', 'This listing is live across 3 verified buyer networks.'),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              // Dummy QR Code Section
+              KsCard(
+                child: Column(
+                  children: [
+                    Text('Buyer & Dashboard Access', style: KsTextStyles.section),
+                    const SizedBox(height: 12),
+                    GestureDetector(
+                      onTap: () => context.go(AppRoutes.shop),
+                      child: Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: KsColors.terracotta, width: 2),
+                        ),
+                        child: QrImageView(
+                          data: 'kala://shop',
+                          version: QrVersions.auto,
+                          size: 150.0,
+                          backgroundColor: Colors.white,
+                          foregroundColor: KsColors.ink,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Text('Scan or tap to open Dashboard', style: KsTextStyles.caption),
+                  ],
+                ),
+              ),
               const SizedBox(height: 16),
               Row(
                 children: [
@@ -211,75 +253,7 @@ class _Screen5OutwardState extends State<Screen5Outward> {
                   }).toList(),
                 ),
               ),
-              const SizedBox(height: 16),
-              Text(ks.clusterFieldVerification, style: KsTextStyles.section),
-              const SizedBox(height: 10),
-              KsCard(
-                child: Column(
-                  children: [
-                    Row(
-                      children: [
-                        const CircleAvatar(
-                          radius: 22,
-                          backgroundColor: KsColors.terracottaSoft,
-                          child: Text('ST',
-                              style: TextStyle(
-                                  color: KsColors.terracotta,
-                                  fontWeight: FontWeight.w800)),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            'S. Trivedi\nIndore West Craft Cluster Officer • Seal #771',
-                            style: KsTextStyles.caption.copyWith(
-                              color: KsColors.ink,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                        IconButton(
-                          tooltip: 'Contact officer',
-                          onPressed: () => _showInfo('Cluster Officer', 'S. Trivedi • Indore West Craft Cluster Officer • Seal #771\n\nContact action is ready for integration with the phone/communication plugin.'),
-                          icon: const Icon(Icons.phone_outlined,
-                              color: KsColors.terracotta),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    InkWell(
-                      onTap: () => _showInfo('Dispatch Schedule', 'Hub Batch Dispatch is scheduled for tomorrow at 11:30 AM.'),
-                      borderRadius: BorderRadius.circular(10),
-                      child: Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: KsColors.surfaceWarm,
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.local_shipping_outlined,
-                                size: 19, color: KsColors.terracotta),
-                            const SizedBox(width: 9),
-                            Expanded(
-                              child: Text(
-                                '${ks.hubBatchDispatch}\n${ks.scheduledForTomorrow}',
-                                style: KsTextStyles.caption,
-                              ),
-                            ),
-                            Text(
-                              'Tomorrow, 11:30 AM',
-                              style: KsTextStyles.caption.copyWith(
-                                color: KsColors.ink,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+
               const SizedBox(height: 18),
               Container(
                 width: double.infinity,
@@ -311,27 +285,28 @@ class _Screen5OutwardState extends State<Screen5Outward> {
         ),
       ),
       bottomNavigationBar: KsBottomNav(
-        currentIndex: 4,
+        currentIndex: 3,
         onTap: (index) {
-          if (index == 1) {
-            context.go(AppRoutes.approval);
-          } else {
-            _message('${_navName(index)} is not part of this two-screen build.');
-          }
+          if (index == 0) context.go(AppRoutes.home);
+          else if (index == 1) context.go(AppRoutes.capture);
+          else if (index == 2) context.go(AppRoutes.samuh);
+          else if (index == 3) context.go(AppRoutes.shop);
+          else _message('${_navName(index)} is not part of this build.');
         },
       ),
     );
   }
 
   String _navName(int index) {
-    const names = ['Studio', 'Kala List', 'Bolo', 'Samuh', 'Bazaar'];
+    const names = ['Studio', 'Add', 'Samuh', 'Shop'];
     return names[index];
   }
 }
 
 class _ListingCard extends StatelessWidget {
-  const _ListingCard({required this.onTap});
+  const _ListingCard({required this.onTap, this.listingId});
   final VoidCallback onTap;
+  final String? listingId;
 
   @override
   Widget build(BuildContext context) {
@@ -340,18 +315,37 @@ class _ListingCard extends StatelessWidget {
       borderRadius: BorderRadius.circular(12),
       child: Row(
         children: [
-          Container(
-            width: 68,
-            height: 68,
-            decoration: BoxDecoration(
+          if (listingId != null)
+            ClipRRect(
               borderRadius: BorderRadius.circular(10),
-              gradient: const LinearGradient(
-                colors: [Color(0xFF9C5935), Color(0xFF563022)],
+              child: Image.network(
+                '${ApiService.baseUrl}/v1/listings/$listingId/media/studio.jpg',
+                headers: ApiService.authHeaders,
+                width: 68,
+                height: 68,
+                fit: BoxFit.cover,
+                errorBuilder: (ctx, err, trace) => Container(
+                  width: 68,
+                  height: 68,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF9C5935),
+                  ),
+                  child: const Icon(Icons.spa_outlined,
+                      color: Colors.white, size: 28),
+                ),
               ),
+            )
+          else
+            Container(
+              width: 68,
+              height: 68,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(10),
+                color: const Color(0xFF9C5935),
+              ),
+              child: const Icon(Icons.spa_outlined,
+                  color: Colors.white, size: 28),
             ),
-            child: const Icon(Icons.spa_outlined,
-                color: Colors.white, size: 28),
-          ),
           const SizedBox(width: 11),
           Expanded(
             child: Column(

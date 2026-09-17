@@ -132,7 +132,20 @@ class _PricingScreenState extends State<PricingScreen> {
                 );
               }).toList(),
               const SizedBox(height: 16),
-              const Text('Custom amount', style: TextStyle(fontWeight: FontWeight.bold)),
+              Row(
+                children: [
+                  const Text('Custom amount', style: TextStyle(fontWeight: FontWeight.bold)),
+                  const SizedBox(width: 8),
+                  GestureDetector(
+                    onTap: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Enter the amount you want to receive for this item.')),
+                      );
+                    },
+                    child: const Icon(Icons.info_outline_rounded, size: 18, color: Color(0xFF9A8D84)),
+                  ),
+                ],
+              ),
               TextField(
                 keyboardType: TextInputType.number,
                 decoration: const InputDecoration(labelText: 'Amount in INR'),
@@ -158,11 +171,11 @@ class _PricingScreenState extends State<PricingScreen> {
               const Spacer(),
               Row(
                 children: [
-                  Expanded(child: OutlinedButton(onPressed: () => context.go('/intelligence'), child: const Text('Edit details'))),
+                  Expanded(child: OutlinedButton(onPressed: () => context.pop(), child: const Text('Edit details'))),
                   const SizedBox(width: 8),
                   Expanded(
                     child: FilledButton(
-                      onPressed: (!_saved) ? null : () => context.go('/approval'),
+                      onPressed: (!_saved) ? null : () => context.push('/approval'),
                       child: const Text('Continue to approval'),
                     ),
                   ),

@@ -143,6 +143,7 @@ class SessionProvider extends ChangeNotifier {
     capturedImageBytes = bytes;
     enhancedImageBytes = null;
     notifyListeners();
+    // Fire-and-forget: enhancement runs in background, UI navigates immediately
     _enhanceInBackground(bytes);
   }
 

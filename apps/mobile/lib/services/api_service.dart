@@ -1,22 +1,38 @@
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
-  static const String _base = 'http://localhost:8000';
+  static const String baseUrl = 'http://localhost:8000';
+  // static const String baseUrl = 'https://wild-worms-cry.loca.lt';
+  // static const String baseUrl = 'http://172.20.10.4:8000';
   static String? _token;
 
-  static Map<String, String> get _authHeaders => {
+  static void setToken(String? token) {
+    _token = token;
+  }
+
+  static String? getToken() => _token;
+
+  static Map<String, String> get authHeaders => {
         'Content-Type': 'application/json',
         if (_token != null) 'Authorization': 'Bearer $_token',
       };
 
   // ── Auth ──────────────────────────────────────────────────────────────────
 
+  static Future<void> logout() async {
+    _token = null;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('is_authenticated', false);
+    await prefs.remove('api_token');
+  }
+
   static Future<Map<String, dynamic>> requestOtp(String phone) async {
     try {
       final res = await http.post(
-        Uri.parse('$_base/v1/auth/otp'),
+        Uri.parse('$baseUrl/v1/auth/otp'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'phone': phone}),
       );
@@ -28,7 +44,7 @@ class ApiService {
 
   static Future<Map<String, dynamic>> detectLanguage({Uint8List? bytes, String? mimeType}) async {
     try {
-      final req = http.MultipartRequest('POST', Uri.parse('$_base/v1/speech/detect-language'));
+      final req = http.MultipartRequest('POST', Uri.parse('$baseUrl/v1/speech/detect-language'));
       req.files.add(http.MultipartFile.fromBytes('file', bytes ?? Uint8List(0), filename: 'audio.wav'));
       // Simplified: just send bytes
       final streamed = await req.send().timeout(const Duration(seconds: 30));
@@ -41,7 +57,7 @@ class ApiService {
   static Future<bool> verifyOtp(String phone, String code) async {
     try {
       final res = await http.post(
-        Uri.parse('$_base/v1/auth/verify'),
+        Uri.parse('$baseUrl/v1/auth/verify'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'phone': phone, 'code': code}),
       );
@@ -57,12 +73,12 @@ class ApiService {
   static Future<bool> authenticate() async {
     try {
       await http.post(
-        Uri.parse('$_base/v1/auth/otp'),
+        Uri.parse('$baseUrl/v1/auth/otp'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'phone': '9999999999'}),
       );
       final res = await http.post(
-        Uri.parse('$_base/v1/auth/verify'),
+        Uri.parse('$baseUrl/v1/auth/verify'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'phone': '9999999999', 'code': '123456'}),
       );
@@ -82,7 +98,7 @@ class ApiService {
       Uint8List wavBytes, String langCode) async {
     try {
       final req = http.MultipartRequest(
-          'POST', Uri.parse('$_base/v1/speech/stt'));
+          'POST', Uri.parse('$baseUrl/v1/speech/stt'));
       req.headers['Authorization'] = 'Bearer $_token';
       req.files.add(http.MultipartFile.fromBytes(
         'file',
@@ -107,8 +123,8 @@ class ApiService {
     try {
       final res = await http
           .post(
-            Uri.parse('$_base/v1/speech/tts'),
-            headers: _authHeaders,
+            Uri.parse('$baseUrl/v1/speech/tts'),
+            headers: authHeaders,
             body: jsonEncode({'text': text, 'language_code': langCode}),
           )
           .timeout(const Duration(seconds: 30));
@@ -138,8 +154,8 @@ class ApiService {
       }..removeWhere((_, v) => v == null);
       final res = await http
           .post(
-            Uri.parse('$_base/v1/speech/live/turn'),
-            headers: _authHeaders,
+            Uri.parse('$baseUrl/v1/speech/live/turn'),
+            headers: authHeaders,
             body: jsonEncode(body),
           )
           .timeout(const Duration(seconds: 30));
@@ -148,6 +164,33 @@ class ApiService {
       }
     } catch (_) {}
     return _mockTurn(session, transcript);
+  }
+
+  static Future<Map<String, dynamic>> generateListingCopy(String listingId) async {
+    try {
+      final res = await http
+          .post(
+            Uri.parse('$baseUrl/v1/listings/$listingId/generate-copy'),
+            headers: authHeaders,
+          )
+          .timeout(const Duration(seconds: 45));
+      if (res.statusCode == 200) {
+        return jsonDecode(res.body) as Map<String, dynamic>;
+      }
+    } catch (_) {}
+    return {};
+  }
+
+  static Future<Map<String, dynamic>?> getAdvisor({String langCode = 'en-IN'}) async {
+    try {
+      final uri = Uri.parse('$baseUrl/v1/advisor?lang=$langCode');
+      final res = await http.get(uri, headers: authHeaders).timeout(const Duration(seconds: 15));
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body) as Map<String, dynamic>;
+        return data['advisor'] as Map<String, dynamic>?;
+      }
+    } catch (_) {}
+    return null;
   }
 
   // ── Image: enhance ────────────────────────────────────────────────────────
@@ -159,7 +202,7 @@ class ApiService {
   }) async {
     try {
       final req = http.MultipartRequest(
-          'POST', Uri.parse('$_base/v1/images/enhance'));
+          'POST', Uri.parse('$baseUrl/v1/images/enhance'));
       req.headers['Authorization'] = 'Bearer $_token';
       req.files.add(http.MultipartFile.fromBytes(
         'file',
@@ -182,8 +225,8 @@ class ApiService {
   static Future<Map<String, dynamic>> getPrice(String id) async {
     try {
       final res = await http.post(
-        Uri.parse('$_base/v1/listings/$id/price'),
-        headers: _authHeaders,
+        Uri.parse('$baseUrl/v1/listings/$id/price'),
+        headers: authHeaders,
       );
       if (res.statusCode == 200) return jsonDecode(res.body) as Map<String, dynamic>;
     } catch (_) {}
@@ -193,20 +236,75 @@ class ApiService {
   static Future<Map<String, dynamic>> getListing(String id) async {
     try {
       final res = await http.get(
-        Uri.parse('$_base/v1/listings/$id'),
-        headers: _authHeaders,
+        Uri.parse('$baseUrl/v1/listings/$id'),
+        headers: authHeaders,
       );
       if (res.statusCode == 200) return jsonDecode(res.body) as Map<String, dynamic>;
     } catch (_) {}
     return {};
   }
 
+  static Future<Map<String, dynamic>> listListings() async {
+    try {
+      final res = await http.get(
+        Uri.parse('$baseUrl/v1/listings'),
+        headers: authHeaders,
+      );
+      if (res.statusCode == 401 || res.statusCode == 403) {
+        throw Exception('UNAUTHORIZED');
+      }
+      if (res.statusCode == 200) return jsonDecode(res.body) as Map<String, dynamic>;
+    } catch (e) {
+      if (e.toString().contains('UNAUTHORIZED')) rethrow;
+    }
+    return {'items': []};
+  }
+
+  static Future<Map<String, dynamic>> getInsights({String lang = 'en'}) async {
+    try {
+      final res = await http.get(
+        Uri.parse('$baseUrl/v1/insights?lang=$lang'),
+        headers: authHeaders,
+      );
+      if (res.statusCode == 401 || res.statusCode == 403) {
+        throw Exception('UNAUTHORIZED');
+      }
+      if (res.statusCode == 200) return jsonDecode(res.body) as Map<String, dynamic>;
+    } catch (e) {
+      if (e.toString().contains('UNAUTHORIZED')) rethrow;
+    }
+    return {};
+  }
+
+  static Future<Map<String, dynamic>> getTrends() async {
+    try {
+      final res = await http.get(
+        Uri.parse('$baseUrl/v1/trends/current'),
+        headers: authHeaders,
+      ).timeout(const Duration(seconds: 15));
+      if (res.statusCode == 200) return jsonDecode(res.body) as Map<String, dynamic>;
+    } catch (_) {}
+    return {};
+  }
+
+  /// Public listing card — matches GET /v/{listingId} on the backend.
+  static Future<Map<String, dynamic>?> getPublicListing(String id) async {
+    try {
+      final res = await http.get(
+        Uri.parse('$baseUrl/v/$id'),
+        headers: authHeaders,
+      );
+      if (res.statusCode == 200) return jsonDecode(res.body) as Map<String, dynamic>;
+    } catch (_) {}
+    return null;
+  }
+
   static Future<bool> updateProfile(Map<String, dynamic> profile) async {
     try {
       final res = await http
           .patch(
-            Uri.parse('$_base/v1/auth/profile'),
-            headers: _authHeaders,
+            Uri.parse('$baseUrl/v1/auth/profile'),
+            headers: authHeaders,
             body: jsonEncode(profile),
           )
           .timeout(const Duration(seconds: 15));
@@ -222,8 +320,8 @@ class ApiService {
     try {
       final res = await http
           .post(
-            Uri.parse('$_base/v1/listings/$listingId/sign'),
-            headers: _authHeaders,
+            Uri.parse('$baseUrl/v1/listings/$listingId/sign'),
+            headers: authHeaders,
           )
           .timeout(const Duration(seconds: 15));
       if (res.statusCode == 200) {
@@ -244,8 +342,8 @@ class ApiService {
     try {
       final res = await http
           .patch(
-            Uri.parse('$_base/v1/listings/$listingId'),
-            headers: _authHeaders,
+            Uri.parse('$baseUrl/v1/listings/$listingId'),
+            headers: authHeaders,
             body: jsonEncode(updates),
           )
           .timeout(const Duration(seconds: 15));

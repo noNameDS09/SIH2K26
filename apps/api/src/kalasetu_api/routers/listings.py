@@ -246,6 +246,37 @@ async def patch_listing(
     return saved
 
 
+@router.post("/v1/listings/{listing_id}/generate-copy")
+async def generate_copy(
+    listing_id: str,
+    uid: str = Depends(current_uid),
+) -> dict:
+    """Force LLM generation of listing copy using existing fields."""
+    listing = get_listing(listing_id, uid=uid)
+    if listing is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Listing not found")
+
+    fields = listing.get("fields") or {}
+    # Convert fields into transcripts shape expected by generate_listing_json
+    transcripts = {k: {"value": v, "confirmed": True, "raw": str(v)} for k, v in fields.items()}
+
+    try:
+        from kalasetu_api.adapters.llm.gemini import generate_listing_json
+        generated = generate_listing_json(transcripts, target_language=listing.get("language_code", "hi-IN"))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"LLM generation failed: {exc}")
+
+    updates = {}
+    for key in ("title_hi", "title_en", "title_mr", "title_local", "desc_hi", "desc_en", "desc_mr", "desc_local"):
+        if generated.get(key):
+            updates[key] = generated[key]
+
+    if updates:
+        saved = save_listing(uid=uid, listing_id=listing_id, data=updates)
+        return saved
+    return listing
+
+
 @router.post("/v1/listings/{listing_id}/price")
 async def price_listing(
     listing_id: str,

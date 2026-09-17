@@ -14,10 +14,9 @@ class KsBottomNav extends StatelessWidget {
 
   static const _items = [
     (Icons.home_outlined, 'Studio'),
-    (Icons.grid_view_rounded, 'Kala List'),
-    (Icons.mic_none_rounded, 'Bolo'),
+    (Icons.add_circle_outline, 'Add'),
     (Icons.groups_outlined, 'Samuh'),
-    (Icons.storefront_outlined, 'Bazaar'),
+    (Icons.dashboard_outlined, 'Dashboard'),
   ];
 
   @override

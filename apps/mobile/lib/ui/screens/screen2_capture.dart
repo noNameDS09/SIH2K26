@@ -12,6 +12,7 @@ import '../widgets/ks_app_header.dart';
 import '../widgets/ks_progress_bar.dart';
 import '../l10n/ks_strings.dart';
 import '../l10n/locale_provider.dart';
+import '../routes/app_routes.dart';
 
 class Screen2Capture extends StatefulWidget {
   const Screen2Capture({super.key});
@@ -49,8 +50,7 @@ class _Screen2CaptureState extends State<Screen2Capture> {
     final provider = context.read<SessionProvider>();
     await provider.setCapturedImage(bytes);
     if (mounted) {
-      // Auto-advance to Stage 2 (studio) after capture
-      Future.delayed(const Duration(milliseconds: 500), () => context.go('/studio'));
+      context.push('/studio');
     }
   }
 
@@ -146,7 +146,7 @@ class _Screen2CaptureState extends State<Screen2Capture> {
         backgroundColor: KsColors.background,
         appBar: KsAppHeader(
           title: ks.productCapture,
-          onBack: () => context.go('/onboarding'),
+          onBack: () => context.go(AppRoutes.home),
         ),
         body: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -158,7 +158,19 @@ class _Screen2CaptureState extends State<Screen2Capture> {
               const SizedBox(height: 12),
               _StageBadge(label: ks.stage2Badge),
               const SizedBox(height: 20),
-              _Heading(prefix: ks.greetingPrefix, craft: ks.craftName),
+              Row(
+                children: [
+                  Expanded(child: _Heading(prefix: ks.greetingPrefix, craft: ks.craftName)),
+                  GestureDetector(
+                    onTap: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Take a clear photo of your product.')),
+                      );
+                    },
+                    child: const Icon(Icons.info_outline_rounded, size: 20, color: KsColors.textMuted),
+                  ),
+                ],
+              ),
               const SizedBox(height: 8),
               Text(ks.captureHint, style: KsTextStyles.body()),
               const SizedBox(height: 20),
@@ -187,11 +199,10 @@ class _Screen2CaptureState extends State<Screen2Capture> {
                 onSample: _loadSample,
               ),
               const SizedBox(height: 24),
-              // Auto-advance to studio after image capture (Stage 1 → 2)
-              if (_localImageBytes != null && provider.enhancedImageBytes != null)
+              if (_localImageBytes != null && provider.isEnhancing)
                 Container(
                   padding: const EdgeInsets.symmetric(vertical: 8),
-                  child: const Text('Auto-advancing to Studio (Stage 2)…', style: TextStyle(color: Color(0xFF9F3C07), fontSize: 12)),
+                  child: const Text('Enhancing image, please wait…', style: TextStyle(color: Color(0xFF9F3C07), fontSize: 12)),
                 ),
               const SizedBox(height: 12),
               Center(
@@ -275,12 +286,7 @@ class _CameraViewport extends StatelessWidget {
               else ...[
                 Container(
                   decoration: const BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [Color(0xFF3D2B1F), Color(0xFF5C3D2A), Color(0xFF2A1A12), Color(0xFF1A0F08)],
-                      stops: [0, 0.35, 0.7, 1],
-                    ),
+                    color: Color(0xFF3D2B1F),
                   ),
                 ),
                 Positioned.fill(child: CustomPaint(painter: _EarthyTexturePainter())),
@@ -326,11 +332,7 @@ class _CameraViewport extends StatelessWidget {
                 bottom: 0, left: 0, right: 0, height: 100,
                 child: Container(
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [Colors.transparent, Colors.black.withAlpha(165)],
-                    ),
+                    color: Colors.black.withAlpha(50),
                   ),
                 ),
               ),

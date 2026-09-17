@@ -441,15 +441,7 @@ class _ScannerCard extends StatelessWidget {
                 else ...[
                   const DecoratedBox(
                     decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          Color(0xFFC89D63),
-                          Color(0xFF825333),
-                          Color(0xFFE1C697)
-                        ],
-                      ),
+                      color: Color(0xFF825333),
                     ),
                   ),
                   const _FabricLines(),

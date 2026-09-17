@@ -7,12 +7,12 @@ class KsAppHeader extends StatelessWidget implements PreferredSizeWidget {
     super.key,
     required this.title,
     this.onBack,
-    this.showProfile = true,
+    this.actions,
   });
 
   final String title;
   final VoidCallback? onBack;
-  final bool showProfile;
+  final List<Widget>? actions;
 
   @override
   Size get preferredSize => const Size.fromHeight(56);
@@ -44,29 +44,7 @@ class KsAppHeader extends StatelessWidget implements PreferredSizeWidget {
                 Expanded(
                   child: Text(title, style: KsTextStyles.section),
                 ),
-                if (showProfile)
-                  Material(
-                    color: KsColors.terracottaDark,
-                    shape: const CircleBorder(),
-                    child: InkWell(
-                      customBorder: const CircleBorder(),
-                      onTap: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Profile — Coming Soon'),
-                            duration: Duration(seconds: 2),
-                            behavior: SnackBarBehavior.floating,
-                          ),
-                        );
-                      },
-                      child: const SizedBox(
-                        width: 38,
-                        height: 38,
-                        child: Icon(Icons.person_outline_rounded,
-                            color: Colors.white, size: 19),
-                      ),
-                    ),
-                  ),
+                if (actions != null) ...actions!,
               ],
             ),
           ),

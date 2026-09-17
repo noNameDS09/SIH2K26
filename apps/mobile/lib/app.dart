@@ -7,7 +7,9 @@ import 'ui/l10n/locale_provider.dart';
 import 'services/session_provider.dart';
 
 class KalaSetuApp extends StatelessWidget {
-  const KalaSetuApp({super.key});
+  final String initialRoute;
+  
+  const KalaSetuApp({super.key, this.initialRoute = AppRoutes.language});
 
   @override
   Widget build(BuildContext context) {
@@ -21,7 +23,7 @@ class KalaSetuApp extends StatelessWidget {
           title: 'KalaSetu',
           debugShowCheckedModeBanner: false,
           theme: AppTheme.light,
-          routerConfig: appRouter,
+          routerConfig: getAppRouter(initialRoute),
           locale: localeProvider.locale,
           localizationsDelegates: const [
             GlobalMaterialLocalizations.delegate,

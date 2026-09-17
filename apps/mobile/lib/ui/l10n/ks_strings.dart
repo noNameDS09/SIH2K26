@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 
 class KsStrings {
   // ── Screen 2 (capture) ────────────────────────────────────────────────────
@@ -462,7 +462,7 @@ class KsStrings {
     geotagProof: 'Geotag Proof',
     approvedLabel: 'Approved',
     giCertified: 'GI Certified',
-    approveAndPublish: 'Approve & Publish',
+    approveAndPublish: 'Submit for Approval',
     publishingLabel: 'Publishing…',
     editDetails: 'Edit Details',
     markVerified: 'Mark Verified',

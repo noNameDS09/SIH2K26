@@ -78,7 +78,7 @@ class _Screen4ApprovalState extends State<Screen4Approval> {
     await ApiService.signListing(id);
     if (!mounted) return;
     setState(() => _isPublishing = false);
-    context.go(AppRoutes.distribute);
+    context.push(AppRoutes.distribute);
   }
 
   void _editDetails() {
@@ -221,7 +221,7 @@ class _Screen4ApprovalState extends State<Screen4Approval> {
     final listedPriceValue = (listing?['prices']?['listed']?['value'] as num?)?.toInt();
     final priceHintValue = (listing?['price_hint'] as num?)?.toInt();
     final recommendedPrice = (listing?['prices']?['recommended']?['value'] as num?)?.toInt();
-    final priceNum = listedPriceValue ?? priceHintValue ?? recommendedPrice;
+    final priceNum = priceHintValue ?? listedPriceValue ?? recommendedPrice;
     final priceStr = priceNum != null ? '₹$priceNum' : '₹3,850';
     
     final imageBytes = sp.enhancedImageBytes ?? sp.capturedImageBytes;
@@ -244,7 +244,7 @@ class _Screen4ApprovalState extends State<Screen4Approval> {
             children: [
               KsAppHeader(
                 title: ks.approvalAppHeader,
-                onBack: () => context.go('/intelligence'),
+                onBack: () => context.pop(),
               ),
               const SizedBox(height: 12),
               const KsProgressBar(
@@ -360,10 +360,28 @@ class _Screen4ApprovalState extends State<Screen4Approval> {
                 ],
               )).toList(),
               const SizedBox(height: 14),
-              KsActionButton(
-                label: _isPublishing ? ks.publishingLabel : ks.approveAndPublish,
-                icon: Icons.publish_rounded,
-                onPressed: _isPublishing ? null : () => _publish(sp),
+              Row(
+                children: [
+                  Expanded(
+                    child: KsActionButton(
+                      label: _isPublishing ? ks.publishingLabel : ks.approveAndPublish,
+                      icon: Icons.publish_rounded,
+                      onPressed: _isPublishing ? null : () => _publish(sp),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  GestureDetector(
+                    onTap: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Submit your product details for verification.')),
+                      );
+                    },
+                    child: const Padding(
+                      padding: EdgeInsets.all(8.0),
+                      child: Icon(Icons.info_outline_rounded, size: 24, color: KsColors.textMuted),
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 8),
               KsActionButton(
@@ -387,18 +405,18 @@ class _Screen4ApprovalState extends State<Screen4Approval> {
       bottomNavigationBar: KsBottomNav(
         currentIndex: 1,
         onTap: (index) {
-          if (index == 4) {
-            context.go(AppRoutes.distribute);
-          } else {
-            _message('${_navName(index)} is not part of this two-screen build.');
-          }
+          if (index == 0) context.go(AppRoutes.home);
+          else if (index == 1) return; // Currently on a creation flow screen
+          else if (index == 2) context.go(AppRoutes.samuh);
+          else if (index == 3) context.go(AppRoutes.shop);
+          else _message('${_navName(index)} is not part of this build.');
         },
       ),
     );
   }
 
   String _navName(int index) {
-    const names = ['Studio', 'Kala List', 'Bolo', 'Samuh', 'Bazaar'];
+    const names = ['Studio', 'Add', 'Samuh', 'Shop'];
     return names[index];
   }
 }
@@ -494,31 +512,27 @@ class _ProductVisual extends StatelessWidget {
     if (imageBytes != null) {
       return ClipRRect(
         borderRadius: BorderRadius.circular(11),
-        child: SizedBox(
-          height: 190,
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              Image.memory(imageBytes!, fit: BoxFit.cover),
-              const Positioned(
-                left: 10,
-                top: 10,
-                child: KsPill(
-                  text: 'Enhanced Image',
-                  icon: Icons.auto_fix_high_rounded,
-                  green: true,
-                ),
+        child: Stack(
+          children: [
+            Image.memory(imageBytes!, fit: BoxFit.cover, width: double.infinity),
+            const Positioned(
+              left: 10,
+              top: 10,
+              child: KsPill(
+                text: 'Enhanced Image',
+                icon: Icons.auto_fix_high_rounded,
+                green: true,
               ),
-              const Positioned(
-                right: 10,
-                bottom: 10,
-                child: KsPill(
-                  text: 'AI Studio',
-                  icon: Icons.view_in_ar_outlined,
-                ),
+            ),
+            const Positioned(
+              right: 10,
+              bottom: 10,
+              child: KsPill(
+                text: 'AI Studio',
+                icon: Icons.view_in_ar_outlined,
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       );
     }
@@ -526,15 +540,7 @@ class _ProductVisual extends StatelessWidget {
       height: 190,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(11),
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Color(0xFF6B2416),
-            Color(0xFFB04B24),
-            Color(0xFF4B1A11),
-          ],
-        ),
+        color: KsColors.terracottaDark,
       ),
       child: Stack(
         children: [
