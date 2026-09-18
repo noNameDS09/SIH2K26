@@ -12,3 +12,12 @@ services:
       - ./secrets:/app/secrets:ro
       - ./seed:/app/seed:ro
     restart: unless-stopped
+
+  web:
+    build:
+      context: ./apps/web
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+    restart: unless-stopped
