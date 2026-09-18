@@ -359,6 +359,11 @@ adb devices
 
 If the device is listed as `unauthorized`, unlock the phone and accept the USB debugging authorization prompt.
 
+**Forward the backend port from the Android device to the development machine**
+```bash
+adb reverse tcp:8000 tcp:8000
+```
+
 **Android Emulator cannot connect to the backend**
 
 Do not use:
@@ -433,3 +438,12 @@ adb devices
 ```
 
 and confirm that the backend is reachable from the selected mobile device.
+
+
+### Troubleshoot environment seup: 
+1. For Flutter environment setup, refer to the official [**Flutter Installation Guide**](https://docs.flutter.dev/install).
+
+2. For Flutter-specific installation and environment issues, refer to the official [**Flutter Installation Troubleshooting Guide**](https://docs.flutter.dev/install/troubleshoot).
+
+3. For platform-specific setup, see the official [**Flutter Custom Setup Guide**](https://docs.flutter.dev/install/custom).
+
