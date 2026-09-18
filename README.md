@@ -761,7 +761,7 @@ http://localhost:3000
 
 # Run the Backend
 
-From the repository root, install the API dependencies according to the current backend environment configuration.
+From the repository root, install the API dependencies according to the current backend environment configuration. See [API docs](./apps/api/README.md)
 
 Then run:
 
@@ -789,13 +789,6 @@ For physical-device testing, enable USB debugging on the Android device.
 
 ---
 
-# Docker
-
-The repository includes a Docker Compose configuration for local infrastructure.
-
-```bash
-docker compose up -d
-```
 
 Use the service-specific documentation under `docs/` for database, storage and environment configuration.
 

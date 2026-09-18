@@ -63,7 +63,7 @@ uvicorn kalasetu_api.main:app --app-dir src --reload --host 0.0.0.0 --port 8000
 > **Makefile Shortcut (from repo root):**
 > ```bash
 > make api-local
-> ```
+>``` 
 
 ---
 
