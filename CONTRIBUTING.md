@@ -535,4 +535,58 @@ The goal of this contributing guide is to keep development consistent across the
 
 ## Contributors
 
-<a href="https://github.com/noNameDS09/SIH2K26/graphs/contributors"> <img src="https://contrib.rocks/image?repo=nonameDS09/SIH2K26" /> </a>
+## 👥 Project Team
+
+<table align="center" border="1" cellpadding="12" cellspacing="0">
+  <tr>
+    <td align="center">
+      <a href="https://github.com/noNameDS09">
+        <img src="https://github.com/noNameDS09.png?size=100" width="90px" alt="noNameDS09"/>
+        <br />
+        <b>noNameDS09</b>
+      </a>
+    </td>
+    <td align="center">
+      <a href="https://github.com/aj-codespy">
+        <img src="https://github.com/aj-codespy.png?size=100" width="90px" alt="Ayush Jha"/>
+        <br />
+        <b>Ayush Jha</b>
+      </a>
+    </td>
+    <td align="center">
+      <a href="https://github.com/insop31">
+        <img src="https://github.com/insop31.png?size=100" width="90px" alt="insop31"/>
+        <br />
+        <b>insop31</b>
+      </a>
+    </td>
+    <td align="center">
+      <a href="https://github.com/Renka1818">
+        <img src="https://github.com/Renka1818.png?size=100" width="90px" alt="Renuka"/>
+        <br />
+        <b>Renuka</b>
+      </a>
+    </td>
+    <td align="center">
+      <a href="https://github.com/ShadowMonarch9099">
+        <img src="https://github.com/ShadowMonarch9099.png?size=100" width="90px" alt="Kush Honkalse"/>
+        <br />
+        <b>Kush Honkalse</b>
+      </a>
+    </td>
+    <td align="center">
+      <a href="https://github.com/shivam512262">
+        <img src="https://github.com/shivam512262.png?size=100" width="90px" alt="Shivam Patil"/>
+        <br />
+        <b>Shivam Patil</b>
+      </a>
+    </td>
+  </tr>
+</table>
+
+<p align="center">
+  <sub>
+    Built collaboratively for <b>Smart India Hackathon 2026</b>
+  </sub>
+</p>
+
